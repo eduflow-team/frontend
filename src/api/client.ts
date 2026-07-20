@@ -2,6 +2,11 @@ import type { ApiErrorBody } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
+export const TOKEN_KEYS = {
+  access: 'eduflow_access_token',
+  refresh: 'eduflow_refresh_token',
+} as const;
+
 export class ApiError extends Error {
   readonly status: number;
   readonly body?: ApiErrorBody;
@@ -14,22 +19,50 @@ export class ApiError extends Error {
   }
 }
 
-function getAuthToken(): string | null {
-  return localStorage.getItem('eduflow_token');
+export function getAccessToken(): string | null {
+  return localStorage.getItem(TOKEN_KEYS.access);
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(TOKEN_KEYS.refresh);
+}
+
+export function setTokens(accessToken: string, refreshToken: string): void {
+  localStorage.setItem(TOKEN_KEYS.access, accessToken);
+  localStorage.setItem(TOKEN_KEYS.refresh, refreshToken);
+}
+
+export function clearTokens(): void {
+  localStorage.removeItem(TOKEN_KEYS.access);
+  localStorage.removeItem(TOKEN_KEYS.refresh);
+  // 이전 클라이언트 키 정리
+  localStorage.removeItem('eduflow_token');
+}
+
+function formatErrorDetail(body?: ApiErrorBody): string {
+  if (!body?.detail) return '';
+  if (typeof body.detail === 'string') return body.detail;
+  if (Array.isArray(body.detail)) {
+    return body.detail.map((d) => d.msg).filter(Boolean).join(', ');
+  }
+  return '';
 }
 
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
+  opts?: { skipAuth?: boolean },
 ): Promise<T> {
   const headers = new Headers(options.headers);
   if (!headers.has('Content-Type') && options.body) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const token = getAuthToken();
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+  if (!opts?.skipAuth) {
+    const token = getAccessToken();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
@@ -44,36 +77,53 @@ export async function apiRequest<T>(
     } catch {
       body = undefined;
     }
-    throw new ApiError(
-      body?.message ?? `요청에 실패했습니다. (${response.status})`,
-      response.status,
-      body,
-    );
+    const message =
+      formatErrorDetail(body) || `요청에 실패했습니다. (${response.status})`;
+    throw new ApiError(message, response.status, body);
   }
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  return (await response.json()) as T;
+  const text = await response.text();
+  if (!text) {
+    return undefined as T;
+  }
+
+  return JSON.parse(text) as T;
 }
 
 export const api = {
-  get: <T>(path: string) => apiRequest<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    apiRequest<T>(path, {
-      method: 'POST',
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    }),
-  put: <T>(path: string, body?: unknown) =>
-    apiRequest<T>(path, {
-      method: 'PUT',
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    }),
-  patch: <T>(path: string, body?: unknown) =>
-    apiRequest<T>(path, {
-      method: 'PATCH',
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    }),
-  delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
+  get: <T>(path: string, opts?: { skipAuth?: boolean }) =>
+    apiRequest<T>(path, {}, opts),
+  post: <T>(path: string, body?: unknown, opts?: { skipAuth?: boolean }) =>
+    apiRequest<T>(
+      path,
+      {
+        method: 'POST',
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      },
+      opts,
+    ),
+  put: <T>(path: string, body?: unknown, opts?: { skipAuth?: boolean }) =>
+    apiRequest<T>(
+      path,
+      {
+        method: 'PUT',
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      },
+      opts,
+    ),
+  patch: <T>(path: string, body?: unknown, opts?: { skipAuth?: boolean }) =>
+    apiRequest<T>(
+      path,
+      {
+        method: 'PATCH',
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      },
+      opts,
+    ),
+  delete: <T>(path: string, opts?: { skipAuth?: boolean }) =>
+    apiRequest<T>(path, { method: 'DELETE' }, opts),
 };
