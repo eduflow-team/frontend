@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { AuthLoadingScreen } from '../components/common';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../types';
 
@@ -7,8 +8,12 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ allowedRole }: ProtectedRouteProps) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, authReady } = useAuth();
   const location = useLocation();
+
+  if (!authReady) {
+    return <AuthLoadingScreen />;
+  }
 
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
@@ -23,7 +28,11 @@ export function ProtectedRoute({ allowedRole }: ProtectedRouteProps) {
 }
 
 export function GuestRoute() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, authReady } = useAuth();
+
+  if (!authReady) {
+    return <AuthLoadingScreen />;
+  }
 
   if (isAuthenticated && user) {
     const redirect = user.role === 'teacher' ? '/teacher' : '/student';
@@ -34,7 +43,11 @@ export function GuestRoute() {
 }
 
 export function RootRedirect() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, authReady } = useAuth();
+
+  if (!authReady) {
+    return <AuthLoadingScreen />;
+  }
 
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;

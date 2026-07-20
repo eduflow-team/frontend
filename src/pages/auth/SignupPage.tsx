@@ -1,36 +1,80 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { fetchClassesApi } from '../../api';
+import type { ClassItem } from '../../api/types';
 import { useAuth } from '../../contexts/AuthContext';
 import type { UserRole } from '../../types';
+import { formatClassLabel } from '../../utils/labels';
 
 export function SignupPage() {
   const { signup } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [role, setRole] = useState<UserRole>('teacher');
-  const [subject, setSubject] = useState('한국사');
-  const [className, setClassName] = useState('');
+  const [classId, setClassId] = useState<number | ''>('');
+  const [signupCode, setSignupCode] = useState('');
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [classesError, setClassesError] = useState('');
   const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password !== password2) return;
-    if (!agreed) return;
-    if (
-      signup({
-        name,
-        email,
-        password,
-        role,
-        subject: role === 'teacher' ? subject : undefined,
-        className: role === 'student' ? className : undefined,
+  useEffect(() => {
+    let cancelled = false;
+    fetchClassesApi()
+      .then((res) => {
+        if (!cancelled) setClasses(res.classes);
       })
-    ) {
-      navigate('/role-picker');
+      .catch(() => {
+        if (!cancelled) setClassesError('학급 목록을 불러오지 못했습니다.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (password !== password2) {
+      setError('비밀번호가 일치하지 않습니다.');
+      return;
     }
+    if (!agreed) {
+      setError('이용약관에 동의해 주세요.');
+      return;
+    }
+    if (role === 'student' && classId === '') {
+      setError('학급을 선택해 주세요.');
+      return;
+    }
+    if (role === 'teacher' && !signupCode.trim()) {
+      setError('교사 가입 코드를 입력해 주세요.');
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await signup({
+      name,
+      email,
+      password,
+      phone,
+      role,
+      classId: role === 'student' ? Number(classId) : null,
+      signupCode: role === 'teacher' ? signupCode.trim() : null,
+    });
+    setSubmitting(false);
+
+    if (result.ok) {
+      navigate(result.role === 'teacher' ? '/teacher' : '/student');
+      return;
+    }
+    setError(result.error);
   };
 
   return (
@@ -69,6 +113,20 @@ export function SignupPage() {
               placeholder="school@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="signup-phone">
+              휴대폰 번호
+            </label>
+            <input
+              className="form-control"
+              type="tel"
+              id="signup-phone"
+              placeholder="01012345678"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
             />
           </div>
           <div className="form-group">
@@ -82,6 +140,7 @@ export function SignupPage() {
               placeholder="8자 이상"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
             />
           </div>
           <div className="form-group">
@@ -95,6 +154,7 @@ export function SignupPage() {
               placeholder="비밀번호 재입력"
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}
+              autoComplete="new-password"
             />
           </div>
           <div className="form-group">
@@ -114,35 +174,42 @@ export function SignupPage() {
 
           {role === 'teacher' ? (
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" htmlFor="signup-subject">
-                담당 교과
+              <label className="form-label" htmlFor="signup-code">
+                교사 가입 코드
               </label>
-              <select
+              <input
                 className="form-control"
-                id="signup-subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-              >
-                <option>한국사</option>
-                <option>과학</option>
-                <option>사회</option>
-                <option>국어</option>
-                <option>영어</option>
-                <option>수학</option>
-              </select>
+                id="signup-code"
+                placeholder="팀에서 발급한 코드"
+                value={signupCode}
+                onChange={(e) => setSignupCode(e.target.value)}
+              />
             </div>
           ) : (
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label" htmlFor="signup-class">
-                학년 · 반
+                학급
               </label>
-              <input
+              <select
                 className="form-control"
                 id="signup-class"
-                placeholder="3학년 2반"
-                value={className}
-                onChange={(e) => setClassName(e.target.value)}
-              />
+                value={classId}
+                onChange={(e) =>
+                  setClassId(e.target.value === '' ? '' : Number(e.target.value))
+                }
+              >
+                <option value="">학급 선택</option>
+                {classes.map((cls) => (
+                  <option key={cls.class_id} value={cls.class_id}>
+                    {formatClassLabel(cls.grade, cls.class_number)}
+                  </option>
+                ))}
+              </select>
+              {classesError && (
+                <p style={{ color: 'var(--negative)', fontSize: 12, marginTop: 6 }}>
+                  {classesError}
+                </p>
+              )}
             </div>
           )}
 
@@ -153,8 +220,16 @@ export function SignupPage() {
               <span style={{ color: 'var(--negative)' }}>(필수)</span>
             </span>
           </label>
-          <button type="submit" className="btn btn-primary btn-full btn-cta" style={{ marginTop: 16 }}>
-            가입하기
+          {error && (
+            <p style={{ color: 'var(--negative)', fontSize: 13, marginTop: 12 }}>{error}</p>
+          )}
+          <button
+            type="submit"
+            className="btn btn-primary btn-full btn-cta"
+            style={{ marginTop: 16 }}
+            disabled={submitting}
+          >
+            {submitting ? '가입 중…' : '가입하기'}
           </button>
         </form>
       </div>

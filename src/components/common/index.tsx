@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import type { ReactNode } from 'react';
 
 export function BrandHeader() {
   return (
@@ -60,5 +61,47 @@ export function NavLinkItem({ to, label, badge, end }: NavLinkItemProps) {
       {label}
       {badge !== undefined && <span className="nav-badge">{badge}</span>}
     </NavLink>
+  );
+}
+
+interface ApiStateBodyProps {
+  loading: boolean;
+  error: string | null;
+  emptyMessage?: string;
+  isEmpty?: boolean;
+  children: ReactNode;
+}
+
+export function ApiStateBody({
+  loading,
+  error,
+  emptyMessage = '표시할 데이터가 없습니다.',
+  isEmpty = false,
+  children,
+}: ApiStateBodyProps) {
+  if (loading) {
+    return <div className="placeholder-body">불러오는 중…</div>;
+  }
+  if (error) {
+    return (
+      <div className="placeholder-body" style={{ color: 'var(--negative)' }}>
+        {error}
+      </div>
+    );
+  }
+  if (isEmpty) {
+    return <div className="placeholder-body">{emptyMessage}</div>;
+  }
+  return <>{children}</>;
+}
+
+export function AuthLoadingScreen() {
+  return (
+    <div
+      className="auth-screen"
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}
+    >
+      <p style={{ color: 'var(--gray-500)', fontSize: 15 }}>세션 확인 중…</p>
+    </div>
   );
 }

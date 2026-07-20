@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BrandFooter, BrandHeader } from '../components/common';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,6 +7,12 @@ import type { UserRole } from '../types';
 export function RolePickerPage() {
   const { enterDemo, user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user && !user.isDemo) {
+      navigate(user.role === 'teacher' ? '/teacher' : '/student', { replace: true });
+    }
+  }, [navigate, user]);
 
   const handleEnter = (role: UserRole) => {
     if (!user) enterDemo(role);

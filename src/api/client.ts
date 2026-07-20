@@ -1,4 +1,5 @@
 import type { ApiErrorBody } from './types';
+import { API_ENDPOINTS } from './endpoints';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
@@ -35,7 +36,6 @@ export function setTokens(accessToken: string, refreshToken: string): void {
 export function clearTokens(): void {
   localStorage.removeItem(TOKEN_KEYS.access);
   localStorage.removeItem(TOKEN_KEYS.refresh);
-  // 이전 클라이언트 키 정리
   localStorage.removeItem('eduflow_token');
 }
 
@@ -48,10 +48,46 @@ function formatErrorDetail(body?: ApiErrorBody): string {
   return '';
 }
 
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefreshToken(): Promise<boolean> {
+  const refresh = getRefreshToken();
+  if (!refresh) return false;
+
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const response = await fetch(`${API_BASE}${API_ENDPOINTS.auth.refresh}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refresh }),
+        });
+        if (!response.ok) {
+          clearTokens();
+          return false;
+        }
+        const data = (await response.json()) as {
+          access_token: string;
+          refresh_token: string;
+        };
+        setTokens(data.access_token, data.refresh_token);
+        return true;
+      } catch {
+        clearTokens();
+        return false;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+
+  return refreshPromise;
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
-  opts?: { skipAuth?: boolean },
+  opts?: { skipAuth?: boolean; _retried?: boolean },
 ): Promise<T> {
   const headers = new Headers(options.headers);
   if (!headers.has('Content-Type') && options.body) {
@@ -69,6 +105,13 @@ export async function apiRequest<T>(
     ...options,
     headers,
   });
+
+  if (response.status === 401 && !opts?.skipAuth && !opts?._retried) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      return apiRequest<T>(path, options, { ...opts, _retried: true });
+    }
+  }
 
   if (!response.ok) {
     let body: ApiErrorBody | undefined;

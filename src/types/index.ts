@@ -3,11 +3,14 @@ export type UserRole = 'teacher' | 'student';
 export type SubjectKey = 'hist' | 'sci' | 'soc';
 
 export interface User {
+  userId?: number;
   name: string;
   email: string;
   role: UserRole;
   subject?: string;
   className?: string;
+  /** 백엔드 없이 UI만 볼 때 */
+  isDemo?: boolean;
 }
 
 export interface NavItem {

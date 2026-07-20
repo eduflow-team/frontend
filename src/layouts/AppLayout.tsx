@@ -9,8 +9,22 @@ import {
   TEACHER_SUBJECTS,
 } from '../constants/navigation';
 import { useAuth } from '../contexts/AuthContext';
+import { ApiError, leaveApi } from '../api';
 import { NavLinkItem } from '../components/common';
+import { TopbarSearch } from '../components/TopbarSearch';
 import type { SubjectKey } from '../types';
+
+function TopbarSearchGate() {
+  const { user } = useAuth();
+  if (user?.isDemo) {
+    return (
+      <div className="topbar-search">
+        <input type="text" placeholder="과제 · 학생 · 공지 검색" disabled />
+      </div>
+    );
+  }
+  return <TopbarSearch role={user?.role} />;
+}
 
 function MenuIcon() {
   return (
@@ -194,8 +208,26 @@ export function AppLayout() {
     : (user.className ?? '3학년 2반');
 
   const handleSwitchRole = () => {
+    if (!user.isDemo) return;
     switchRole();
     navigate(user.role === 'teacher' ? '/student' : '/teacher');
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const handleLeave = async () => {
+    if (user.isDemo) return;
+    if (!window.confirm('정말 회원 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+    try {
+      await leaveApi();
+      await logout();
+      navigate('/login');
+    } catch (err) {
+      window.alert(err instanceof ApiError ? err.message : '탈퇴에 실패했습니다.');
+    }
   };
 
   return (
@@ -229,9 +261,11 @@ export function AppLayout() {
             <button
               type="button"
               className="switch-btn"
-              title="역할 전환"
+              title={user.isDemo ? '역할 전환 (데모)' : '역할 전환'}
               aria-label="역할 전환"
               onClick={handleSwitchRole}
+              disabled={!user.isDemo}
+              style={user.isDemo ? undefined : { opacity: 0.35, cursor: 'not-allowed' }}
             >
               <SwitchIcon />
             </button>
@@ -257,14 +291,17 @@ export function AppLayout() {
             <MenuIcon />
           </button>
           <div className="topbar-title">{pageTitle}</div>
-          <div className="topbar-search">
-            <input type="text" placeholder="과제 · 학생 · 공지 검색" />
-          </div>
+          <TopbarSearchGate />
           <button type="button" className="topbar-icon-btn" title="알림" aria-label="알림">
             <BellIcon />
             <span className="dot" />
           </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>
+          {!user.isDemo && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={handleLeave}>
+              탈퇴
+            </button>
+          )}
+          <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
             로그아웃
           </button>
         </header>
