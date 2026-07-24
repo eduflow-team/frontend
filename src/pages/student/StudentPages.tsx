@@ -19,11 +19,15 @@ import type {
   Stage1Parameters,
   Stage1SubmitResponse,
   Stage2AssignmentDetailResponse,
+  Step2CorrectionResponse,
   Step2HighlightResponse,
 } from '../../api/types';
 import { STAGE1_CHUNK_SIZE_PRESETS } from '../../api/types';
 import { ApiStateBody, PageHero, PlaceholderCard } from '../../components/common';
-import { HALLUCINATION_LABELS } from '../../constants/assignments';
+import {
+  FALLBACK_HALLUCINATION_OPTIONS,
+  HALLUCINATION_LABELS,
+} from '../../constants/assignments';
 import { STAGE_TITLES, STUDENT_SUBJECTS } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
@@ -444,7 +448,7 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
   const [corrections, setCorrections] = useState<{ original_highlight: string; student_answer: string }[]>(
     [],
   );
-  const [correctionMsg, setCorrectionMsg] = useState('');
+  const [correctionResult, setCorrectionResult] = useState<Step2CorrectionResponse | null>(null);
   const [actionErr, setActionErr] = useState('');
 
   const reload = async () => {
@@ -453,15 +457,18 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
     try {
       const res = await getStudentStep2Api(assignmentId);
       setDetail(res);
-      const options = res.hallucination_type_options;
-      if (options?.length) setErrorType(options[0]);
+      const firstOption = res.hallucination_type_options?.[0];
+      if (firstOption?.value) {
+        setErrorType(firstOption.value as HallucinationType);
+      }
       if (res.highlight_phase_complete && res.cleared_highlights.length) {
-        setCorrections(
-          res.cleared_highlights.map((h) => ({
+        setCorrections((prev) => {
+          const byHighlight = new Map(prev.map((c) => [c.original_highlight, c.student_answer]));
+          return res.cleared_highlights.map((h) => ({
             original_highlight: h,
-            student_answer: '',
-          })),
-        );
+            student_answer: byHighlight.get(h) ?? '',
+          }));
+        });
       }
     } catch (err) {
       setDetail(null);
@@ -518,7 +525,7 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
       return;
     }
     setActionErr('');
-    setCorrectionMsg('');
+    setCorrectionResult(null);
     try {
       const res = await postStudentStep2CorrectionApi(assignmentId, {
         corrections: corrections.map((c) => ({
@@ -526,11 +533,7 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
           student_answer: c.student_answer.trim(),
         })),
       });
-      setCorrectionMsg(
-        res.is_passed
-          ? `통과! 점수 ${res.score}점`
-          : `미통과 · 점수 ${res.score}점. 피드백을 확인하세요.`,
-      );
+      setCorrectionResult(res);
       await reload();
     } catch (err) {
       setActionErr(err instanceof ApiError ? err.message : '교정 제출에 실패했습니다.');
@@ -554,9 +557,12 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
     );
   }
 
-  const typeOptions = detail.hallucination_type_options?.length
-    ? detail.hallucination_type_options
-    : (['PERSONA_BIAS', 'INFORMATION_FABRICATION', 'RETRIEVAL_ERROR'] as HallucinationType[]);
+  const typeOptions =
+    detail.hallucination_type_options?.length > 0
+      ? detail.hallucination_type_options
+      : [...FALLBACK_HALLUCINATION_OPTIONS];
+
+  const selectedOption = typeOptions.find((opt) => opt.value === errorType);
 
   return (
     <>
@@ -581,7 +587,8 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
               {detail.flawed_ai_response}
             </p>
             <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 12 }}>
-              남은 오류 {detail.remaining_errors_to_find}개 · 시도 {detail.attempts.used_attempts} · 남음{' '}
+              남은 오류 {detail.remaining_errors_to_find}개 · 시도 {detail.attempts.used_attempts}
+              {detail.attempts.max_attempts != null ? `/${detail.attempts.max_attempts}` : ''} · 남음{' '}
               {detail.attempts.remaining_attempts}
             </div>
             {detail.cleared_highlights.length > 0 && (
@@ -626,15 +633,23 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
                 value={errorType}
                 onChange={(e) => setErrorType(e.target.value as HallucinationType)}
               >
-                {typeOptions.map((t) => (
-                  <option key={t} value={t}>
-                    {HALLUCINATION_LABELS[t] ?? t}
+                {typeOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label || HALLUCINATION_LABELS[opt.value] || opt.value}
                   </option>
                 ))}
               </select>
+              {selectedOption?.description && (
+                <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 6 }}>
+                  {selectedOption.description}
+                </p>
+              )}
               {detail.hallucination_type_hints?.length > 0 && (
                 <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 6 }}>
-                  {detail.hallucination_type_hints.join(' · ')}
+                  힌트:{' '}
+                  {detail.hallucination_type_hints
+                    .map((hint) => HALLUCINATION_LABELS[hint] ?? hint)
+                    .join(' · ')}
                 </p>
               )}
             </div>
@@ -707,7 +722,53 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
               교정 제출
             </button>
             {actionErr && <p className="inline-alert error">{actionErr}</p>}
-            {correctionMsg && <p className="inline-alert ok">{correctionMsg}</p>}
+            {correctionResult && (
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: 12,
+                  background: 'var(--gray-50)',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  lineHeight: 1.55,
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                  {correctionResult.is_passed ? '통과' : '미통과'} · 점수 {correctionResult.score}점
+                </div>
+                {correctionResult.final_correct_sentence && (
+                  <div style={{ marginBottom: 10 }}>
+                    최종 정답 예: {correctionResult.final_correct_sentence}
+                  </div>
+                )}
+                {correctionResult.feedback_details?.map((item, idx) => (
+                  <div
+                    key={`${item.student_found_error}-${idx}`}
+                    style={{
+                      paddingTop: 10,
+                      marginTop: idx === 0 ? 0 : 10,
+                      borderTop: idx === 0 ? undefined : '1px solid var(--border)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600 }}>
+                      {item.is_item_passed ? '항목 통과' : '항목 미통과'} · {item.student_found_error}
+                    </div>
+                    <div style={{ marginTop: 4 }}>내 답: {item.student_answer}</div>
+                    {item.ai_feedback && <div style={{ marginTop: 4 }}>{item.ai_feedback}</div>}
+                    {item.hallucination_reason && (
+                      <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>
+                        환각 이유: {item.hallucination_reason}
+                      </div>
+                    )}
+                    {item.reference_evidence && (
+                      <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>
+                        문서 근거: {item.reference_evidence}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -89,6 +89,12 @@ export interface Stage1CreateResponse {
   created_at: string | null;
 }
 
+export interface HallucinationTypeOption {
+  value: HallucinationType | string;
+  label: string;
+  description: string;
+}
+
 export interface Stage2AssignmentDetailResponse {
   assignment_id: number;
   title: string;
@@ -96,12 +102,13 @@ export interface Stage2AssignmentDetailResponse {
   question: string;
   flawed_ai_response: string;
   expected_error_count: number;
-  hallucination_type_options: HallucinationType[];
+  hallucination_type_options: HallucinationTypeOption[];
   hallucination_type_hints: string[];
   status: ProgressStatus | string;
   highlight_phase_complete: boolean;
   remaining_errors_to_find: number;
   attempts: {
+    max_attempts?: number;
     used_attempts: number;
     remaining_attempts: number;
   };
@@ -172,11 +179,20 @@ export interface Step2CorrectionRequest {
   corrections: Step2CorrectionItem[];
 }
 
+export interface Step2CorrectionFeedbackDetail {
+  student_found_error: string;
+  student_answer: string;
+  is_item_passed: boolean;
+  hallucination_reason: string;
+  reference_evidence: string;
+  ai_feedback: string;
+}
+
 export interface Step2CorrectionResponse {
   is_passed: boolean;
   score: number;
-  final_correct_sentence?: string;
-  feedback_details?: unknown[];
+  final_correct_sentence: string;
+  feedback_details: Step2CorrectionFeedbackDetail[];
 }
 
 /* ── Auth ── */
