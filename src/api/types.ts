@@ -15,10 +15,168 @@ export interface ApiErrorBody {
 /** 빈 JSON 객체 응답 `{}` */
 export type EmptyResponse = Record<string, never>;
 
-/** assignments 스텁 공통 응답 (스키마 미확정) */
-export interface AssignmentStubResponse {
-  status: string;
-  data: Record<string, unknown>;
+export type HallucinationType =
+  | 'PERSONA_BIAS'
+  | 'INFORMATION_FABRICATION'
+  | 'RETRIEVAL_ERROR';
+
+export const STAGE1_CHUNK_SIZE_PRESETS = [50, 200, 500, 1200, 3000] as const;
+
+export interface Stage1Parameters {
+  chunk_size: number;
+  top_k: number;
+  temperature: number;
+}
+
+export interface Stage1AttemptsInfo {
+  max_attempts?: number;
+  used_attempts: number;
+  remaining_attempts: number;
+}
+
+export interface Stage1AssignmentDetailResponse {
+  assignment_id: number;
+  question: string;
+  guideline: string;
+  parameter_explanations: {
+    chunk_size: string;
+    top_k: string;
+    temperature: string;
+  };
+  default_parameters: Stage1Parameters;
+  attempts: Stage1AttemptsInfo;
+  highest_score: number | null;
+  best_parameters: Stage1Parameters | null;
+}
+
+export interface Stage1ChatRequest {
+  message: string;
+  parameters: Stage1Parameters;
+}
+
+export interface Stage1ChatResponse {
+  ai_response: string;
+  rag_process_visualization: {
+    total_chunks: number;
+    retrieved_chunks: number;
+    vector_search_score: number;
+  };
+}
+
+export interface Stage1SubmitRequest {
+  final_parameters: Stage1Parameters;
+  selected_ai_response: string;
+  student_prompt: string;
+}
+
+export interface Stage1SubmitResponse {
+  current_score: number;
+  highest_score: number;
+  is_highest_score: boolean;
+  evaluation_report: {
+    faithfulness_score: number;
+    relevance_score: number;
+    feedback: string;
+  };
+  attempts: {
+    used_attempts: number;
+    remaining_attempts: number;
+  };
+}
+
+export interface Stage1CreateResponse {
+  assignment_id: number;
+  created_at: string | null;
+}
+
+export interface Stage2AssignmentDetailResponse {
+  assignment_id: number;
+  title: string;
+  reference_document_text: string;
+  question: string;
+  flawed_ai_response: string;
+  expected_error_count: number;
+  hallucination_type_options: HallucinationType[];
+  hallucination_type_hints: string[];
+  status: ProgressStatus | string;
+  highlight_phase_complete: boolean;
+  remaining_errors_to_find: number;
+  attempts: {
+    used_attempts: number;
+    remaining_attempts: number;
+  };
+  cleared_highlights: string[];
+}
+
+export interface Stage2GeneratedError {
+  answer_id: number;
+  error_sentence: string;
+  error_type: HallucinationType | string;
+  start_index: number;
+  end_index: number;
+  correct_sentence: string;
+  hallucination_reason: string;
+  evidence_sentence: string;
+}
+
+export interface Stage2CreateResponse {
+  assignment_id: number;
+  title: string;
+  question: string;
+  flawed_ai_response: string;
+  expected_error_count: number;
+  generated_errors: Stage2GeneratedError[];
+}
+
+export interface Step2HighlightSubmission {
+  highlighted_text: string;
+  student_error_type: HallucinationType;
+  student_reason: string;
+}
+
+export interface Step2HighlightRequest {
+  submissions: Step2HighlightSubmission[];
+}
+
+export interface Step2HighlightResponse {
+  is_all_correct: boolean;
+  highlight_phase_complete: boolean;
+  remaining_errors_to_find: number;
+  results: {
+    highlighted_text: string;
+    student_error_type: string;
+    student_reason: string;
+    is_correct: boolean;
+    evaluation_report?: {
+      location_match_score?: number;
+      error_type_match?: boolean;
+      reasoning_score?: number;
+      ai_feedback?: string;
+    };
+    correct_answer?: string;
+    correct_error_type?: string;
+  }[];
+  attempts: {
+    used_attempts: number;
+    remaining_attempts: number;
+  };
+  cleared_highlights: string[];
+}
+
+export interface Step2CorrectionItem {
+  original_highlight: string;
+  student_answer: string;
+}
+
+export interface Step2CorrectionRequest {
+  corrections: Step2CorrectionItem[];
+}
+
+export interface Step2CorrectionResponse {
+  is_passed: boolean;
+  score: number;
+  final_correct_sentence?: string;
+  feedback_details?: unknown[];
 }
 
 /* ── Auth ── */
