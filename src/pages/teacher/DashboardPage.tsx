@@ -109,7 +109,7 @@ export function TeacherDashboardPage() {
                 >
                   <span>{item.stage}단계</span>
                   <span>
-                    {item.submitted_count}명 · {Math.round(item.submission_rate * 100)}%
+                    {item.submitted_count}명 · {Math.round(item.submission_rate)}%
                   </span>
                 </div>
               ))}

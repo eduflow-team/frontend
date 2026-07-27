@@ -54,6 +54,58 @@ export function TeacherStagePage() {
   return stageNum === '1' ? <TeacherStage1Form /> : <TeacherStage2Form />;
 }
 
+function formatStage1CreateError(err: unknown): { message: string; canRetry: boolean } {
+  if (!(err instanceof ApiError)) {
+    return {
+      message: '업로드에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.',
+      canRetry: true,
+    };
+  }
+
+  const detail = err.message;
+  const isMissingKey = detail.includes('OPENAI_API_KEY');
+  const isEmbedFailure =
+    err.status === 500 ||
+    detail.includes('임베딩') ||
+    detail.includes('청크 분할') ||
+    detail.includes('벡터');
+
+  if (isMissingKey) {
+    return {
+      message:
+        '문서 임베딩에 필요한 OPENAI_API_KEY가 백엔드에 없습니다. 백엔드 .env 설정을 확인해 주세요.',
+      canRetry: false,
+    };
+  }
+
+  if (isEmbedFailure) {
+    return {
+      message:
+        '문서 임베딩 처리에 실패했습니다. OpenAI 호출이 일시적으로 실패했거나 서버가 재시작 중일 수 있습니다. 잠시 후 다시 시도해 주세요.',
+      canRetry: true,
+    };
+  }
+
+  if (err.status === 400) {
+    return {
+      message: detail || '입력값을 확인해 주세요. (파일 형식·크기·파라미터)',
+      canRetry: false,
+    };
+  }
+
+  if (err.status === 401 || err.status === 403) {
+    return {
+      message: detail || '권한이 없거나 로그인이 만료되었습니다. 다시 로그인해 주세요.',
+      canRetry: false,
+    };
+  }
+
+  return {
+    message: detail || '업로드에 실패했습니다.',
+    canRetry: err.status >= 500 || err.status === 0,
+  };
+}
+
 function TeacherStage1Form() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [classId, setClassId] = useState<number | ''>('');
@@ -71,6 +123,7 @@ function TeacherStage1Form() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [canRetry, setCanRetry] = useState(false);
 
   useEffect(() => {
     fetchClassesApi()
@@ -81,10 +134,10 @@ function TeacherStage1Form() {
       .catch(() => setClasses([]));
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const uploadAssignment = async () => {
     setMessage('');
     setError('');
+    setCanRetry(false);
     if (classId === '' || !question.trim() || !guideline.trim() || !file) {
       setError('학급, 문제, 가이드라인, 파일을 모두 입력해 주세요.');
       return;
@@ -102,11 +155,19 @@ function TeacherStage1Form() {
         file,
       });
       setMessage(`과제가 업로드되었습니다. (assignment_id: ${res.assignment_id})`);
+      setCanRetry(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '업로드에 실패했습니다.');
+      const formatted = formatStage1CreateError(err);
+      setError(formatted.message);
+      setCanRetry(formatted.canRetry);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await uploadAssignment();
   };
 
   return (
@@ -236,14 +297,39 @@ function TeacherStage1Form() {
                 className="form-control"
                 type="file"
                 accept=".pdf,.txt,.md,.markdown"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] ?? null);
+                  setError('');
+                  setCanRetry(false);
+                  setMessage('');
+                }}
               />
             </div>
-            {error && <p className="inline-alert error">{error}</p>}
+            {error && (
+              <div className="inline-alert error" role="alert">
+                <p style={{ margin: 0 }}>{error}</p>
+                {canRetry && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ marginTop: 10 }}
+                    disabled={submitting || !file}
+                    onClick={() => void uploadAssignment()}
+                  >
+                    {submitting ? '재시도 중…' : '다시 시도'}
+                  </button>
+                )}
+              </div>
+            )}
             {message && <p className="inline-alert ok">{message}</p>}
             <button type="submit" className="btn btn-primary btn-cta" disabled={submitting}>
-              {submitting ? '업로드 중…' : '업로드하기'}
+              {submitting ? '문서 임베딩·업로드 중…' : '업로드하기'}
             </button>
+            {submitting && (
+              <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 8 }}>
+                문서 청크를 여러 preset으로 임베딩하는 중이라 최대 1~2분 걸릴 수 있습니다.
+              </p>
+            )}
           </form>
         </div>
       </div>

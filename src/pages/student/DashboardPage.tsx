@@ -84,7 +84,7 @@ export function StudentDashboardPage() {
           <div className="stat-card">
             <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>출석률</div>
             <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>
-              {Math.round((summary.data?.attendance_rate ?? 0) * 100)}%
+              {Math.round(summary.data?.attendance_rate ?? 0)}%
             </div>
           </div>
         </div>

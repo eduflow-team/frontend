@@ -40,6 +40,18 @@ interface ChatMessage {
   meta?: string;
 }
 
+interface Stage3PrototypeResult {
+  topic: string;
+  pro_argument: string;
+  con_argument: string;
+  pro_claims_checked: { claim: string; verdict: string; reason: string }[];
+  con_claims_checked: { claim: string; verdict: string; reason: string }[];
+  reliable_points: string[];
+  unreliable_points: string[];
+  balanced_summary: string;
+  student_guide: string;
+}
+
 export function StudentStagePage() {
   const { subject, stage } = useParams<{ subject: SubjectKey; stage: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -48,6 +60,7 @@ export function StudentStagePage() {
   const stageNum = Number(stage);
   const activity = subjectData?.activities.find((a) => a.stage === stageNum);
   const useApi = user && !user.isDemo && (stageNum === 1 || stageNum === 2);
+  const isStage3Prototype = stageNum === 3;
 
   const assignmentIdParam = searchParams.get('assignmentId');
   const [assignmentIdInput, setAssignmentIdInput] = useState(assignmentIdParam ?? '');
@@ -66,7 +79,7 @@ export function StudentStagePage() {
     return <Navigate to="/student" replace />;
   }
 
-  if (!useApi) {
+  if (!useApi && stageNum !== 3) {
     return (
       <>
         <PageHero
@@ -90,6 +103,18 @@ export function StudentStagePage() {
     setAssignmentIdInput(id);
     setSearchParams({ assignmentId: id });
   };
+
+  if (isStage3Prototype) {
+    return (
+      <>
+        <PageHero
+          title={activity.title}
+          description={`${subjectData.name} · ${STAGE_TITLES[stageNum]}`}
+        />
+        <StudentStage3PrototypeActivity assignmentId={activeId ?? 'stage3-prototype'} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -159,11 +184,362 @@ export function StudentStagePage() {
         <PlaceholderCard title="활동을 시작하려면 과제를 선택하세요" />
       ) : stageNum === 1 ? (
         <StudentStage1Activity assignmentId={activeId} />
-      ) : (
+      ) : stageNum === 2 ? (
         <StudentStage2Activity assignmentId={activeId} />
+      ) : (
+        <PlaceholderCard title={`${stageNum}단계 학습 활동 UI`} message="준비 중입니다." />
       )}
     </>
   );
+}
+
+function StudentStage3PrototypeActivity({ assignmentId }: { assignmentId: string }) {
+  const [topic, setTopic] = useState('학교에 AI 시험 감독 시스템을 도입해야 하는가?');
+  const [followUpInput, setFollowUpInput] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<Stage3PrototypeResult | null>(null);
+
+  useEffect(() => {
+    setMessages([]);
+    setBusy(false);
+    setFollowUpInput('');
+    setResult(null);
+  }, [assignmentId]);
+
+  const runDebate = async (inputTopic: string) => {
+    const normalizedTopic = inputTopic.trim();
+    if (!normalizedTopic) return;
+
+    const nextResult = buildStage3PrototypeResult(normalizedTopic);
+    setBusy(true);
+    setMessages([{ role: 'user', text: normalizedTopic, meta: '학생이 사회자로 토론 주제를 제시함' }]);
+    setResult(null);
+
+    const stagedMessages: ChatMessage[] = [
+      {
+        role: 'bot',
+        text: nextResult.pro_argument,
+        meta: '찬성 Agent',
+      },
+      {
+        role: 'bot',
+        text: nextResult.con_argument,
+        meta: '반대 Agent',
+      },
+      {
+        role: 'bot',
+        text: formatStage3FactCheck(nextResult),
+        meta: '팩트체커 Agent',
+      },
+    ];
+
+    for (const staged of stagedMessages) {
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
+      setMessages((prev) => [...prev, staged]);
+    }
+
+    setResult(nextResult);
+    setBusy(false);
+  };
+
+  const sendFollowUp = async () => {
+    const text = followUpInput.trim();
+    if (!text || !result || busy) return;
+    setFollowUpInput('');
+    setBusy(true);
+    setMessages((prev) => [
+      ...prev,
+      { role: 'user', text, meta: '학생 추가 질문' },
+    ]);
+
+    const answer = buildStage3FollowUp(text, result);
+    await new Promise((resolve) => window.setTimeout(resolve, 350));
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: 'bot',
+        text: answer.text,
+        meta: answer.meta,
+      },
+    ]);
+    setBusy(false);
+  };
+
+  return (
+    <>
+      <div className="grid-2" style={{ marginBottom: 16 }}>
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">토론 주제 · 진행 안내</span>
+          </div>
+          <div className="card-body">
+            <div className="form-group">
+              <label className="form-label" htmlFor="stage3-topic">
+                토론 주제
+              </label>
+              <textarea
+                id="stage3-topic"
+                className="form-control"
+                rows={3}
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                disabled={busy}
+              />
+            </div>
+            <div
+              style={{
+                padding: 12,
+                borderRadius: 10,
+                background: 'var(--gray-50)',
+                border: '1px solid var(--border)',
+                fontSize: 13,
+                lineHeight: 1.6,
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>프로토타입 진행 순서</div>
+              <ol style={{ paddingLeft: 18 }}>
+                <li>학생이 토론 주제를 던집니다.</li>
+                <li>찬성 Agent와 반대 Agent가 각각 주장합니다.</li>
+                <li>팩트체커 Agent가 두 주장을 비교 검증합니다.</li>
+                <li>학생이 추가 질문을 던지며 멀티 에이전트를 체험합니다.</li>
+              </ol>
+            </div>
+            <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => void runDebate(topic)}
+                disabled={busy}
+              >
+                {busy ? '토론 생성 중…' : '토론 시작'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setMessages([]);
+                  setResult(null);
+                  setFollowUpInput('');
+                }}
+                disabled={busy}
+              >
+                초기화
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">에이전트 역할</span>
+          </div>
+          <div className="card-body">
+            <div style={{ display: 'grid', gap: 10 }}>
+              {[
+                ['찬성 Agent', '효율성과 공정성, 교사 업무 경감 관점에서 주장합니다.'],
+                ['반대 Agent', '프라이버시, 오탐지, 인권 침해 관점에서 주장합니다.'],
+                ['팩트체커 Agent', '양측 주장의 수치 과장, 근거 부족, 사실 오류를 판정합니다.'],
+              ].map(([title, desc]) => (
+                <div
+                  key={title}
+                  style={{
+                    padding: 12,
+                    border: '1px solid var(--border)',
+                    borderRadius: 10,
+                    background: 'var(--surface)',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{title}</div>
+                  <div style={{ fontSize: 13, color: 'var(--gray-600)', marginTop: 4 }}>{desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
+          <span className="card-title">멀티 에이전트 채팅</span>
+        </div>
+        <div className="card-body">
+          <div className="chat-log" style={{ maxHeight: 440 }}>
+            {messages.length === 0 && (
+              <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>
+                토론 시작을 누르면 찬성·반대·팩트체커 순서로 응답이 생성됩니다.
+              </div>
+            )}
+            {messages.map((m, i) => (
+              <div key={`${m.role}-${i}`}>
+                <div className={`chat-bubble ${m.role}`}>{m.text}</div>
+                {m.meta && (
+                  <div style={{ fontSize: 11, color: 'var(--gray-500)', marginTop: 4 }}>{m.meta}</div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              className="form-control"
+              value={followUpInput}
+              onChange={(e) => setFollowUpInput(e.target.value)}
+              placeholder="예: 반대 Agent야, 개인정보 우려를 한 문장으로 다시 말해줘"
+              disabled={!result || busy}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void sendFollowUp();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => void sendFollowUp()}
+              disabled={!result || busy}
+            >
+              질문
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {result && (
+        <div className="grid-2">
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">팩트체크 요약</span>
+            </div>
+            <div className="card-body" style={{ fontSize: 13, lineHeight: 1.6 }}>
+              <p style={{ marginBottom: 10 }}>{result.balanced_summary}</p>
+              <div style={{ marginBottom: 10 }}>
+                <strong>신뢰 가능한 포인트</strong>
+                <ul style={{ paddingLeft: 18, marginTop: 6 }}>
+                  {result.reliable_points.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <strong>의심해야 할 포인트</strong>
+                <ul style={{ paddingLeft: 18, marginTop: 6 }}>
+                  {result.unreliable_points.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">학생 보고서 가이드</span>
+            </div>
+            <div className="card-body" style={{ fontSize: 13, lineHeight: 1.6 }}>
+              {result.student_guide}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function buildStage3PrototypeResult(topic: string): Stage3PrototypeResult {
+  return {
+    topic,
+    pro_argument:
+      '【찬성 입장】\n주장 요약: 학교 시험에 AI 감독 시스템을 도입하면 감독 효율과 공정성을 높일 수 있습니다.\n핵심 근거:\n1. 반복적인 감독 업무를 줄여 교사가 학생 피드백에 더 집중할 수 있습니다.\n2. 온라인·대규모 시험에서 일관된 기준으로 부정행위 징후를 탐지할 수 있습니다.\n예상 효과: 감독 비용과 행정 부담을 줄이면서 시험 운영을 표준화할 수 있습니다.',
+    con_argument:
+      '【반대 입장】\n주장 요약: AI 시험 감독 시스템은 학생 프라이버시와 인권을 침해할 위험이 큽니다.\n핵심 근거:\n1. 카메라·마이크·행동 데이터 수집은 학생에게 과도한 감시 압박을 줄 수 있습니다.\n2. 오탐지와 알고리즘 편향이 특정 학생에게 불이익을 줄 수 있습니다.\n우려되는 점: 기술 효율을 이유로 감시가 일상화될 수 있습니다.',
+    pro_claims_checked: [
+      {
+        claim: 'AI 감독 시스템이 감독 효율을 높인다.',
+        verdict: 'supported',
+        reason: '일부 온라인 시험 환경에서는 감독 보조와 기록 자동화에 실제 도움이 됩니다.',
+      },
+      {
+        claim: 'AI만으로 공정성을 완벽히 보장한다.',
+        verdict: 'exaggerated',
+        reason: '오탐지, 모델 편향, 운영 정책의 차이 때문에 완전한 보장은 어렵습니다.',
+      },
+    ],
+    con_claims_checked: [
+      {
+        claim: '프라이버시 침해 우려가 있다.',
+        verdict: 'supported',
+        reason: '생체·행동 데이터 수집은 실제 윤리와 법적 쟁점이 존재합니다.',
+      },
+      {
+        claim: '도입 즉시 감시 사회가 완성된다.',
+        verdict: 'exaggerated',
+        reason: '위험은 있지만, 제도 설계와 범위 제한에 따라 영향이 달라집니다.',
+      },
+    ],
+    reliable_points: [
+      '교사 업무 경감과 시험 운영 효율화 가능성',
+      '학생 프라이버시와 오탐지에 대한 현실적 우려',
+    ],
+    unreliable_points: [
+      'AI가 완벽하게 부정행위를 판별한다는 절대적 표현',
+      '도입 즉시 모든 학생 인권이 붕괴된다는 비약',
+    ],
+    balanced_summary:
+      `${topic}에 대한 토론에서는 효율성과 인권 보호가 충돌합니다. 기술의 장점은 존재하지만, 오탐지·편향·데이터 수집 범위 같은 조건을 함께 따져야 균형 잡힌 결론을 낼 수 있습니다.`,
+    student_guide:
+      '최종 보고서에는 1) 양측이 제시한 핵심 근거, 2) 팩트체커가 지적한 과장 표현, 3) 기술 도입 시 필요한 안전장치를 함께 써 보세요.',
+  };
+}
+
+function formatStage3FactCheck(result: Stage3PrototypeResult): string {
+  const lines = [
+    '{',
+    `  "topic": "${result.topic}",`,
+    '  "pro_claims_checked": [',
+    ...result.pro_claims_checked.map(
+      (item, index) =>
+        `    {"claim": "${item.claim}", "verdict": "${item.verdict}", "reason": "${item.reason}"}${index < result.pro_claims_checked.length - 1 ? ',' : ''}`,
+    ),
+    '  ],',
+    '  "con_claims_checked": [',
+    ...result.con_claims_checked.map(
+      (item, index) =>
+        `    {"claim": "${item.claim}", "verdict": "${item.verdict}", "reason": "${item.reason}"}${index < result.con_claims_checked.length - 1 ? ',' : ''}`,
+    ),
+    '  ],',
+    `  "balanced_summary": "${result.balanced_summary}",`,
+    `  "student_guide": "${result.student_guide}"`,
+    '}',
+  ];
+  return lines.join('\n');
+}
+
+function buildStage3FollowUp(
+  question: string,
+  result: Stage3PrototypeResult,
+): { text: string; meta: string } {
+  const normalized = question.toLowerCase();
+
+  if (normalized.includes('찬성')) {
+    return {
+      meta: '찬성 Agent 재응답',
+      text: `찬성 Agent 추가 설명:\n${result.reliable_points[0]}을 중심으로 보면, AI는 교사의 감독 자체를 없애기보다 보조하고 기록을 정리하는 역할에서 가장 현실적인 장점이 있습니다.`,
+    };
+  }
+
+  if (normalized.includes('반대') || normalized.includes('프라이버시')) {
+    return {
+      meta: '반대 Agent 재응답',
+      text: '반대 Agent 추가 설명:\n개인정보 우려의 핵심은 단순한 촬영이 아니라, 학생의 시선·행동 데이터가 장기간 저장되거나 다른 목적으로 활용될 수 있다는 점입니다.',
+    };
+  }
+
+  return {
+    meta: '팩트체커 Agent 재응답',
+    text: `팩트체커 추가 설명:\n질문 "${question}"에 답하자면, 핵심은 양측이 모두 절대적 표현을 줄이고 실제 운영 조건과 근거를 더 구체적으로 제시해야 한다는 점입니다.`,
+  };
 }
 
 function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
@@ -853,7 +1229,7 @@ export function StudentAttendancePage() {
     <>
       <PageHero
         title="출석"
-        description={`출석률 ${Math.round((data?.attendance_rate ?? 0) * 100)}% · 출석 ${data?.present_count ?? 0} · 지각 ${data?.late_count ?? 0} · 결석 ${data?.absent_count ?? 0}`}
+        description={`출석률 ${Math.round(data?.attendance_rate ?? 0)}% · 출석 ${data?.present_count ?? 0} · 지각 ${data?.late_count ?? 0} · 결석 ${data?.absent_count ?? 0}`}
       />
       <div className="card">
         <div className="card-header">

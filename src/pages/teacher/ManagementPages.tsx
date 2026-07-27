@@ -3,9 +3,9 @@ import {
   ApiError,
   createTeacherNoticeApi,
   deleteTeacherNoticeApi,
-  fetchStudentNoticesApi,
   fetchTeacherAttendanceApi,
   fetchTeacherGradesApi,
+  fetchTeacherNoticesApi,
   fetchTeacherRecordsStudentsApi,
   fetchTeacherUnsubmittedApi,
   patchTeacherAttendanceApi,
@@ -297,7 +297,7 @@ export function TeacherAttendancePage() {
                 <div>
                   <div style={{ fontWeight: 600 }}>{student.student_name}</div>
                   <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 2 }}>
-                    출석률 {Math.round(student.attendance_rate * 100)}%
+                    출석률 {Math.round(student.attendance_rate)}%
                   </div>
                 </div>
                 <select
@@ -342,7 +342,7 @@ export function TeacherNoticesPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const { data, loading, error } = useFetch(
-    () => fetchStudentNoticesApi({ page: 1, size: 50 }),
+    () => fetchTeacherNoticesApi({ page: 1, size: 50 }),
     [reloadKey],
     Boolean(useApi),
   );
