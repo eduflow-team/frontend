@@ -70,9 +70,9 @@ export async function createTeacherAssignmentStep1Api(
   const body = new FormData();
   body.append('class_id', String(form.class_id));
   body.append('subject', form.subject);
-  body.append('default_chunk_size', String(form.default_chunk_size ?? 200));
+  body.append('default_chunk_size', String(form.default_chunk_size ?? 50));
   body.append('default_top_k', String(form.default_top_k ?? 2));
-  body.append('default_temperature', String(form.default_temperature ?? 0.9));
+  body.append('default_temperature', String(form.default_temperature ?? 1.0));
   body.append('file', form.file);
 
   return apiRequest<Stage1CreateResponse>(API_ENDPOINTS.teacher.createAssignmentStep1, {

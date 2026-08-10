@@ -110,9 +110,9 @@ function TeacherStage1Form() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [classId, setClassId] = useState<number | ''>('');
   const [subject, setSubject] = useState('hist');
-  const [chunkSize, setChunkSize] = useState(200);
+  const [chunkSize, setChunkSize] = useState(50);
   const [topK, setTopK] = useState(2);
-  const [temperature, setTemperature] = useState(0.9);
+  const [temperature, setTemperature] = useState(1.0);
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');

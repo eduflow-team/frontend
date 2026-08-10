@@ -549,9 +549,9 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
   const [params, setParams] = useState<Stage1Parameters>({
-    chunk_size: 200,
+    chunk_size: 50,
     top_k: 2,
-    temperature: 0.9,
+    temperature: 1.0,
   });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState(STAGE1_FIXED_CHAT_PROMPT);
