@@ -87,6 +87,8 @@ export interface Stage1SubmitResponse {
 export interface Stage1CreateResponse {
   assignment_id: number;
   created_at: string | null;
+  question: string;
+  guideline: string;
 }
 
 export interface HallucinationTypeOption {

@@ -14,7 +14,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { formatClassLabel } from '../../utils/labels';
 
 const STAGE_DESCRIPTIONS: Record<string, string> = {
-  '1': '문서를 업로드하고 파라미터 기본값을 설정해 1단계 과제를 업로드합니다.',
+  '1': '학습 자료를 업로드하면 AI가 학생용 문제를 만들고, 가이드라인 질문은 고정됩니다.',
   '2': '참고 문서와 페르소나를 설정해 의도적 환각 과제를 업로드합니다.',
   '3': 'AI 관점 비교 토론 주제를 설정합니다.',
   '4': 'AI 보안 실습 시나리오를 배포합니다.',
@@ -110,12 +110,6 @@ function TeacherStage1Form() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [classId, setClassId] = useState<number | ''>('');
   const [subject, setSubject] = useState('hist');
-  const [question, setQuestion] = useState(
-    '조선 시대 장영실의 업적에 대해 AI에게 질문하고, 파라미터를 조절하여 가장 좋은 답변을 찾아보세요.',
-  );
-  const [guideline, setGuideline] = useState(
-    '"조선 시대 장영실에 대해서 알려줘"라고 AI에게 질문해보세요.',
-  );
   const [chunkSize, setChunkSize] = useState(200);
   const [topK, setTopK] = useState(2);
   const [temperature, setTemperature] = useState(0.9);
@@ -138,8 +132,8 @@ function TeacherStage1Form() {
     setMessage('');
     setError('');
     setCanRetry(false);
-    if (classId === '' || !question.trim() || !guideline.trim() || !file) {
-      setError('학급, 문제, 가이드라인, 파일을 모두 입력해 주세요.');
+    if (classId === '' || !file) {
+      setError('학급과 파일을 입력해 주세요.');
       return;
     }
     setSubmitting(true);
@@ -147,14 +141,16 @@ function TeacherStage1Form() {
       const res = await createTeacherAssignmentStep1Api({
         class_id: Number(classId),
         subject,
-        question: question.trim(),
-        guideline: guideline.trim(),
         default_chunk_size: chunkSize,
         default_top_k: topK,
         default_temperature: temperature,
         file,
       });
-      setMessage(`과제가 업로드되었습니다. (assignment_id: ${res.assignment_id})`);
+      setMessage(
+        `과제가 업로드되었습니다. (assignment_id: ${res.assignment_id})\n` +
+          `생성된 문제: ${res.question}\n` +
+          `가이드라인: ${res.guideline}`,
+      );
       setCanRetry(false);
     } catch (err) {
       const formatted = formatStage1CreateError(err);
@@ -179,6 +175,10 @@ function TeacherStage1Form() {
         </div>
         <div className="card-body">
           <form onSubmit={handleSubmit}>
+            <p style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 14, lineHeight: 1.5 }}>
+              학습 자료를 업로드하면 AI가 학생용 문제를 만들고, 가이드라인은
+              &quot;오늘 학습 주제의 내용을 전체적으로 알려줘&quot;로 고정됩니다.
+            </p>
             <div className="grid-2">
               <div className="form-group">
                 <label className="form-label" htmlFor="s1-class">
@@ -215,30 +215,6 @@ function TeacherStage1Form() {
                   ))}
                 </select>
               </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="s1-question">
-                문제
-              </label>
-              <textarea
-                id="s1-question"
-                className="form-control"
-                rows={3}
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="s1-guideline">
-                가이드라인
-              </label>
-              <textarea
-                id="s1-guideline"
-                className="form-control"
-                rows={2}
-                value={guideline}
-                onChange={(e) => setGuideline(e.target.value)}
-              />
             </div>
             <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 12 }}>
               <div className="form-group">
@@ -321,7 +297,11 @@ function TeacherStage1Form() {
                 )}
               </div>
             )}
-            {message && <p className="inline-alert ok">{message}</p>}
+            {message && (
+              <p className="inline-alert ok" style={{ whiteSpace: 'pre-wrap' }}>
+                {message}
+              </p>
+            )}
             <button type="submit" className="btn btn-primary btn-cta" disabled={submitting}>
               {submitting ? '문서 임베딩·업로드 중…' : '업로드하기'}
             </button>

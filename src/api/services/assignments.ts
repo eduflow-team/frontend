@@ -58,8 +58,6 @@ export async function postStudentStep2CorrectionApi(
 export interface TeacherStep1CreateForm {
   class_id: number;
   subject: string;
-  question: string;
-  guideline: string;
   default_chunk_size?: number;
   default_top_k?: number;
   default_temperature?: number;
@@ -72,8 +70,6 @@ export async function createTeacherAssignmentStep1Api(
   const body = new FormData();
   body.append('class_id', String(form.class_id));
   body.append('subject', form.subject);
-  body.append('question', form.question);
-  body.append('guideline', form.guideline);
   body.append('default_chunk_size', String(form.default_chunk_size ?? 200));
   body.append('default_top_k', String(form.default_top_k ?? 2));
   body.append('default_temperature', String(form.default_temperature ?? 0.9));

@@ -27,6 +27,8 @@ import { ApiStateBody, PageHero, PlaceholderCard } from '../../components/common
 import {
   FALLBACK_HALLUCINATION_OPTIONS,
   HALLUCINATION_LABELS,
+  STAGE1_FIXED_CHAT_PROMPT,
+  resolveStage1ChatPrompt,
 } from '../../constants/assignments';
 import { STAGE_TITLES, STUDENT_SUBJECTS } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
@@ -552,7 +554,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     temperature: 0.9,
   });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState('');
+  const [chatInput, setChatInput] = useState(STAGE1_FIXED_CHAT_PROMPT);
   const [lastPrompt, setLastPrompt] = useState('');
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
@@ -566,11 +568,13 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     setMessages([]);
     setSelectedAnswer('');
     setSubmitResult(null);
+    setChatInput(STAGE1_FIXED_CHAT_PROMPT);
     getStudentStep1Api(assignmentId)
       .then((res) => {
         if (cancelled) return;
         setDetail(res);
         setParams(res.default_parameters);
+        setChatInput(resolveStage1ChatPrompt(res.guideline));
       })
       .catch((err) => {
         if (!cancelled) {
@@ -587,9 +591,10 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
   }, [assignmentId]);
 
   const sendChat = async () => {
-    if (!chatInput.trim()) return;
-    const text = chatInput.trim();
-    setChatInput('');
+    const fixedPrompt = resolveStage1ChatPrompt(detail?.guideline);
+    const text = (chatInput.trim() || fixedPrompt).trim();
+    if (!text) return;
+    setChatInput(fixedPrompt);
     setLastPrompt(text);
     setMessages((prev) => [...prev, { role: 'user', text }]);
     setChatBusy(true);
@@ -740,7 +745,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
           <div className="chat-log">
             {messages.length === 0 && (
               <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>
-                가이드라인의 예시 질문으로 시작해 보세요.
+                아래 질문이 입력되어 있습니다. 전송을 눌러 바로 시작해 보세요.
               </div>
             )}
             {messages.map((m, i) => (
@@ -756,8 +761,9 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             <input
               className="form-control"
               value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder="질문을 입력하세요"
+              readOnly
+              aria-label="고정 질문"
+              title="가이드라인의 고정 질문입니다. 전송만 누르면 됩니다."
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
