@@ -7,6 +7,7 @@ import { ApiStateBody, PageHero, PlaceholderCard } from '../../components/common
 import { STUDENT_SUBJECTS } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
+import { formatDueAt } from '../../utils/datetime';
 import { PROGRESS_LABELS } from '../../utils/labels';
 
 export function StudentDashboardPage() {
@@ -160,9 +161,7 @@ export function StudentDashboardPage() {
                       <div style={{ fontSize: 13, color: 'var(--gray-500)', marginTop: 4 }}>
                         {item.stage != null ? `${item.stage}단계 · ` : ''}
                         {PROGRESS_LABELS[item.status]}
-                        {item.due_date
-                          ? ` · 마감 ${new Date(item.due_date).toLocaleDateString()}`
-                          : ''}
+                        {item.due_date ? ` · 마감 ${formatDueAt(item.due_date)}` : ''}
                       </div>
                     </div>
                     <Link to={path} className="btn btn-primary btn-sm">

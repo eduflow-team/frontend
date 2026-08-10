@@ -58,6 +58,8 @@ export async function postStudentStep2CorrectionApi(
 export interface TeacherStep1CreateForm {
   class_id: number;
   subject: string;
+  /** ISO 8601 (UTC 권장) */
+  due_at: string;
   default_chunk_size?: number;
   default_top_k?: number;
   default_temperature?: number;
@@ -70,6 +72,7 @@ export async function createTeacherAssignmentStep1Api(
   const body = new FormData();
   body.append('class_id', String(form.class_id));
   body.append('subject', form.subject);
+  body.append('due_at', form.due_at);
   body.append('default_chunk_size', String(form.default_chunk_size ?? 50));
   body.append('default_top_k', String(form.default_top_k ?? 2));
   body.append('default_temperature', String(form.default_temperature ?? 1.0));
@@ -86,6 +89,8 @@ export interface TeacherStep2CreateForm {
   subject: string;
   question: string;
   persona: string;
+  /** ISO 8601 (UTC 권장) */
+  due_at: string;
   hallucination_types: string[];
   expected_error_count: number;
   file: File;
@@ -99,6 +104,7 @@ export async function createTeacherAssignmentStep2Api(
   body.append('subject', form.subject);
   body.append('question', form.question);
   body.append('persona', form.persona);
+  body.append('due_at', form.due_at);
   body.append('hallucination_types', JSON.stringify(form.hallucination_types));
   body.append('expected_error_count', String(form.expected_error_count));
   body.append('file', form.file);

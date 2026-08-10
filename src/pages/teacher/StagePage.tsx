@@ -11,6 +11,7 @@ import { STAGE1_CHUNK_SIZE_PRESETS } from '../../api/types';
 import { PageHero, PlaceholderCard } from '../../components/common';
 import { HALLUCINATION_LABELS, SUBJECT_OPTIONS } from '../../constants/assignments';
 import { useAuth } from '../../contexts/AuthContext';
+import { defaultDueAtLocal, formatDueAt, localDateTimeToIso } from '../../utils/datetime';
 import { formatClassLabel } from '../../utils/labels';
 
 const STAGE_DESCRIPTIONS: Record<string, string> = {
@@ -110,6 +111,7 @@ function TeacherStage1Form() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [classId, setClassId] = useState<number | ''>('');
   const [subject, setSubject] = useState('hist');
+  const [dueAt, setDueAt] = useState(defaultDueAtLocal);
   const [chunkSize, setChunkSize] = useState(50);
   const [topK, setTopK] = useState(2);
   const [temperature, setTemperature] = useState(1.0);
@@ -136,11 +138,16 @@ function TeacherStage1Form() {
       setError('학급과 파일을 입력해 주세요.');
       return;
     }
+    if (!dueAt) {
+      setError('마감일을 입력해 주세요.');
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await createTeacherAssignmentStep1Api({
         class_id: Number(classId),
         subject,
+        due_at: localDateTimeToIso(dueAt),
         default_chunk_size: chunkSize,
         default_top_k: topK,
         default_temperature: temperature,
@@ -148,6 +155,7 @@ function TeacherStage1Form() {
       });
       setMessage(
         `과제가 업로드되었습니다. (assignment_id: ${res.assignment_id})\n` +
+          `마감: ${formatDueAt(res.due_at) || formatDueAt(localDateTimeToIso(dueAt))}\n` +
           `생성된 문제: ${res.question}\n` +
           `가이드라인: ${res.guideline}`,
       );
@@ -215,6 +223,19 @@ function TeacherStage1Form() {
                   ))}
                 </select>
               </div>
+            </div>
+            <div className="form-group" style={{ maxWidth: 320 }}>
+              <label className="form-label" htmlFor="s1-due">
+                마감일
+              </label>
+              <input
+                id="s1-due"
+                className="form-control"
+                type="datetime-local"
+                required
+                value={dueAt}
+                onChange={(e) => setDueAt(e.target.value)}
+              />
             </div>
             <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 12 }}>
               <div className="form-group">
@@ -324,6 +345,7 @@ function TeacherStage2Form() {
   const [persona, setPersona] = useState(
     '장영실이 연을 만들었다고 믿고, 자격루를 서양 기술이라고 주장하는 선생님',
   );
+  const [dueAt, setDueAt] = useState(defaultDueAtLocal);
   const [types, setTypes] = useState<HallucinationType[]>([
     'PERSONA_BIAS',
     'RETRIEVAL_ERROR',
@@ -348,6 +370,10 @@ function TeacherStage2Form() {
       setError('제목, 질문, 페르소나, 환각 유형, 파일을 모두 입력해 주세요.');
       return;
     }
+    if (!dueAt) {
+      setError('마감일을 입력해 주세요.');
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await createTeacherAssignmentStep2Api({
@@ -355,12 +381,16 @@ function TeacherStage2Form() {
         subject,
         question: question.trim(),
         persona: persona.trim().slice(0, 100),
+        due_at: localDateTimeToIso(dueAt),
         hallucination_types: types,
         expected_error_count: errorCount,
         file,
       });
       setPreview(res);
-      setMessage(`과제가 업로드되었습니다. (assignment_id: ${res.assignment_id})`);
+      setMessage(
+        `과제가 업로드되었습니다. (assignment_id: ${res.assignment_id})` +
+          ` · 마감 ${formatDueAt(res.due_at) || formatDueAt(localDateTimeToIso(dueAt))}`,
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '업로드에 실패했습니다.');
     } finally {
@@ -404,6 +434,19 @@ function TeacherStage2Form() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="form-group" style={{ maxWidth: 320 }}>
+              <label className="form-label" htmlFor="s2-due">
+                마감일
+              </label>
+              <input
+                id="s2-due"
+                className="form-control"
+                type="datetime-local"
+                required
+                value={dueAt}
+                onChange={(e) => setDueAt(e.target.value)}
+              />
             </div>
             <div className="form-group">
               <label className="form-label" htmlFor="s2-question">

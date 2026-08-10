@@ -34,6 +34,7 @@ import { STAGE_TITLES, STUDENT_SUBJECTS } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import type { SubjectKey } from '../../types';
+import { formatDueAt } from '../../utils/datetime';
 import { PROGRESS_LABELS } from '../../utils/labels';
 
 interface ChatMessage {
@@ -677,6 +678,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             {detail.attempts.max_attempts != null ? `/${detail.attempts.max_attempts}` : ''} · 남음{' '}
             {detail.attempts.remaining_attempts}
             {detail.highest_score != null ? ` · 최고 ${detail.highest_score}점` : ''}
+            {detail.due_at ? ` · 마감 ${formatDueAt(detail.due_at)}` : ''}
           </div>
 
           <div className="form-group">
@@ -972,6 +974,7 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
               남은 오류 {detail.remaining_errors_to_find}개 · 시도 {detail.attempts.used_attempts}
               {detail.attempts.max_attempts != null ? `/${detail.attempts.max_attempts}` : ''} · 남음{' '}
               {detail.attempts.remaining_attempts}
+              {detail.due_at ? ` · 마감 ${formatDueAt(detail.due_at)}` : ''}
             </div>
             {detail.cleared_highlights.length > 0 && (
               <div style={{ marginTop: 10, fontSize: 13 }}>
