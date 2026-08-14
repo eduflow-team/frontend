@@ -69,6 +69,7 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: '/student', element: <StudentDashboardPage /> },
+          { path: '/student/stage/:stage', element: <StudentStagePage /> },
           { path: '/student/:subject/stage/:stage', element: <StudentStagePage /> },
           { path: '/student/results', element: <StudentResultsPage /> },
           { path: '/student/attendance', element: <StudentAttendancePage /> },

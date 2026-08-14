@@ -361,6 +361,12 @@
   background: rgba(255, 255, 255, 0.6);
   border-radius: 0 8px 8px 0;
   max-width: 100%;
+  height: 90px;
+  max-height: 90px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .s2 .doc-hint {
@@ -1234,36 +1240,115 @@
   background: #9ca3af;
 }
 
-/* --- Teacher assignment wizard (v2) --- */
+/* --- Teacher assignment wizard (v2) — 1단계 shell 비율에 맞춤 --- */
+.s2 .shell.teacher-shell,
+.s2 .teacher-shell {
+  width: min(880px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 32px 0 72px;
+}
+
+.s2 .teacher-flow-steps {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 36px;
+  font-size: 13px;
+  color: var(--text-muted, #6e6e80);
+}
+
+.s2 .teacher-flow-steps .step {
+  position: relative;
+}
+
+.s2 .teacher-flow-steps .step[aria-current="step"] {
+  color: var(--text, #0d0d0d);
+  font-weight: 600;
+}
+
+.s2 .teacher-flow-steps .step[aria-current="step"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10px;
+  height: 1.5px;
+  background: var(--text, #0d0d0d);
+}
+
+.s2 .teacher-shell .page-title {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+  color: var(--text, #0d0d0d);
+}
+
+.s2 .teacher-shell .page-desc {
+  margin: 0 0 32px;
+  color: var(--text-muted, #6e6e80);
+  font-size: 15px;
+  max-width: 42rem;
+  line-height: 1.55;
+}
+
+.s2 .teacher-subject-field {
+  max-width: 320px;
+  margin-bottom: 24px;
+}
+
+.s2 .teacher-subject-field .label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #0d0d0d);
+}
+
+.s2 .teacher-subject-field .field {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  font-size: 14px;
+  color: var(--text);
+}
+
 .s2 .teacher-page {
   overflow-y: auto;
 }
 
 .s2 .teacher-container {
-  max-width: 760px;
+  width: min(880px, calc(100% - 48px));
+  max-width: none;
   margin: 0 auto;
-  padding: 32px 40px 60px;
-  width: 100%;
+  padding: 32px 0 72px;
 }
 
 .s2 .teacher-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .s2 .teacher-header h2 {
-  font-size: 1.4rem;
-  font-weight: 800;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
   margin: 0;
   color: var(--text);
 }
 
 .s2 .teacher-desc {
-  font-size: 0.95rem;
+  font-size: 15px;
   color: var(--text-muted);
-  margin: 0 0 28px;
+  margin: 0 0 32px;
+  max-width: 42rem;
+  line-height: 1.55;
 }
 
 .s2 .teacher-steps {
@@ -1347,10 +1432,10 @@
 }
 
 .s2 .teacher-card {
-  background: linear-gradient(165deg, #ffffff, #fbfaf5);
+  background: #fff;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 32px;
+  border-radius: var(--radius);
+  padding: 20px;
 }
 
 .s2 .teacher-step-badge {
@@ -1642,8 +1727,10 @@
     grid-template-columns: 1fr;
   }
 
-  .s2 .teacher-container {
-    padding: 24px 20px 48px;
+  .s2 .teacher-container,
+  .s2 .teacher-shell {
+    width: min(880px, calc(100% - 32px));
+    padding: 24px 0 48px;
   }
 
   .s2 .topbar {

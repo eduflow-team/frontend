@@ -92,27 +92,17 @@ export function TeacherStage3Form() {
             </div>
           </div>
 
-          <div className="row-2">
-            <div className="field-group">
-              <label className="label">토론 구조</label>
-              <div className="info-card" style={{ padding: '12px 14px' }}>
-                <p className="mission-text" style={{ fontSize: 14 }}>
-                  찬성 주장 → 반대 반박 → 찬성 재반박 · Langflow v2
-                </p>
-              </div>
-            </div>
-            <div className="field-group">
-              <label className="label" htmlFor="dueInput">
-                마감
-              </label>
-              <input
-                id="dueInput"
-                className="field"
-                type="text"
-                value={due}
-                onChange={(e) => setDue(e.target.value)}
-              />
-            </div>
+          <div className="field-group" style={{ maxWidth: 320 }}>
+            <label className="label" htmlFor="dueInput">
+              마감
+            </label>
+            <input
+              id="dueInput"
+              className="field"
+              type="text"
+              value={due}
+              onChange={(e) => setDue(e.target.value)}
+            />
           </div>
 
           <section className="info-card">
@@ -146,8 +136,8 @@ export function TeacherStage3Form() {
                 <p className="side-title">배포 완료</p>
               </div>
               <p className="mission-text">
-                주제를 저장했습니다. 같은 브라우저의 학생 2단계·3단계 화면에서 토론을 시작할 수
-                있습니다. (Langflow 서버가 없으면 샘플 토론으로 진행됩니다.)
+                주제를 저장했습니다. 같은 브라우저의 학생 화면에서 토론을 시작할 수 있습니다.
+                (Langflow 서버가 없으면 샘플 토론으로 진행됩니다.)
               </p>
             </div>
           )}

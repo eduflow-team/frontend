@@ -12,8 +12,40 @@ import type {
   Step2HighlightResponse,
 } from '../../../api/types';
 import { modeBadge, verifyIntro, type VerifyPhase } from '../../../mocks/verifyPrototype';
+import { STAGE2_DEMO, STAGE2_HALLUC_OPTIONS, getStage2ErrorMarks } from '../../../mocks/stage2Demo';
 
 type Rubric = { evidence: string; errorId: string; rewrite: string };
+
+export const STAGE2_DEMO_ASSIGNMENT_ID = 'demo';
+
+function buildDemoStage2Detail(): Stage2AssignmentDetailResponse {
+  const marks = getStage2ErrorMarks();
+  const flawed = STAGE2_DEMO.flawedParts.map((p) => p.text).join('');
+  return {
+    assignment_id: 0,
+    title: STAGE2_DEMO.title,
+    reference_document_text: STAGE2_DEMO.referenceDoc,
+    question: STAGE2_DEMO.question,
+    flawed_ai_response: flawed,
+    due_at: null,
+    expected_error_count: STAGE2_DEMO.expectedErrorCount,
+    hallucination_type_options: STAGE2_HALLUC_OPTIONS.map((o) => ({
+      value: o.value,
+      label: o.label,
+      description: o.description,
+    })),
+    hallucination_type_hints: marks.map((m) => m.correctType),
+    status: 'IN_PROGRESS',
+    highlight_phase_complete: false,
+    remaining_errors_to_find: STAGE2_DEMO.expectedErrorCount,
+    attempts: {
+      max_attempts: STAGE2_DEMO.maxAttempts,
+      used_attempts: 0,
+      remaining_attempts: STAGE2_DEMO.maxAttempts,
+    },
+    cleared_highlights: [],
+  };
+}
 
 function RubricDot({ mark }: { mark: string }) {
   if (mark === '✓') return <span className="rubric-dot rubric-dot-full" aria-label="완료" />;
@@ -120,6 +152,14 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
     setLoading(true);
     setLoadError('');
     try {
+      if (assignmentId === STAGE2_DEMO_ASSIGNMENT_ID) {
+        const data = buildDemoStage2Detail();
+        setDetail(data);
+        setPhase('find');
+        const hints = data.hallucination_type_hints ?? [];
+        if (hints[0]) setErrorType(hints[0]);
+        return;
+      }
       const data = await getStudentStep2Api(assignmentId);
       setDetail(data);
       if (data.status === 'COMPLETED') {

@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   PAGE_TITLES,
+  STUDENT_LEARNING_MODES,
   STUDENT_NAV,
-  STUDENT_SUBJECTS,
   TEACHER_CLASSES,
   TEACHER_NAV,
   TEACHER_SUBJECTS,
+  learningModeByStage,
 } from '../constants/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError, leaveApi } from '../api';
@@ -46,24 +47,6 @@ function BellIcon() {
     >
       <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
       <path d="M13.73 21a2 2 0 01-3.46 0" />
-    </svg>
-  );
-}
-
-function SwitchIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M16 3h5v5" />
-      <path d="M8 21H3v-5" />
-      <path d="M21 3l-7 7" />
-      <path d="M3 21l7-7" />
     </svg>
   );
 }
@@ -122,15 +105,6 @@ function TeacherSidebar() {
 
 function StudentSidebar() {
   const location = useLocation();
-  const [openSubjects, setOpenSubjects] = useState<Record<SubjectKey, boolean>>({
-    hist: true,
-    sci: false,
-    soc: false,
-  });
-
-  const toggleSubject = (key: SubjectKey) => {
-    setOpenSubjects((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   return (
     <nav className="sidebar-nav">
@@ -148,29 +122,18 @@ function StudentSidebar() {
         </div>
       ))}
 
-      <div className="nav-section-label">내 과목</div>
-      {STUDENT_SUBJECTS.map((subject) => (
-        <div key={subject.key} className="nav-subject-group">
-          <button
-            type="button"
-            className={`nav-subject-head${openSubjects[subject.key] ? ' open' : ''}`}
-            onClick={() => toggleSubject(subject.key)}
-          >
-            <span>{subject.name}</span>
-            <span className="nav-chevron">▾</span>
-          </button>
-          <div className={`nav-sub-items${openSubjects[subject.key] ? ' show' : ''}`}>
-            {subject.activities.map((activity) => (
-              <Link
-                key={activity.path}
-                to={activity.path}
-                className={`nav-sub-item${location.pathname === activity.path ? ' active' : ''}`}
-              >
-                {activity.title}
-              </Link>
-            ))}
-          </div>
-        </div>
+      <div className="nav-section-label">학습 모드</div>
+      {STUDENT_LEARNING_MODES.map((mode) => (
+        <Link
+          key={mode.path}
+          to={mode.path}
+          className={`nav-sub-item mode-nav-item${location.pathname === mode.path || location.pathname.endsWith(`/stage/${mode.stage}`) ? ' active' : ''}`}
+        >
+          <span className="mode-nav-icon" aria-hidden="true">
+            {mode.icon}
+          </span>
+          <span className="mode-nav-label">{mode.module}</span>
+        </Link>
       ))}
     </nav>
   );
@@ -179,19 +142,17 @@ function StudentSidebar() {
 function resolvePageTitle(pathname: string): string {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
 
-  const stageMatch = pathname.match(/^\/student\/(hist|sci|soc)\/stage\/(\d)$/);
-  if (stageMatch) {
-    const subject = STUDENT_SUBJECTS.find((s) => s.key === stageMatch[1]);
-    const stage = Number(stageMatch[2]);
-    const activity = subject?.activities.find((a) => a.stage === stage);
-    return activity?.title ?? '활동';
+  const modeMatch = pathname.match(/^\/student\/(?:(?:hist|sci|soc)\/)?stage\/(\d)$/);
+  if (modeMatch) {
+    const mode = learningModeByStage(Number(modeMatch[1]));
+    return mode?.module ?? '학습 모드';
   }
 
   return '페이지';
 }
 
 export function AppLayout() {
-  const { user, switchRole, logout } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -206,12 +167,6 @@ export function AppLayout() {
   const userSub = isTeacher
     ? `${user.subject ?? '한국사'} · 전체 학급`
     : (user.className ?? '3학년 2반');
-
-  const handleSwitchRole = () => {
-    if (!user.isDemo) return;
-    switchRole();
-    navigate(user.role === 'teacher' ? '/student' : '/teacher');
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -258,17 +213,6 @@ export function AppLayout() {
               </div>
               <div className="user-sub">{userSub}</div>
             </div>
-            <button
-              type="button"
-              className="switch-btn"
-              title={user.isDemo ? '역할 전환 (데모)' : '역할 전환'}
-              aria-label="역할 전환"
-              onClick={handleSwitchRole}
-              disabled={!user.isDemo}
-              style={user.isDemo ? undefined : { opacity: 0.35, cursor: 'not-allowed' }}
-            >
-              <SwitchIcon />
-            </button>
           </div>
         </div>
       </aside>

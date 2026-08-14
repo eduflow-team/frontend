@@ -50,7 +50,6 @@ export interface Stage1AssignmentDetailResponse {
   best_parameters: Stage1Parameters | null;
   document_filename?: string | null;
   document_text?: string | null;
-  due_at?: string | null;
   subject?: string | null;
 }
 

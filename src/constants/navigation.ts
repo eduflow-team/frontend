@@ -1,4 +1,4 @@
-import type { NavSection, StudentSubject } from '../types';
+import type { LearningMode, NavSection, StudentSubject } from '../types';
 
 export const TEACHER_NAV: NavSection[] = [
   {
@@ -60,103 +60,60 @@ export const STUDENT_NAV: NavSection[] = [
   },
 ];
 
+/** 학생 학습 모드 (사이드바·홈 카드) */
+export const STUDENT_LEARNING_MODES: LearningMode[] = [
+  {
+    stage: 1,
+    module: 'RAG 체험',
+    content: 'AI 동작 원리 및 파라미터 이해',
+    tag: '동작 이해',
+    path: '/student/stage/1',
+    icon: '◇',
+  },
+  {
+    stage: 2,
+    module: 'Hallucination 탐지',
+    content: 'AI 환각 탐지 및 Fact-check',
+    tag: '검증',
+    path: '/student/stage/2',
+    icon: '◎',
+  },
+  {
+    stage: 3,
+    module: 'AI 토론',
+    content: 'Multi-Agent 토론 및 비판적 사고',
+    tag: '판단',
+    path: '/student/stage/3',
+    icon: '⬡',
+  },
+  {
+    stage: 4,
+    module: '보안 강화',
+    content: '프롬프트 연습',
+    tag: '윤리',
+    path: '/student/stage/4',
+    icon: '▣',
+  },
+];
+
+/** 기존 과목 경로 호환 — 학습모드로 연결 */
 export const STUDENT_SUBJECTS: StudentSubject[] = [
   {
     key: 'hist',
-    name: '한국사',
-    activities: [
-      {
-        id: 's-stage1',
-        stage: 1,
-        title: '조선 시대 장영실의 과학 기술 업적',
-        path: '/student/hist/stage/1',
-      },
-      {
-        id: 's-stage2',
-        stage: 2,
-        title: 'AI가 틀린 역사 답변 찾기',
-        path: '/student/hist/stage/2',
-      },
-      {
-        id: 's-stage3',
-        stage: 3,
-        title: 'AI와 역사 해석 토론',
-        path: '/student/hist/stage/3',
-      },
-      {
-        id: 's-stage4',
-        stage: 4,
-        title: '역사 자료 AI 보안 체험',
-        path: '/student/hist/stage/4',
-      },
-    ],
-  },
-  {
-    key: 'sci',
-    name: '과학',
-    activities: [
-      {
-        id: 's-stage1',
-        stage: 1,
-        title: '식물의 광합성 — AI 답변 실험',
-        path: '/student/sci/stage/1',
-      },
-      {
-        id: 's-stage2',
-        stage: 2,
-        title: '광합성 AI 오류 찾기',
-        path: '/student/sci/stage/2',
-      },
-      {
-        id: 's-stage3',
-        stage: 3,
-        title: 'AI와 과학 실험 토론',
-        path: '/student/sci/stage/3',
-      },
-      {
-        id: 's-stage4',
-        stage: 4,
-        title: '실험 데이터 AI 보안 체험',
-        path: '/student/sci/stage/4',
-      },
-    ],
-  },
-  {
-    key: 'soc',
-    name: '사회',
-    activities: [
-      {
-        id: 's-stage1',
-        stage: 1,
-        title: '민주주의의 발전 — AI 답변 분석',
-        path: '/student/soc/stage/1',
-      },
-      {
-        id: 's-stage2',
-        stage: 2,
-        title: 'AI가 틀린 사회 답변 찾기',
-        path: '/student/soc/stage/2',
-      },
-      {
-        id: 's-stage3',
-        stage: 3,
-        title: 'AI와 시민 교육 토론',
-        path: '/student/soc/stage/3',
-      },
-      {
-        id: 's-stage4',
-        stage: 4,
-        title: '선거 정보 AI 보안 체험',
-        path: '/student/soc/stage/4',
-      },
-    ],
+    name: '학습',
+    activities: STUDENT_LEARNING_MODES.map((m) => ({
+      id: `s-stage${m.stage}`,
+      stage: m.stage,
+      title: m.module,
+      path: m.path,
+    })),
   },
 ];
 
 export const PAGE_TITLES: Record<string, string> = {
   '/teacher': '홈',
-  '/teacher/stage/1': '1단계 · AI 학습 원리',
-  '/teacher/stage/2': '2단계 · Hallucination Detective',
+  '/teacher/stage/1': '1단계 과제 출제',
+  '/teacher/stage/2': '2단계 과제 출제',
   '/teacher/stage/3': '3단계 과제 출제',
   '/teacher/stage/4': '4단계 과제 출제',
   '/teacher/materials': '자료 관리',
@@ -169,11 +126,19 @@ export const PAGE_TITLES: Record<string, string> = {
   '/student/results': '점수',
   '/student/attendance': '출석',
   '/student/notices': '공지사항',
+  '/student/stage/1': 'RAG 체험',
+  '/student/stage/2': 'Hallucination 탐지',
+  '/student/stage/3': 'AI 토론',
+  '/student/stage/4': '보안 강화',
 };
 
 export const STAGE_TITLES: Record<number, string> = {
-  1: 'AI는 어떻게 학습하고 답할까?',
-  2: '환각 탐정 — AI 답변 사건 조사',
-  3: 'AI 관점 비교 토론',
-  4: 'AI 보안 실습',
+  1: 'AI 동작 원리 및 파라미터 이해',
+  2: 'AI 환각 탐지 및 Fact-check',
+  3: 'Multi-Agent 토론 및 비판적 사고',
+  4: '프롬프트 연습',
 };
+
+export function learningModeByStage(stage: number) {
+  return STUDENT_LEARNING_MODES.find((m) => m.stage === stage);
+}

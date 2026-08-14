@@ -55,14 +55,14 @@ function Grounds({ turn }: { turn: Stage3Turn }) {
 }
 
 /** stage3_ui 학생 토론장 */
-export function StudentStage3Activity() {
+export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGuide?: boolean }) {
   const assignment = readStage3Assignment();
   const [debate, setDebate] = useState<Stage3Debate>(() => cloneSampleDebate(assignment));
   const [floor, setFloor] = useState<FloorItem[]>([]);
   const [idx, setIdx] = useState(-1);
   const [decisions, setDecisions] = useState<Record<string, boolean>>({});
   const [phase, setPhase] = useState<Phase>('guide');
-  const [guideOpen, setGuideOpen] = useState(true);
+  const [guideOpen, setGuideOpen] = useState(!skipIntroGuide);
   const [orderOpen, setOrderOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [langLabel, setLangLabel] = useState('연결 확인 중');
@@ -127,6 +127,13 @@ export function StudentStage3Activity() {
     setPhase('decide');
     setStarting(false);
   };
+
+  useEffect(() => {
+    if (!skipIntroGuide) return;
+    void begin();
+    // 공통 플로우에서 이미 안내 팝업을 봤으므로 바로 토론 시작
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skipIntroGuide]);
 
   const decide = (checked: boolean) => {
     if (!currentTurn || phase !== 'decide') return;

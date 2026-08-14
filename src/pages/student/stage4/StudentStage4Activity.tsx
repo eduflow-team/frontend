@@ -25,7 +25,7 @@ function Toast({ message }: { message: string }) {
 }
 
 /** stage4_ui 학생 — 비밀 키 지키기 */
-export function StudentStage4Activity() {
+export function StudentStage4Activity({ skipIntroGuide = false }: { skipIntroGuide?: boolean }) {
   const assign = readStage4Assignment();
   const [levelIndex, setLevelIndex] = useState(0);
   const [indexInLevel, setIndexInLevel] = useState(0);
@@ -48,7 +48,7 @@ export function StudentStage4Activity() {
     showNext: boolean;
     showRetry: boolean;
   }>({ show: false, title: '', sub: '', showNext: false, showRetry: false });
-  const [guideOpen, setGuideOpen] = useState(true);
+  const [guideOpen, setGuideOpen] = useState(!skipIntroGuide);
   const [orderOpen, setOrderOpen] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -95,6 +95,15 @@ export function StudentStage4Activity() {
     setReply('');
     setTimeout(() => postAttack(lv, 0), 0);
   };
+
+  useEffect(() => {
+    if (!skipIntroGuide || started) return;
+    setGuideOpen(false);
+    setStarted(true);
+    startLevel(false, 0);
+    // 공통 플로우에서 이미 안내 팝업을 봤으므로 바로 방어 시작
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skipIntroGuide]);
 
   const finishLevel = (nextTurns: Stage4Turn[], lv: Stage4Level, lvIdx: number) => {
     const group = nextTurns.filter((t) => t.level === lv && t.reply);

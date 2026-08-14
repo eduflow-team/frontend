@@ -3,16 +3,15 @@ import { useParams } from 'react-router-dom';
 import {
   ApiError,
   createTeacherAssignmentStep1Api,
-  createTeacherAssignmentStep2Api,
   fetchClassesApi,
 } from '../../api';
-import type { ClassItem, HallucinationType, Stage2CreateResponse } from '../../api/types';
+import type { ClassItem } from '../../api/types';
 import { STAGE1_CHUNK_SIZE_PRESETS } from '../../api/types';
-import { PageHero, PlaceholderCard } from '../../components/common';
-import { HALLUCINATION_LABELS, SUBJECT_OPTIONS } from '../../constants/assignments';
+import { SUBJECT_OPTIONS } from '../../constants/assignments';
 import { useAuth } from '../../contexts/AuthContext';
 import { defaultDueAtLocal, formatDueAt, localDateTimeToIso } from '../../utils/datetime';
 import { formatClassLabel } from '../../utils/labels';
+import { TeacherStage2Form } from './stage2/TeacherStage2Form';
 import { TeacherStage3Form } from './stage3/TeacherStage3Form';
 import { TeacherStage4Form } from './stage4/TeacherStage4Form';
 
@@ -23,17 +22,15 @@ const STAGE_DESCRIPTIONS: Record<string, string> = {
   '4': 'AI 보안 실습 시나리오를 배포합니다.',
 };
 
-const HALLUCINATION_OPTIONS: HallucinationType[] = [
-  'PERSONA_BIAS',
-  'INFORMATION_FABRICATION',
-  'RETRIEVAL_ERROR',
-];
-
 export function TeacherStagePage() {
   const { stage } = useParams<{ stage: string }>();
   const stageNum = stage ?? '1';
   const { user } = useAuth();
-  const useApi = Boolean(user && !user.isDemo && (stageNum === '1' || stageNum === '2'));
+  const useApi = Boolean(user && !user.isDemo && stageNum === '1');
+
+  if (stageNum === '2') {
+    return <TeacherStage2Form />;
+  }
 
   if (stageNum === '3') {
     return <TeacherStage3Form />;
@@ -45,20 +42,34 @@ export function TeacherStagePage() {
 
   if (!useApi) {
     return (
-      <>
-        <PageHero
-          title={`${stageNum}단계 과제 출제`}
-          description={STAGE_DESCRIPTIONS[stageNum] ?? ''}
-        />
-        <PlaceholderCard
-          title={`${stageNum}단계 과제 편집 영역`}
-          message="실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요."
-        />
-      </>
+      <div className="s1">
+        <div className="shell">
+          <nav className="steps" aria-label="진행 단계">
+            <div className="step" aria-current="step">
+              과제 만들기
+            </div>
+            <div className="step">학생 학습</div>
+            <div className="step">결과 확인</div>
+          </nav>
+          <h1 className="page-title">1단계 과제 출제</h1>
+          <p className="page-desc">{STAGE_DESCRIPTIONS['1']}</p>
+          <div className="info-card">
+            <div className="info-card-head">
+              <span className="info-icon" aria-hidden="true">
+                ◇
+              </span>
+              <p className="side-title">1단계 과제 편집 영역</p>
+            </div>
+            <p className="mission-text">
+              실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요.
+            </p>
+          </div>
+        </div>
+      </div>
     );
   }
 
-  return stageNum === '1' ? <TeacherStage1Form /> : <TeacherStage2Form />;
+  return <TeacherStage1Form />;
 }
 
 function formatStage1CreateError(err: unknown): { message: string; canRetry: boolean } {
@@ -181,256 +192,49 @@ function TeacherStage1Form() {
   };
 
   return (
-    <>
-      <PageHero title="1단계 과제 출제" description={STAGE_DESCRIPTIONS['1']} />
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">1단계 · 답 실험 업로드</span>
-        </div>
-        <div className="card-body">
-          <form onSubmit={handleSubmit}>
-            <p style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 14, lineHeight: 1.5 }}>
-              학습 자료를 업로드하면 AI가 학생용 문제를 만들고, 가이드라인은
-              &quot;오늘 학습 주제의 내용을 전체적으로 알려줘&quot;로 고정됩니다.
-            </p>
-            <div className="grid-2">
-              <div className="form-group">
-                <label className="form-label" htmlFor="s1-class">
-                  학급
-                </label>
-                <select
-                  id="s1-class"
-                  className="form-control"
-                  value={classId}
-                  onChange={(e) => setClassId(e.target.value === '' ? '' : Number(e.target.value))}
-                >
-                  <option value="">선택</option>
-                  {classes.map((c) => (
-                    <option key={c.class_id} value={c.class_id}>
-                      {formatClassLabel(c.grade, c.class_number)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="s1-subject">
-                  교과
-                </label>
-                <select
-                  id="s1-subject"
-                  className="form-control"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                >
-                  {SUBJECT_OPTIONS.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="form-group" style={{ maxWidth: 320 }}>
-              <label className="form-label" htmlFor="s1-due">
-                마감일
+    <div className="s1">
+      <div className="shell">
+        <nav className="steps" aria-label="진행 단계">
+          <div className="step" aria-current="step">
+            과제 만들기
+          </div>
+          <div className="step">학생 실험</div>
+          <div className="step">제출·점수</div>
+        </nav>
+
+        <h1 className="page-title">답 실험 과제 만들기</h1>
+        <p className="page-desc">
+          학습 자료를 업로드하면 AI가 학생용 문제를 만들고, 가이드라인은 &quot;오늘 학습 주제의 내용을
+          전체적으로 알려줘&quot;로 고정됩니다.
+        </p>
+
+        <form className="stack" onSubmit={handleSubmit}>
+          <div className="row-2">
+            <div className="field-group">
+              <label className="label" htmlFor="s1-class">
+                학급
               </label>
-              <input
-                id="s1-due"
-                className="form-control"
-                type="datetime-local"
-                required
-                value={dueAt}
-                onChange={(e) => setDueAt(e.target.value)}
-              />
+              <select
+                id="s1-class"
+                className="field"
+                value={classId}
+                onChange={(e) => setClassId(e.target.value === '' ? '' : Number(e.target.value))}
+              >
+                <option value="">선택</option>
+                {classes.map((c) => (
+                  <option key={c.class_id} value={c.class_id}>
+                    {formatClassLabel(c.grade, c.class_number)}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 12 }}>
-              <div className="form-group">
-                <label className="form-label" htmlFor="s1-chunk">
-                  기본 chunk_size
-                </label>
-                <select
-                  id="s1-chunk"
-                  className="form-control"
-                  value={chunkSize}
-                  onChange={(e) => setChunkSize(Number(e.target.value))}
-                >
-                  {STAGE1_CHUNK_SIZE_PRESETS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="s1-topk">
-                  기본 top_k
-                </label>
-                <input
-                  id="s1-topk"
-                  className="form-control"
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={topK}
-                  onChange={(e) => setTopK(Number(e.target.value))}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="s1-temp">
-                  기본 temperature
-                </label>
-                <input
-                  id="s1-temp"
-                  className="form-control"
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  value={temperature}
-                  onChange={(e) => setTemperature(Number(e.target.value))}
-                />
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="s1-file">
-                학습 문서 (pdf / txt / md, 최대 10MB)
-              </label>
-              <input
-                id="s1-file"
-                className="form-control"
-                type="file"
-                accept=".pdf,.txt,.md,.markdown"
-                onChange={(e) => {
-                  setFile(e.target.files?.[0] ?? null);
-                  setError('');
-                  setCanRetry(false);
-                  setMessage('');
-                }}
-              />
-            </div>
-            {error && (
-              <div className="inline-alert error" role="alert">
-                <p style={{ margin: 0 }}>{error}</p>
-                {canRetry && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    style={{ marginTop: 10 }}
-                    disabled={submitting || !file}
-                    onClick={() => void uploadAssignment()}
-                  >
-                    {submitting ? '재시도 중…' : '다시 시도'}
-                  </button>
-                )}
-              </div>
-            )}
-            {message && (
-              <p className="inline-alert ok" style={{ whiteSpace: 'pre-wrap' }}>
-                {message}
-              </p>
-            )}
-            <button type="submit" className="btn btn-primary btn-cta" disabled={submitting}>
-              {submitting ? '문서 임베딩·업로드 중…' : '업로드하기'}
-            </button>
-            {submitting && (
-              <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 8 }}>
-                문서 청크를 여러 preset으로 임베딩하는 중이라 최대 1~2분 걸릴 수 있습니다.
-              </p>
-            )}
-          </form>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function TeacherStage2Form() {
-  const [title, setTitle] = useState('2단계: 의도적 환각 비판적 검증 (장영실 편)');
-  const [subject, setSubject] = useState('hist');
-  const [question, setQuestion] = useState('장영실의 발명품에 대해 설명해줘.');
-  const [persona, setPersona] = useState(
-    '장영실이 연을 만들었다고 믿고, 자격루를 서양 기술이라고 주장하는 선생님',
-  );
-  const [dueAt, setDueAt] = useState(defaultDueAtLocal);
-  const [types, setTypes] = useState<HallucinationType[]>([
-    'PERSONA_BIAS',
-    'RETRIEVAL_ERROR',
-  ]);
-  const [errorCount, setErrorCount] = useState(2);
-  const [file, setFile] = useState<File | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [preview, setPreview] = useState<Stage2CreateResponse | null>(null);
-
-  const toggleType = (t: HallucinationType) => {
-    setTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage('');
-    setError('');
-    setPreview(null);
-    if (!title.trim() || !question.trim() || !persona.trim() || !types.length || !file) {
-      setError('제목, 질문, 페르소나, 환각 유형, 파일을 모두 입력해 주세요.');
-      return;
-    }
-    if (!dueAt) {
-      setError('마감일을 입력해 주세요.');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await createTeacherAssignmentStep2Api({
-        title: title.trim(),
-        subject,
-        question: question.trim(),
-        persona: persona.trim().slice(0, 100),
-        due_at: localDateTimeToIso(dueAt),
-        hallucination_types: types,
-        expected_error_count: errorCount,
-        file,
-      });
-      setPreview(res);
-      setMessage(
-        `과제가 업로드되었습니다. (assignment_id: ${res.assignment_id})` +
-          ` · 마감 ${formatDueAt(res.due_at) || formatDueAt(localDateTimeToIso(dueAt))}`,
-      );
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '업로드에 실패했습니다.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <>
-      <PageHero title="2단계 과제 출제" description={STAGE_DESCRIPTIONS['2']} />
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">2단계 · 틀린 말 찾기 업로드</span>
-        </div>
-        <div className="card-body">
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="s2-title">
-                제목
-              </label>
-              <input
-                id="s2-title"
-                className="form-control"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="s2-subject">
+            <div className="field-group">
+              <label className="label" htmlFor="s1-subject">
                 교과
               </label>
               <select
-                id="s2-subject"
-                className="form-control"
+                id="s1-subject"
+                className="field"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
               >
@@ -441,123 +245,123 @@ function TeacherStage2Form() {
                 ))}
               </select>
             </div>
-            <div className="form-group" style={{ maxWidth: 320 }}>
-              <label className="form-label" htmlFor="s2-due">
-                마감일
+          </div>
+
+          <div className="field-group" style={{ maxWidth: 320 }}>
+            <label className="label" htmlFor="s1-due">
+              마감일
+            </label>
+            <input
+              id="s1-due"
+              className="field"
+              type="datetime-local"
+              required
+              value={dueAt}
+              onChange={(e) => setDueAt(e.target.value)}
+            />
+          </div>
+
+          <div className="params">
+            <div className="param">
+              <label className="label" htmlFor="s1-chunk">
+                기본 chunk_size
               </label>
-              <input
-                id="s2-due"
-                className="form-control"
-                type="datetime-local"
-                required
-                value={dueAt}
-                onChange={(e) => setDueAt(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="s2-question">
-                질문
-              </label>
-              <input
-                id="s2-question"
-                className="form-control"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="s2-persona">
-                페르소나 (최대 100자)
-              </label>
-              <textarea
-                id="s2-persona"
-                className="form-control"
-                rows={2}
-                maxLength={100}
-                value={persona}
-                onChange={(e) => setPersona(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <span className="form-label">환각 유형</span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
-                {HALLUCINATION_OPTIONS.map((t) => (
-                  <label key={t} style={{ fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      checked={types.includes(t)}
-                      onChange={() => toggleType(t)}
-                    />
-                    {HALLUCINATION_LABELS[t]}
-                  </label>
+              <select
+                id="s1-chunk"
+                className="field"
+                value={chunkSize}
+                onChange={(e) => setChunkSize(Number(e.target.value))}
+              >
+                {STAGE1_CHUNK_SIZE_PRESETS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
-            <div className="form-group" style={{ maxWidth: 200 }}>
-              <label className="form-label" htmlFor="s2-count">
-                찾을 오류 개수 (1~5)
+            <div className="param">
+              <label className="label" htmlFor="s1-topk">
+                기본 top_k
               </label>
               <input
-                id="s2-count"
-                className="form-control"
+                id="s1-topk"
+                className="field"
                 type="number"
                 min={1}
-                max={5}
-                value={errorCount}
-                onChange={(e) => setErrorCount(Number(e.target.value))}
+                max={50}
+                value={topK}
+                onChange={(e) => setTopK(Number(e.target.value))}
               />
             </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="s2-file">
-                참고 문서 (pdf / txt / md)
+            <div className="param">
+              <label className="label" htmlFor="s1-temp">
+                기본 temperature
               </label>
               <input
-                id="s2-file"
-                className="form-control"
-                type="file"
-                accept=".pdf,.txt,.md,.markdown"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                id="s1-temp"
+                className="field"
+                type="number"
+                min={0}
+                max={1}
+                step={0.1}
+                value={temperature}
+                onChange={(e) => setTemperature(Number(e.target.value))}
               />
             </div>
-            {error && <p className="inline-alert error">{error}</p>}
-            {message && <p className="inline-alert ok">{message}</p>}
-            <button type="submit" className="btn btn-primary btn-cta" disabled={submitting}>
-              {submitting ? '생성 중…' : '업로드하기'}
-            </button>
-          </form>
-        </div>
-      </div>
+          </div>
 
-      {preview && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="card-header">
-            <span className="card-title">교사 미리보기 (학생에게는 비공개)</span>
+          <div className="field-group">
+            <label className="label" htmlFor="s1-file">
+              학습 문서 (pdf / txt / md, 최대 10MB)
+            </label>
+            <input
+              id="s1-file"
+              className="field"
+              type="file"
+              accept=".pdf,.txt,.md,.markdown"
+              onChange={(e) => {
+                setFile(e.target.files?.[0] ?? null);
+                setError('');
+                setCanRetry(false);
+                setMessage('');
+              }}
+            />
           </div>
-          <div className="card-body">
-            <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 12 }}>
-              <strong>AI 오답:</strong> {preview.flawed_ai_response}
+
+          {error && (
+            <div className="hint" role="alert" style={{ color: '#b91c1c' }}>
+              <p style={{ margin: 0 }}>{error}</p>
+              {canRetry && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ marginTop: 10 }}
+                  disabled={submitting || !file}
+                  onClick={() => void uploadAssignment()}
+                >
+                  {submitting ? '재시도 중…' : '다시 시도'}
+                </button>
+              )}
+            </div>
+          )}
+          {message && (
+            <p className="hint" style={{ whiteSpace: 'pre-wrap', color: '#15803d' }}>
+              {message}
             </p>
-            {preview.generated_errors.map((err) => (
-              <div
-                key={err.answer_id}
-                style={{
-                  padding: '10px 0',
-                  borderTop: '1px solid var(--border)',
-                  fontSize: 13,
-                }}
-              >
-                <div style={{ fontWeight: 600 }}>
-                  {HALLUCINATION_LABELS[err.error_type] ?? err.error_type}
-                </div>
-                <div style={{ marginTop: 4 }}>{err.error_sentence}</div>
-                <div style={{ color: 'var(--gray-500)', marginTop: 4 }}>
-                  정답 예: {err.correct_sentence}
-                </div>
-              </div>
-            ))}
+          )}
+
+          <div className="actions">
+            <button type="submit" className="btn btn-primary" disabled={submitting}>
+              {submitting ? '문서 임베딩·업로드 중…' : '과제 만들기'}
+            </button>
           </div>
-        </div>
-      )}
-    </>
+          {submitting && (
+            <p className="hint">
+              문서 청크를 여러 preset으로 임베딩하는 중이라 최대 1~2분 걸릴 수 있습니다.
+            </p>
+          )}
+        </form>
+      </div>
+    </div>
   );
 }

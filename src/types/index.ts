@@ -36,3 +36,14 @@ export interface StudentSubject {
   name: string;
   activities: StudentActivity[];
 }
+
+/** 학생 학습 모드 (과목 대신 시나리오 단위) */
+export interface LearningMode {
+  stage: number;
+  module: string;
+  content: string;
+  tag: string;
+  path: string;
+  icon: string;
+}
+

@@ -4,8 +4,8 @@ import {
   ApiError,
   fetchStudentAttendanceApi,
   fetchStudentDashboardAssignmentsApi,
+  fetchStudentDashboardSummaryApi,
   fetchStudentNoticesApi,
-  fetchStudentRecordsApi,
   getStudentStep1Api,
   postStudentStep1ChatApi,
   postStudentStep1SubmitApi,
@@ -17,231 +17,184 @@ import type {
 } from '../../api/types';
 import { STAGE1_CHUNK_SIZE_PRESETS } from '../../api/types';
 import { ApiStateBody, PageHero, PlaceholderCard } from '../../components/common';
-import { STAGE_TITLES, STUDENT_SUBJECTS } from '../../constants/navigation';
+import {
+  AssignmentSelectPanel,
+  toSelectableAssignments,
+  type SelectableAssignment,
+} from '../../components/student/AssignmentSelectPanel';
+import { HexLiteracyRadar } from '../../components/student/HexLiteracyRadar';
+import { StageGuideModal } from '../../components/student/StageGuideModal';
+import {
+  LITERACY_AXES,
+  STAGE_SCENARIO_LABELS,
+  averageLiteracyScore,
+  axisLabelsForStage,
+  deriveLiteracyScores,
+} from '../../constants/literacyAxes';
+import { STAGE_TITLES, learningModeByStage } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
-import type { SubjectKey } from '../../types';
-import { PROGRESS_LABELS } from '../../utils/labels';
-import { StudentStage2Activity } from './stage2/StudentStage2Activity';
+import { STUDENT_DASHBOARD_DEMO } from '../../mocks/studentDashboard';
+import { StudentStage2Activity, STAGE2_DEMO_ASSIGNMENT_ID } from './stage2/StudentStage2Activity';
 import { StudentStage3Activity } from './stage3/StudentStage3Activity';
 import { StudentStage4Activity } from './stage4/StudentStage4Activity';
 
+type StageFlowPhase = 'guide' | 'select' | 'learn';
+
 export function StudentStagePage() {
-  const { subject, stage } = useParams<{ subject: SubjectKey; stage: string }>();
+  const { stage } = useParams<{ subject?: string; stage: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const subjectData = STUDENT_SUBJECTS.find((s) => s.key === subject);
   const stageNum = Number(stage);
-  const activity = subjectData?.activities.find((a) => a.stage === stageNum);
-  const useStageApi = Boolean(user && !user.isDemo && (stageNum === 1 || stageNum === 2));
+  const mode = learningModeByStage(stageNum);
 
   const assignmentIdParam = searchParams.get('assignmentId');
   const [assignmentIdInput, setAssignmentIdInput] = useState(assignmentIdParam ?? '');
-  const [activeId, setActiveId] = useState<string | null>(assignmentIdParam);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [phase, setPhase] = useState<StageFlowPhase>('guide');
 
-  const assignments = useFetch(fetchStudentDashboardAssignmentsApi, [], useStageApi);
+  const useAssignmentsApi = Boolean(user && !user.isDemo);
+  const assignments = useFetch(fetchStudentDashboardAssignmentsApi, [], useAssignmentsApi);
+
+  useEffect(() => {
+    setPhase('guide');
+    setActiveId(null);
+    setAssignmentIdInput(assignmentIdParam ?? '');
+  }, [stageNum]);
 
   useEffect(() => {
     if (assignmentIdParam) {
-      setActiveId(assignmentIdParam);
       setAssignmentIdInput(assignmentIdParam);
     }
   }, [assignmentIdParam]);
 
-  if (!subjectData || !activity || Number.isNaN(stageNum) || stageNum < 1 || stageNum > 4) {
+  if (!mode || Number.isNaN(stageNum) || stageNum < 1 || stageNum > 4) {
     return <Navigate to="/student" replace />;
-  }
-
-  if (stageNum === 3) {
-    return <StudentStage3Activity />;
-  }
-
-  if (stageNum === 4) {
-    return <StudentStage4Activity />;
-  }
-
-  if (!useStageApi) {
-    return (
-      <>
-        <PageHero
-          title={activity.title}
-          description={`${subjectData.name} · ${STAGE_TITLES[stageNum]}`}
-        />
-        <PlaceholderCard
-          title={`${stageNum}단계 학습 활동`}
-          message={
-            stageNum === 1 || stageNum === 2
-              ? `${stageNum}단계는 실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요.`
-              : '해당 단계 API는 백엔드에 아직 없습니다.'
-          }
-        />
-      </>
-    );
   }
 
   const selectAssignment = (id: string) => {
     setActiveId(id);
     setAssignmentIdInput(id);
     setSearchParams({ assignmentId: id });
+    setPhase('learn');
   };
 
-  /* Stage 1 — API 연동 */
-  if (stageNum === 1) {
+  const apiList = toSelectableAssignments(assignments.data?.assignments, stageNum);
+  const selectableList: SelectableAssignment[] = (() => {
+    if (stageNum === 2 && user?.isDemo) {
+      return [
+        {
+          id: STAGE2_DEMO_ASSIGNMENT_ID,
+          title: 'Hallucination 탐지 데모 과제',
+          statusLabel: '데모',
+          meta: '샘플 문서로 검증 훈련을 시작합니다',
+        },
+        ...apiList,
+      ];
+    }
+    if (stageNum === 3) {
+      return [
+        {
+          id: 'sample-stage3',
+          title: 'AI 토론 샘플 과제',
+          statusLabel: '기본',
+          meta: 'Multi-Agent 토론 · 팩트체커 평가',
+        },
+        ...apiList,
+      ];
+    }
+    if (stageNum === 4) {
+      return [
+        {
+          id: 'sample-stage4',
+          title: '보안 강화 샘플 과제',
+          statusLabel: '기본',
+          meta: '프롬프트 방어 · 키 지키기',
+        },
+        ...apiList,
+      ];
+    }
+    return apiList;
+  })();
+
+  const emptyMessage =
+    stageNum <= 2
+      ? '배정된 과제가 없습니다. 아래에서 과제 ID를 직접 입력할 수 있습니다.'
+      : '배정된 과제가 없어 샘플 과제로 시작할 수 있습니다.';
+
+  /* ── Guide popup ── */
+  if (phase === 'guide') {
     return (
-      <div className="s1">
+      <div className="stage-assign-shell">
+        <StageGuideModal stage={stageNum} onContinue={() => setPhase('select')} />
+      </div>
+    );
+  }
+
+  /* ── Assignment select ── */
+  if (phase === 'select' || !activeId) {
+    return (
+      <div className="stage-assign-shell">
         <div className="shell wide">
-          <nav className="steps" aria-label="진행 단계">
-            <div className="step">자료 올리기</div>
-            <div className="step" aria-current="step">
-              학생 실험
-            </div>
-            <div className="step">제출·점수</div>
-          </nav>
-
-          {!activeId && (
-            <>
-              <h1 className="page-title">과제 선택</h1>
-              <p className="page-desc">
-                {subjectData.name} · {STAGE_TITLES[stageNum]} 실험을 시작할 과제를 고르세요.
-              </p>
-              <div className="stack">
-                <ApiStateBody
-                  loading={assignments.loading}
-                  error={assignments.error}
-                  isEmpty={!assignments.data?.assignments.length}
-                  emptyMessage="배정된 과제가 없습니다. 과제 ID를 직접 입력할 수 있습니다."
-                >
-                  <div className="entry-cards">
-                    {assignments.data?.assignments
-                      .filter((a) => a.stage == null || a.stage === 1)
-                      .map((a) => (
-                        <button
-                          key={a.assignment_id}
-                          type="button"
-                          className="entry-card"
-                          style={{ textAlign: 'left', cursor: 'pointer', width: '100%' }}
-                          onClick={() => selectAssignment(String(a.assignment_id))}
-                        >
-                          <h2>{a.title ?? `과제 #${a.assignment_id}`}</h2>
-                          <p>{a.status ? PROGRESS_LABELS[a.status] : '시작하기'}</p>
-                        </button>
-                      ))}
-                  </div>
-                </ApiStateBody>
-                <div className="field-group" style={{ maxWidth: 320 }}>
-                  <label className="label" htmlFor="assignment-id">
-                    과제 ID
-                  </label>
-                  <div className="actions" style={{ paddingTop: 0 }}>
-                    <input
-                      id="assignment-id"
-                      className="field"
-                      value={assignmentIdInput}
-                      onChange={(e) => setAssignmentIdInput(e.target.value)}
-                      placeholder="예: 101"
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => {
-                        if (assignmentIdInput.trim()) selectAssignment(assignmentIdInput.trim());
-                      }}
-                    >
-                      열기
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {activeId && <StudentStage1Activity assignmentId={activeId} />}
+          <AssignmentSelectPanel
+            moduleName={mode.module}
+            contentDesc={STAGE_TITLES[stageNum]}
+            loading={useAssignmentsApi && assignments.loading && selectableList.length === 0}
+            error={useAssignmentsApi ? assignments.error : null}
+            assignments={selectableList}
+            emptyMessage={emptyMessage}
+            idPlaceholder={stageNum === 2 ? '예: 111' : '예: 101'}
+            assignmentIdInput={assignmentIdInput}
+            onAssignmentIdInputChange={setAssignmentIdInput}
+            onSelect={selectAssignment}
+            showManualId={stageNum === 1 || stageNum === 2}
+          />
         </div>
       </div>
     );
   }
 
-  /* Stage 2 — API 연동 */
-  if (stageNum === 2) {
+  /* ── Learn ── */
+  if (stageNum === 1) {
+    if (user?.isDemo) {
+      return (
+        <>
+          <PageHero title={mode.module} description={STAGE_TITLES[1]} />
+          <PlaceholderCard
+            title={`${mode.module} 학습 활동`}
+            message="1단계는 실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요."
+          />
+        </>
+      );
+    }
     return (
-      <div className="s2">
-        {!activeId ? (
-          <div className="main-area">
-            <div className="container practice-wrap">
-              <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>과제 선택</h1>
-              <p className="work-intro-muted" style={{ marginBottom: 16 }}>
-                {subjectData.name} · {STAGE_TITLES[stageNum]} 검증 훈련을 시작할 과제를 고르세요.
-              </p>
-              <ApiStateBody
-                loading={assignments.loading}
-                error={assignments.error}
-                isEmpty={!assignments.data?.assignments.length}
-                emptyMessage="배정된 과제가 없습니다. 과제 ID를 직접 입력할 수 있습니다."
-              >
-                <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
-                  {assignments.data?.assignments
-                    .filter((a) => a.stage == null || a.stage === 2)
-                    .map((a) => (
-                      <button
-                        key={a.assignment_id}
-                        type="button"
-                        className="btn btn-ghost"
-                        style={{ justifyContent: 'flex-start', textAlign: 'left', width: '100%' }}
-                        onClick={() => selectAssignment(String(a.assignment_id))}
-                      >
-                        <span>
-                          <strong>{a.title ?? `과제 #${a.assignment_id}`}</strong>
-                          <span className="verify-set-meta" style={{ marginLeft: 8 }}>
-                            {a.status ? PROGRESS_LABELS[a.status] : '시작하기'}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
-                </div>
-              </ApiStateBody>
-              <div
-                className="find-form"
-                style={{ position: 'static', borderTop: '1px solid var(--border)' }}
-              >
-                <label htmlFor="assignment-id-s2">과제 ID</label>
-                <div className="input-actions" style={{ marginTop: 8 }}>
-                  <input
-                    id="assignment-id-s2"
-                    value={assignmentIdInput}
-                    onChange={(e) => setAssignmentIdInput(e.target.value)}
-                    placeholder="예: 111"
-                    style={{ flex: 1, minWidth: 0 }}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-pill"
-                    onClick={() => {
-                      if (assignmentIdInput.trim()) selectAssignment(assignmentIdInput.trim());
-                    }}
-                  >
-                    열기
-                  </button>
-                </div>
-              </div>
+      <div className="s1">
+        <div className="shell wide">
+          <nav className="steps" aria-label="진행 단계">
+            <div className="step">설명</div>
+            <div className="step">과제 선택</div>
+            <div className="step" aria-current="step">
+              학습
             </div>
-          </div>
-        ) : (
-          <StudentStage2Activity assignmentId={activeId} />
-        )}
+            <div className="step">결과</div>
+          </nav>
+          <StudentStage1Activity assignmentId={activeId} />
+        </div>
       </div>
     );
   }
 
-  return (
-    <>
-      <PageHero
-        title={activity.title}
-        description={`${subjectData.name} · ${STAGE_TITLES[stageNum]}`}
-      />
-      <PlaceholderCard title={`${stageNum}단계 학습 활동`} message="준비 중입니다." />
-    </>
-  );
+  if (stageNum === 2) {
+    return <StudentStage2Activity assignmentId={activeId} />;
+  }
+
+  if (stageNum === 3) {
+    return <StudentStage3Activity skipIntroGuide />;
+  }
+
+  return <StudentStage4Activity skipIntroGuide />;
 }
+
 
 
 interface Stage1AiMessage {
@@ -733,60 +686,95 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
 
 export function StudentResultsPage() {
   const { user } = useAuth();
-  const useApi = user && !user.isDemo;
-  const { data, loading, error } = useFetch(fetchStudentRecordsApi, [], Boolean(useApi));
+  const useApi = Boolean(user && !user.isDemo);
+  const summary = useFetch(fetchStudentDashboardSummaryApi, [], useApi);
 
-  if (!useApi) {
-    return (
-      <>
-        <PageHero title="점수" description="과목별 · 단계별 점수를 확인합니다." />
-        <PlaceholderCard title="점수표" />
-      </>
-    );
-  }
+  const demoAxes = STUDENT_DASHBOARD_DEMO.axes;
+  const axes = (() => {
+    if (!useApi || !summary.data) return demoAxes;
+    return deriveLiteracyScores(summary.data.stage_summary);
+  })();
+  const total = averageLiteracyScore(axes) || summary.data?.total_score || 0;
 
   return (
-    <>
-      <PageHero
-        title="내가 배운 것"
-        description={`학급 평균 ${data?.class_total_average ?? 0}점`}
-      />
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">단계별 기록</span>
-        </div>
-        <div className="card-body">
-          <ApiStateBody
-            loading={loading}
-            error={error}
-            isEmpty={!data?.records.length}
-            emptyMessage="아직 학습 기록이 없습니다."
-          >
-            {data?.records.map((record) => (
-              <div
-                key={record.stage}
-                style={{
-                  padding: '12px 0',
-                  borderBottom: '1px solid var(--border)',
-                }}
-              >
-                <div style={{ fontWeight: 600, fontSize: 14 }}>
-                  {record.title ?? `${record.stage}단계`}
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--gray-500)', marginTop: 4 }}>
-                  최고 {record.highest_score ?? '-'}점 · {record.attempts_count}회 시도
-                </div>
-                {record.ai_feedback && (
-                  <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.5 }}>
-                    {record.ai_feedback}
-                  </div>
-                )}
+    <div className="s-dash">
+      <div className="shell wide">
+        <section className="dash-hero">
+          <div className="dash-intro">
+            <p className="done-eyebrow">울산형 AI 리터러시</p>
+            <h1 className="page-title">나의 점수</h1>
+            <p className="page-desc dash-intro-desc">
+              학습 모드를 풀면 연결된 리터러시 축 점수가 올라갑니다.
+            </p>
+          </div>
+          <div className="dash-total">
+            <p className="dash-total-label">전체 AI 리터러시</p>
+            <div className="dash-ring" aria-hidden="true">
+              <svg viewBox="0 0 120 120" className="dash-ring-svg">
+                <circle className="dash-ring-track" cx="60" cy="60" r="52" />
+                <circle
+                  className="dash-ring-value"
+                  cx="60"
+                  cy="60"
+                  r="52"
+                  style={{ ['--p' as string]: String(total) }}
+                />
+              </svg>
+              <div className="dash-ring-score">
+                <strong>{total}</strong>
+                <span>점</span>
               </div>
-            ))}
-          </ApiStateBody>
+            </div>
+            <p className="dash-total-meta">6축 평균 · 미이수 제외</p>
+          </div>
+        </section>
+
+        <div className="dash-layout">
+          <section className="info-card dash-hex-card">
+            <div className="info-card-head">
+              <span className="info-icon" aria-hidden="true">
+                ⬡
+              </span>
+              <p className="side-title">육각 점수판</p>
+            </div>
+            <HexLiteracyRadar scores={axes} />
+            <ul className="hex-legend">
+              {LITERACY_AXES.map((axis) => {
+                const score = axes[axis.key];
+                return (
+                  <li key={axis.key}>
+                    <span className="axis-name">{axis.label}</span>
+                    <span className={`axis-score${score == null ? ' is-null' : ''}`}>
+                      {score == null ? '미이수' : `${score}점`}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+
+          <div className="dash-side">
+            <section className="info-card">
+              <div className="info-card-head">
+                <span className="info-icon" aria-hidden="true">
+                  ▤
+                </span>
+                <p className="side-title">학습기록</p>
+              </div>
+              <ul className="dash-map">
+                {[1, 2, 3, 4].map((stage) => (
+                  <li key={stage}>
+                    <span className="map-stage">{stage}</span>
+                    <strong>{STAGE_SCENARIO_LABELS[stage]}</strong>
+                    <span className="map-axes">{axisLabelsForStage(stage)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

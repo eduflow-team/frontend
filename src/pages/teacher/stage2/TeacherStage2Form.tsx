@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ApiError, createTeacherAssignmentStep2Api } from '../../../api';
 import type { Stage2CreateResponse } from '../../../api/types';
 import { SUBJECT_OPTIONS } from '../../../constants/assignments';
+import { defaultDueAtLocal, localDateTimeToIso } from '../../../utils/datetime';
 
 const HALLUCINATION_OPTIONS = [
   { value: 'RETRIEVAL_ERROR', label: '잘못된 문서 검색', defaultOn: true },
@@ -109,6 +110,7 @@ export function TeacherStage2Form() {
         subject,
         question: question.trim(),
         persona: persona.trim().slice(0, 100),
+        due_at: localDateTimeToIso(defaultDueAtLocal()),
         hallucination_types: [...hallucinationTypes],
         expected_error_count: errorCount,
         file: referenceFile,
@@ -134,32 +136,40 @@ export function TeacherStage2Form() {
 
   return (
     <div className="s2">
-      <div className="main-area teacher-page">
-        <div className="teacher-container">
-          <div className="teacher-header">
-            <h2>과제 출제 · 검증 훈련</h2>
+      <div className="shell teacher-shell">
+        <nav className="steps teacher-flow-steps" aria-label="진행 단계">
+          <div className="step" aria-current="step">
+            과제 만들기
           </div>
-          <p className="teacher-desc">
-            문서·페르소나·환각 유형을 단계별로 입력하면 AI가 의도적 오류를 포함한 답변을 생성합니다.
-          </p>
+          <div className="step">학생 검증 훈련</div>
+          <div className="step">결과 확인</div>
+        </nav>
 
-          <div className="teacher-card" style={{ marginBottom: 16, maxWidth: 320 }}>
-            <label htmlFor="s2-subject">담당 교과</label>
-            <select
-              id="s2-subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              disabled={previewing || accepted}
-            >
-              {SUBJECT_OPTIONS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <h1 className="page-title">검증 훈련 과제 만들기</h1>
+        <p className="page-desc">
+          문서·페르소나·환각 유형을 단계별로 입력하면 AI가 의도적 오류를 포함한 답변을 생성합니다.
+        </p>
 
-          <StepIndicator currentStep={step} previewing={previewing} accepted={accepted} />
+        <div className="teacher-subject-field">
+          <label className="label" htmlFor="s2-subject">
+            담당 교과
+          </label>
+          <select
+            id="s2-subject"
+            className="field"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            disabled={previewing || accepted}
+          >
+            {SUBJECT_OPTIONS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <StepIndicator currentStep={step} previewing={previewing} accepted={accepted} />
 
           {accepted && preview ? (
             <div className="teacher-success">
@@ -369,7 +379,6 @@ export function TeacherStage2Form() {
               </div>
             </>
           )}
-        </div>
       </div>
     </div>
   );
