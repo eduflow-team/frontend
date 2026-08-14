@@ -13,6 +13,8 @@ import { HALLUCINATION_LABELS, SUBJECT_OPTIONS } from '../../constants/assignmen
 import { useAuth } from '../../contexts/AuthContext';
 import { defaultDueAtLocal, formatDueAt, localDateTimeToIso } from '../../utils/datetime';
 import { formatClassLabel } from '../../utils/labels';
+import { TeacherStage3Form } from './stage3/TeacherStage3Form';
+import { TeacherStage4Form } from './stage4/TeacherStage4Form';
 
 const STAGE_DESCRIPTIONS: Record<string, string> = {
   '1': '학습 자료를 업로드하면 AI가 학생용 문제를 만들고, 가이드라인 질문은 고정됩니다.',
@@ -31,7 +33,15 @@ export function TeacherStagePage() {
   const { stage } = useParams<{ stage: string }>();
   const stageNum = stage ?? '1';
   const { user } = useAuth();
-  const useApi = user && !user.isDemo && (stageNum === '1' || stageNum === '2');
+  const useApi = Boolean(user && !user.isDemo && (stageNum === '1' || stageNum === '2'));
+
+  if (stageNum === '3') {
+    return <TeacherStage3Form />;
+  }
+
+  if (stageNum === '4') {
+    return <TeacherStage4Form />;
+  }
 
   if (!useApi) {
     return (
@@ -42,11 +52,7 @@ export function TeacherStagePage() {
         />
         <PlaceholderCard
           title={`${stageNum}단계 과제 편집 영역`}
-          message={
-            stageNum === '3' || stageNum === '4'
-              ? '3·4단계 API는 백엔드에 아직 없습니다.'
-              : '데모 모드에서는 과제 업로드 API를 호출하지 않습니다.'
-          }
+          message="실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요."
         />
       </>
     );

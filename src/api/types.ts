@@ -48,6 +48,10 @@ export interface Stage1AssignmentDetailResponse {
   attempts: Stage1AttemptsInfo;
   highest_score: number | null;
   best_parameters: Stage1Parameters | null;
+  document_filename?: string | null;
+  document_text?: string | null;
+  due_at?: string | null;
+  subject?: string | null;
 }
 
 export interface Stage1ChatRequest {

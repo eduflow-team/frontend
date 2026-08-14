@@ -7,53 +7,24 @@ import {
   fetchStudentNoticesApi,
   fetchStudentRecordsApi,
   getStudentStep1Api,
-  getStudentStep2Api,
   postStudentStep1ChatApi,
   postStudentStep1SubmitApi,
-  postStudentStep2CorrectionApi,
-  postStudentStep2HighlightApi,
 } from '../../api';
 import type {
-  HallucinationType,
   Stage1AssignmentDetailResponse,
   Stage1Parameters,
   Stage1SubmitResponse,
-  Stage2AssignmentDetailResponse,
-  Step2CorrectionResponse,
-  Step2HighlightResponse,
 } from '../../api/types';
 import { STAGE1_CHUNK_SIZE_PRESETS } from '../../api/types';
 import { ApiStateBody, PageHero, PlaceholderCard } from '../../components/common';
-import {
-  FALLBACK_HALLUCINATION_OPTIONS,
-  HALLUCINATION_LABELS,
-  STAGE1_FIXED_CHAT_PROMPT,
-  resolveStage1ChatPrompt,
-} from '../../constants/assignments';
 import { STAGE_TITLES, STUDENT_SUBJECTS } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import type { SubjectKey } from '../../types';
-import { formatDueAt } from '../../utils/datetime';
 import { PROGRESS_LABELS } from '../../utils/labels';
-
-interface ChatMessage {
-  role: 'user' | 'bot';
-  text: string;
-  meta?: string;
-}
-
-interface Stage3PrototypeResult {
-  topic: string;
-  pro_argument: string;
-  con_argument: string;
-  pro_claims_checked: { claim: string; verdict: string; reason: string }[];
-  con_claims_checked: { claim: string; verdict: string; reason: string }[];
-  reliable_points: string[];
-  unreliable_points: string[];
-  balanced_summary: string;
-  student_guide: string;
-}
+import { StudentStage2Activity } from './stage2/StudentStage2Activity';
+import { StudentStage3Activity } from './stage3/StudentStage3Activity';
+import { StudentStage4Activity } from './stage4/StudentStage4Activity';
 
 export function StudentStagePage() {
   const { subject, stage } = useParams<{ subject: SubjectKey; stage: string }>();
@@ -62,14 +33,13 @@ export function StudentStagePage() {
   const subjectData = STUDENT_SUBJECTS.find((s) => s.key === subject);
   const stageNum = Number(stage);
   const activity = subjectData?.activities.find((a) => a.stage === stageNum);
-  const useApi = user && !user.isDemo && (stageNum === 1 || stageNum === 2);
-  const isStage3Prototype = stageNum === 3;
+  const useStageApi = Boolean(user && !user.isDemo && (stageNum === 1 || stageNum === 2));
 
   const assignmentIdParam = searchParams.get('assignmentId');
   const [assignmentIdInput, setAssignmentIdInput] = useState(assignmentIdParam ?? '');
   const [activeId, setActiveId] = useState<string | null>(assignmentIdParam);
 
-  const assignments = useFetch(fetchStudentDashboardAssignmentsApi, [], Boolean(useApi));
+  const assignments = useFetch(fetchStudentDashboardAssignmentsApi, [], useStageApi);
 
   useEffect(() => {
     if (assignmentIdParam) {
@@ -82,7 +52,15 @@ export function StudentStagePage() {
     return <Navigate to="/student" replace />;
   }
 
-  if (!useApi && stageNum !== 3) {
+  if (stageNum === 3) {
+    return <StudentStage3Activity />;
+  }
+
+  if (stageNum === 4) {
+    return <StudentStage4Activity />;
+  }
+
+  if (!useStageApi) {
     return (
       <>
         <PageHero
@@ -90,11 +68,11 @@ export function StudentStagePage() {
           description={`${subjectData.name} · ${STAGE_TITLES[stageNum]}`}
         />
         <PlaceholderCard
-          title={`${stageNum}단계 학습 활동 UI`}
+          title={`${stageNum}단계 학습 활동`}
           message={
-            stageNum > 2
-              ? '3·4단계 API는 백엔드에 아직 없습니다.'
-              : '데모 모드이거나 API 연동 대상이 아닙니다.'
+            stageNum === 1 || stageNum === 2
+              ? `${stageNum}단계는 실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요.`
+              : '해당 단계 API는 백엔드에 아직 없습니다.'
           }
         />
       </>
@@ -107,15 +85,150 @@ export function StudentStagePage() {
     setSearchParams({ assignmentId: id });
   };
 
-  if (isStage3Prototype) {
+  /* Stage 1 — API 연동 */
+  if (stageNum === 1) {
     return (
-      <>
-        <PageHero
-          title={activity.title}
-          description={`${subjectData.name} · ${STAGE_TITLES[stageNum]}`}
-        />
-        <StudentStage3PrototypeActivity assignmentId={activeId ?? 'stage3-prototype'} />
-      </>
+      <div className="s1">
+        <div className="shell wide">
+          <nav className="steps" aria-label="진행 단계">
+            <div className="step">자료 올리기</div>
+            <div className="step" aria-current="step">
+              학생 실험
+            </div>
+            <div className="step">제출·점수</div>
+          </nav>
+
+          {!activeId && (
+            <>
+              <h1 className="page-title">과제 선택</h1>
+              <p className="page-desc">
+                {subjectData.name} · {STAGE_TITLES[stageNum]} 실험을 시작할 과제를 고르세요.
+              </p>
+              <div className="stack">
+                <ApiStateBody
+                  loading={assignments.loading}
+                  error={assignments.error}
+                  isEmpty={!assignments.data?.assignments.length}
+                  emptyMessage="배정된 과제가 없습니다. 과제 ID를 직접 입력할 수 있습니다."
+                >
+                  <div className="entry-cards">
+                    {assignments.data?.assignments
+                      .filter((a) => a.stage == null || a.stage === 1)
+                      .map((a) => (
+                        <button
+                          key={a.assignment_id}
+                          type="button"
+                          className="entry-card"
+                          style={{ textAlign: 'left', cursor: 'pointer', width: '100%' }}
+                          onClick={() => selectAssignment(String(a.assignment_id))}
+                        >
+                          <h2>{a.title ?? `과제 #${a.assignment_id}`}</h2>
+                          <p>{a.status ? PROGRESS_LABELS[a.status] : '시작하기'}</p>
+                        </button>
+                      ))}
+                  </div>
+                </ApiStateBody>
+                <div className="field-group" style={{ maxWidth: 320 }}>
+                  <label className="label" htmlFor="assignment-id">
+                    과제 ID
+                  </label>
+                  <div className="actions" style={{ paddingTop: 0 }}>
+                    <input
+                      id="assignment-id"
+                      className="field"
+                      value={assignmentIdInput}
+                      onChange={(e) => setAssignmentIdInput(e.target.value)}
+                      placeholder="예: 101"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => {
+                        if (assignmentIdInput.trim()) selectAssignment(assignmentIdInput.trim());
+                      }}
+                    >
+                      열기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeId && <StudentStage1Activity assignmentId={activeId} />}
+        </div>
+      </div>
+    );
+  }
+
+  /* Stage 2 — API 연동 */
+  if (stageNum === 2) {
+    return (
+      <div className="s2">
+        {!activeId ? (
+          <div className="main-area">
+            <div className="container practice-wrap">
+              <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>과제 선택</h1>
+              <p className="work-intro-muted" style={{ marginBottom: 16 }}>
+                {subjectData.name} · {STAGE_TITLES[stageNum]} 검증 훈련을 시작할 과제를 고르세요.
+              </p>
+              <ApiStateBody
+                loading={assignments.loading}
+                error={assignments.error}
+                isEmpty={!assignments.data?.assignments.length}
+                emptyMessage="배정된 과제가 없습니다. 과제 ID를 직접 입력할 수 있습니다."
+              >
+                <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
+                  {assignments.data?.assignments
+                    .filter((a) => a.stage == null || a.stage === 2)
+                    .map((a) => (
+                      <button
+                        key={a.assignment_id}
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ justifyContent: 'flex-start', textAlign: 'left', width: '100%' }}
+                        onClick={() => selectAssignment(String(a.assignment_id))}
+                      >
+                        <span>
+                          <strong>{a.title ?? `과제 #${a.assignment_id}`}</strong>
+                          <span className="verify-set-meta" style={{ marginLeft: 8 }}>
+                            {a.status ? PROGRESS_LABELS[a.status] : '시작하기'}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                </div>
+              </ApiStateBody>
+              <div
+                className="find-form"
+                style={{ position: 'static', borderTop: '1px solid var(--border)' }}
+              >
+                <label htmlFor="assignment-id-s2">과제 ID</label>
+                <div className="input-actions" style={{ marginTop: 8 }}>
+                  <input
+                    id="assignment-id-s2"
+                    value={assignmentIdInput}
+                    onChange={(e) => setAssignmentIdInput(e.target.value)}
+                    placeholder="예: 111"
+                    style={{ flex: 1, minWidth: 0 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-pill"
+                    onClick={() => {
+                      if (assignmentIdInput.trim()) selectAssignment(assignmentIdInput.trim());
+                    }}
+                  >
+                    열기
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <StudentStage2Activity assignmentId={activeId} />
+        )}
+      </div>
     );
   }
 
@@ -125,424 +238,29 @@ export function StudentStagePage() {
         title={activity.title}
         description={`${subjectData.name} · ${STAGE_TITLES[stageNum]}`}
       />
-
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-header">
-          <span className="card-title">과제 선택</span>
-        </div>
-        <div className="card-body">
-          <ApiStateBody
-            loading={assignments.loading}
-            error={assignments.error}
-            isEmpty={!assignments.data?.assignments.length}
-            emptyMessage="배정된 과제가 없습니다. 과제 ID를 직접 입력할 수 있습니다."
-          >
-            {assignments.data?.assignments
-              .filter((a) => a.stage == null || a.stage === stageNum)
-              .map((a) => (
-                <button
-                  key={a.assignment_id}
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  style={{
-                    marginRight: 8,
-                    marginBottom: 8,
-                    borderColor:
-                      String(a.assignment_id) === activeId ? 'var(--primary)' : undefined,
-                  }}
-                  onClick={() => selectAssignment(String(a.assignment_id))}
-                >
-                  {a.title ?? `#${a.assignment_id}`}
-                  {a.status ? ` · ${PROGRESS_LABELS[a.status]}` : ''}
-                </button>
-              ))}
-          </ApiStateBody>
-          <div className="form-group" style={{ marginTop: 12, marginBottom: 0, maxWidth: 280 }}>
-            <label className="form-label" htmlFor="assignment-id">
-              과제 ID
-            </label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                id="assignment-id"
-                className="form-control"
-                value={assignmentIdInput}
-                onChange={(e) => setAssignmentIdInput(e.target.value)}
-                placeholder="예: 101"
-              />
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => {
-                  if (assignmentIdInput.trim()) selectAssignment(assignmentIdInput.trim());
-                }}
-              >
-                열기
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {!activeId ? (
-        <PlaceholderCard title="활동을 시작하려면 과제를 선택하세요" />
-      ) : stageNum === 1 ? (
-        <StudentStage1Activity assignmentId={activeId} />
-      ) : stageNum === 2 ? (
-        <StudentStage2Activity assignmentId={activeId} />
-      ) : (
-        <PlaceholderCard title={`${stageNum}단계 학습 활동 UI`} message="준비 중입니다." />
-      )}
+      <PlaceholderCard title={`${stageNum}단계 학습 활동`} message="준비 중입니다." />
     </>
   );
 }
 
-function StudentStage3PrototypeActivity({ assignmentId }: { assignmentId: string }) {
-  const [topic, setTopic] = useState('학교에 AI 시험 감독 시스템을 도입해야 하는가?');
-  const [followUpInput, setFollowUpInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<Stage3PrototypeResult | null>(null);
 
-  useEffect(() => {
-    setMessages([]);
-    setBusy(false);
-    setFollowUpInput('');
-    setResult(null);
-  }, [assignmentId]);
-
-  const runDebate = async (inputTopic: string) => {
-    const normalizedTopic = inputTopic.trim();
-    if (!normalizedTopic) return;
-
-    const nextResult = buildStage3PrototypeResult(normalizedTopic);
-    setBusy(true);
-    setMessages([{ role: 'user', text: normalizedTopic, meta: '학생이 사회자로 토론 주제를 제시함' }]);
-    setResult(null);
-
-    const stagedMessages: ChatMessage[] = [
-      {
-        role: 'bot',
-        text: nextResult.pro_argument,
-        meta: '찬성 Agent',
-      },
-      {
-        role: 'bot',
-        text: nextResult.con_argument,
-        meta: '반대 Agent',
-      },
-      {
-        role: 'bot',
-        text: formatStage3FactCheck(nextResult),
-        meta: '팩트체커 Agent',
-      },
-    ];
-
-    for (const staged of stagedMessages) {
-      await new Promise((resolve) => window.setTimeout(resolve, 450));
-      setMessages((prev) => [...prev, staged]);
-    }
-
-    setResult(nextResult);
-    setBusy(false);
-  };
-
-  const sendFollowUp = async () => {
-    const text = followUpInput.trim();
-    if (!text || !result || busy) return;
-    setFollowUpInput('');
-    setBusy(true);
-    setMessages((prev) => [
-      ...prev,
-      { role: 'user', text, meta: '학생 추가 질문' },
-    ]);
-
-    const answer = buildStage3FollowUp(text, result);
-    await new Promise((resolve) => window.setTimeout(resolve, 350));
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: 'bot',
-        text: answer.text,
-        meta: answer.meta,
-      },
-    ]);
-    setBusy(false);
-  };
-
-  return (
-    <>
-      <div className="grid-2" style={{ marginBottom: 16 }}>
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">토론 주제 · 진행 안내</span>
-          </div>
-          <div className="card-body">
-            <div className="form-group">
-              <label className="form-label" htmlFor="stage3-topic">
-                토론 주제
-              </label>
-              <textarea
-                id="stage3-topic"
-                className="form-control"
-                rows={3}
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                disabled={busy}
-              />
-            </div>
-            <div
-              style={{
-                padding: 12,
-                borderRadius: 10,
-                background: 'var(--gray-50)',
-                border: '1px solid var(--border)',
-                fontSize: 13,
-                lineHeight: 1.6,
-              }}
-            >
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>프로토타입 진행 순서</div>
-              <ol style={{ paddingLeft: 18 }}>
-                <li>학생이 토론 주제를 던집니다.</li>
-                <li>찬성 Agent와 반대 Agent가 각각 주장합니다.</li>
-                <li>팩트체커 Agent가 두 주장을 비교 검증합니다.</li>
-                <li>학생이 추가 질문을 던지며 멀티 에이전트를 체험합니다.</li>
-              </ol>
-            </div>
-            <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => void runDebate(topic)}
-                disabled={busy}
-              >
-                {busy ? '토론 생성 중…' : '토론 시작'}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  setMessages([]);
-                  setResult(null);
-                  setFollowUpInput('');
-                }}
-                disabled={busy}
-              >
-                초기화
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">에이전트 역할</span>
-          </div>
-          <div className="card-body">
-            <div style={{ display: 'grid', gap: 10 }}>
-              {[
-                ['찬성 Agent', '효율성과 공정성, 교사 업무 경감 관점에서 주장합니다.'],
-                ['반대 Agent', '프라이버시, 오탐지, 인권 침해 관점에서 주장합니다.'],
-                ['팩트체커 Agent', '양측 주장의 수치 과장, 근거 부족, 사실 오류를 판정합니다.'],
-              ].map(([title, desc]) => (
-                <div
-                  key={title}
-                  style={{
-                    padding: 12,
-                    border: '1px solid var(--border)',
-                    borderRadius: 10,
-                    background: 'var(--surface)',
-                  }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{title}</div>
-                  <div style={{ fontSize: 13, color: 'var(--gray-600)', marginTop: 4 }}>{desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-header">
-          <span className="card-title">멀티 에이전트 채팅</span>
-        </div>
-        <div className="card-body">
-          <div className="chat-log" style={{ maxHeight: 440 }}>
-            {messages.length === 0 && (
-              <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>
-                토론 시작을 누르면 찬성·반대·팩트체커 순서로 응답이 생성됩니다.
-              </div>
-            )}
-            {messages.map((m, i) => (
-              <div key={`${m.role}-${i}`}>
-                <div className={`chat-bubble ${m.role}`}>{m.text}</div>
-                {m.meta && (
-                  <div style={{ fontSize: 11, color: 'var(--gray-500)', marginTop: 4 }}>{m.meta}</div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="form-control"
-              value={followUpInput}
-              onChange={(e) => setFollowUpInput(e.target.value)}
-              placeholder="예: 반대 Agent야, 개인정보 우려를 한 문장으로 다시 말해줘"
-              disabled={!result || busy}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  void sendFollowUp();
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => void sendFollowUp()}
-              disabled={!result || busy}
-            >
-              질문
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {result && (
-        <div className="grid-2">
-          <div className="card">
-            <div className="card-header">
-              <span className="card-title">팩트체크 요약</span>
-            </div>
-            <div className="card-body" style={{ fontSize: 13, lineHeight: 1.6 }}>
-              <p style={{ marginBottom: 10 }}>{result.balanced_summary}</p>
-              <div style={{ marginBottom: 10 }}>
-                <strong>신뢰 가능한 포인트</strong>
-                <ul style={{ paddingLeft: 18, marginTop: 6 }}>
-                  {result.reliable_points.map((point) => (
-                    <li key={point}>{point}</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <strong>의심해야 할 포인트</strong>
-                <ul style={{ paddingLeft: 18, marginTop: 6 }}>
-                  {result.unreliable_points.map((point) => (
-                    <li key={point}>{point}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="card-header">
-              <span className="card-title">학생 보고서 가이드</span>
-            </div>
-            <div className="card-body" style={{ fontSize: 13, lineHeight: 1.6 }}>
-              {result.student_guide}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
+interface Stage1AiMessage {
+  id: string;
+  text: string;
+  meta?: string;
 }
 
-function buildStage3PrototypeResult(topic: string): Stage3PrototypeResult {
-  return {
-    topic,
-    pro_argument:
-      '【찬성 입장】\n주장 요약: 학교 시험에 AI 감독 시스템을 도입하면 감독 효율과 공정성을 높일 수 있습니다.\n핵심 근거:\n1. 반복적인 감독 업무를 줄여 교사가 학생 피드백에 더 집중할 수 있습니다.\n2. 온라인·대규모 시험에서 일관된 기준으로 부정행위 징후를 탐지할 수 있습니다.\n예상 효과: 감독 비용과 행정 부담을 줄이면서 시험 운영을 표준화할 수 있습니다.',
-    con_argument:
-      '【반대 입장】\n주장 요약: AI 시험 감독 시스템은 학생 프라이버시와 인권을 침해할 위험이 큽니다.\n핵심 근거:\n1. 카메라·마이크·행동 데이터 수집은 학생에게 과도한 감시 압박을 줄 수 있습니다.\n2. 오탐지와 알고리즘 편향이 특정 학생에게 불이익을 줄 수 있습니다.\n우려되는 점: 기술 효율을 이유로 감시가 일상화될 수 있습니다.',
-    pro_claims_checked: [
-      {
-        claim: 'AI 감독 시스템이 감독 효율을 높인다.',
-        verdict: 'supported',
-        reason: '일부 온라인 시험 환경에서는 감독 보조와 기록 자동화에 실제 도움이 됩니다.',
-      },
-      {
-        claim: 'AI만으로 공정성을 완벽히 보장한다.',
-        verdict: 'exaggerated',
-        reason: '오탐지, 모델 편향, 운영 정책의 차이 때문에 완전한 보장은 어렵습니다.',
-      },
-    ],
-    con_claims_checked: [
-      {
-        claim: '프라이버시 침해 우려가 있다.',
-        verdict: 'supported',
-        reason: '생체·행동 데이터 수집은 실제 윤리와 법적 쟁점이 존재합니다.',
-      },
-      {
-        claim: '도입 즉시 감시 사회가 완성된다.',
-        verdict: 'exaggerated',
-        reason: '위험은 있지만, 제도 설계와 범위 제한에 따라 영향이 달라집니다.',
-      },
-    ],
-    reliable_points: [
-      '교사 업무 경감과 시험 운영 효율화 가능성',
-      '학생 프라이버시와 오탐지에 대한 현실적 우려',
-    ],
-    unreliable_points: [
-      'AI가 완벽하게 부정행위를 판별한다는 절대적 표현',
-      '도입 즉시 모든 학생 인권이 붕괴된다는 비약',
-    ],
-    balanced_summary:
-      `${topic}에 대한 토론에서는 효율성과 인권 보호가 충돌합니다. 기술의 장점은 존재하지만, 오탐지·편향·데이터 수집 범위 같은 조건을 함께 따져야 균형 잡힌 결론을 낼 수 있습니다.`,
-    student_guide:
-      '최종 보고서에는 1) 양측이 제시한 핵심 근거, 2) 팩트체커가 지적한 과장 표현, 3) 기술 도입 시 필요한 안전장치를 함께 써 보세요.',
-  };
+function formatDueLabel(iso?: string | null) {
+  if (!iso) return '마감 없음';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-function formatStage3FactCheck(result: Stage3PrototypeResult): string {
-  const lines = [
-    '{',
-    `  "topic": "${result.topic}",`,
-    '  "pro_claims_checked": [',
-    ...result.pro_claims_checked.map(
-      (item, index) =>
-        `    {"claim": "${item.claim}", "verdict": "${item.verdict}", "reason": "${item.reason}"}${index < result.pro_claims_checked.length - 1 ? ',' : ''}`,
-    ),
-    '  ],',
-    '  "con_claims_checked": [',
-    ...result.con_claims_checked.map(
-      (item, index) =>
-        `    {"claim": "${item.claim}", "verdict": "${item.verdict}", "reason": "${item.reason}"}${index < result.con_claims_checked.length - 1 ? ',' : ''}`,
-    ),
-    '  ],',
-    `  "balanced_summary": "${result.balanced_summary}",`,
-    `  "student_guide": "${result.student_guide}"`,
-    '}',
-  ];
-  return lines.join('\n');
-}
-
-function buildStage3FollowUp(
-  question: string,
-  result: Stage3PrototypeResult,
-): { text: string; meta: string } {
-  const normalized = question.toLowerCase();
-
-  if (normalized.includes('찬성')) {
-    return {
-      meta: '찬성 Agent 재응답',
-      text: `찬성 Agent 추가 설명:\n${result.reliable_points[0]}을 중심으로 보면, AI는 교사의 감독 자체를 없애기보다 보조하고 기록을 정리하는 역할에서 가장 현실적인 장점이 있습니다.`,
-    };
-  }
-
-  if (normalized.includes('반대') || normalized.includes('프라이버시')) {
-    return {
-      meta: '반대 Agent 재응답',
-      text: '반대 Agent 추가 설명:\n개인정보 우려의 핵심은 단순한 촬영이 아니라, 학생의 시선·행동 데이터가 장기간 저장되거나 다른 목적으로 활용될 수 있다는 점입니다.',
-    };
-  }
-
-  return {
-    meta: '팩트체커 Agent 재응답',
-    text: `팩트체커 추가 설명:\n질문 "${question}"에 답하자면, 핵심은 양측이 모두 절대적 표현을 줄이고 실제 운영 조건과 근거를 더 구체적으로 제시해야 한다는 점입니다.`,
-  };
+function fileExtBadge(name?: string | null) {
+  if (!name) return 'DOC';
+  const ext = name.split('.').pop()?.toUpperCase() ?? 'DOC';
+  return ext.slice(0, 4);
 }
 
 function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
@@ -551,31 +269,34 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
   const [loading, setLoading] = useState(true);
   const [params, setParams] = useState<Stage1Parameters>({
     chunk_size: 50,
-    top_k: 2,
-    temperature: 1.0,
+    top_k: 1,
+    temperature: 1,
   });
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState(STAGE1_FIXED_CHAT_PROMPT);
+  const [userTurns, setUserTurns] = useState<string[]>([]);
+  const [aiAnswers, setAiAnswers] = useState<Stage1AiMessage[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState('');
-  const [selectedAnswer, setSelectedAnswer] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
+  const [submitBusy, setSubmitBusy] = useState(false);
   const [submitResult, setSubmitResult] = useState<Stage1SubmitResponse | null>(null);
-  const [actionErr, setActionErr] = useState('');
+  const [fileOpen, setFileOpen] = useState(false);
+  const [toast, setToast] = useState('');
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setLoadError('');
-    setMessages([]);
-    setSelectedAnswer('');
+    setUserTurns([]);
+    setAiAnswers([]);
+    setSelectedId(null);
     setSubmitResult(null);
-    setChatInput(STAGE1_FIXED_CHAT_PROMPT);
+    setDone(false);
     getStudentStep1Api(assignmentId)
       .then((res) => {
         if (cancelled) return;
         setDetail(res);
         setParams(res.default_parameters);
-        setChatInput(resolveStage1ChatPrompt(res.guideline));
       })
       .catch((err) => {
         if (!cancelled) {
@@ -591,25 +312,39 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     };
   }, [assignmentId]);
 
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(''), 2200);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
+  const fixedPrompt =
+    detail?.guideline?.trim() || '오늘 학습 주제의 내용을 전체적으로 알려줘';
+  const maxAttempts = detail?.attempts.max_attempts ?? 3;
+  const usedAttempts = detail?.attempts.used_attempts ?? 0;
+  const remaining = detail?.attempts.remaining_attempts ?? Math.max(0, maxAttempts - usedAttempts);
+  const selectedAnswer = aiAnswers.find((a) => a.id === selectedId)?.text ?? '';
+
   const sendChat = async () => {
-    const fixedPrompt = resolveStage1ChatPrompt(detail?.guideline);
-    const text = (chatInput.trim() || fixedPrompt).trim();
-    if (!text) return;
-    setChatInput(fixedPrompt);
+    if (!detail || remaining <= 0) {
+      setToast('제출을 모두 마쳤습니다.');
+      return;
+    }
+    const text = fixedPrompt;
     setLastPrompt(text);
-    setMessages((prev) => [...prev, { role: 'user', text }]);
+    setUserTurns((prev) => [...prev, text]);
     setChatBusy(true);
-    setActionErr('');
     try {
       const res = await postStudentStep1ChatApi(assignmentId, {
         message: text,
         parameters: params,
       });
-      const meta = `청크 ${res.rag_process_visualization.retrieved_chunks}/${res.rag_process_visualization.total_chunks} · 점수 ${res.rag_process_visualization.vector_search_score}`;
-      setMessages((prev) => [...prev, { role: 'bot', text: res.ai_response, meta }]);
-      setSelectedAnswer(res.ai_response);
+      const id = `a${Date.now()}`;
+      const meta = `청크 ${res.rag_process_visualization.retrieved_chunks}/${res.rag_process_visualization.total_chunks}`;
+      setAiAnswers((prev) => [...prev, { id, text: res.ai_response, meta }]);
+      setToast('새 답이 도착했습니다. 제출할 답을 클릭해 고르세요.');
     } catch (err) {
-      setActionErr(err instanceof ApiError ? err.message : '채팅 요청에 실패했습니다.');
+      setToast(err instanceof ApiError ? err.message : '채팅 요청에 실패했습니다.');
     } finally {
       setChatBusy(false);
     }
@@ -617,10 +352,14 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
 
   const submit = async () => {
     if (!selectedAnswer.trim() || !lastPrompt.trim()) {
-      setActionErr('AI 답변을 받은 뒤 제출해 주세요.');
+      setToast('먼저 AI 답을 클릭해 고르세요.');
       return;
     }
-    setActionErr('');
+    if (remaining <= 0) {
+      setDone(true);
+      return;
+    }
+    setSubmitBusy(true);
     try {
       const res = await postStudentStep1SubmitApi(assignmentId, {
         final_parameters: params,
@@ -628,6 +367,8 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
         student_prompt: lastPrompt,
       });
       setSubmitResult(res);
+      setToast('선택한 답으로 제출했습니다.');
+      setSelectedId(null);
       if (detail) {
         setDetail({
           ...detail,
@@ -640,526 +381,355 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
           best_parameters: params,
         });
       }
+      if (res.attempts.remaining_attempts <= 0) {
+        window.setTimeout(() => setDone(true), 700);
+      }
     } catch (err) {
-      setActionErr(err instanceof ApiError ? err.message : '제출에 실패했습니다.');
+      setToast(err instanceof ApiError ? err.message : '제출에 실패했습니다.');
+    } finally {
+      setSubmitBusy(false);
     }
   };
 
+  const finish = () => {
+    if (usedAttempts === 0) {
+      setToast('한 번 이상 제출한 뒤 과제를 마칠 수 있습니다.');
+      return;
+    }
+    setDone(true);
+  };
+
   if (loading) {
-    return (
-      <div className="card">
-        <div className="placeholder-body">과제 불러오는 중…</div>
-      </div>
-    );
+    return <p className="hint">과제 불러오는 중…</p>;
   }
   if (loadError || !detail) {
-    return (
-      <div className="card">
-        <div className="placeholder-body" style={{ color: 'var(--negative)' }}>
-          {loadError || '과제 정보가 없습니다.'}
-        </div>
-      </div>
-    );
+    return <p className="hint">{loadError || '과제 정보가 없습니다.'}</p>;
   }
 
-  return (
-    <div className="grid-2">
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">문제 · 파라미터</span>
-        </div>
-        <div className="card-body">
-          <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{detail.question}</p>
-          <p style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 14, lineHeight: 1.5 }}>
-            {detail.guideline}
+  if (done && submitResult) {
+    return (
+      <section className="done-layout">
+        <div className="done-hero">
+          <p className="done-eyebrow">Stage 1 · 완료</p>
+          <h1 className="page-title">과제 끝</h1>
+          <p className="page-desc">
+            {remaining <= 0 ? '3회 제출을 모두 마쳤습니다.' : '과제를 제출했습니다.'}
           </p>
-          <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 12 }}>
-            시도 {detail.attempts.used_attempts}
-            {detail.attempts.max_attempts != null ? `/${detail.attempts.max_attempts}` : ''} · 남음{' '}
-            {detail.attempts.remaining_attempts}
-            {detail.highest_score != null ? ` · 최고 ${detail.highest_score}점` : ''}
-            {detail.due_at ? ` · 마감 ${formatDueAt(detail.due_at)}` : ''}
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="p-chunk">
-              chunk_size
-            </label>
-            <select
-              id="p-chunk"
-              className="form-control"
-              value={params.chunk_size}
-              onChange={(e) => setParams((p) => ({ ...p, chunk_size: Number(e.target.value) }))}
-            >
-              {STAGE1_CHUNK_SIZE_PRESETS.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-            <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 4 }}>
-              {detail.parameter_explanations.chunk_size}
+          <div className="done-score-box">
+            <span className="side-title">최종 점수</span>
+            <div className="score-row">
+              <strong>{submitResult.highest_score}</strong>
+              <span>점</span>
+            </div>
+            <p className="hint">
+              제출 {detail.attempts.used_attempts}회 · 최고 점수 기준
             </p>
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="p-topk">
-              top_k
-            </label>
-            <input
-              id="p-topk"
-              className="form-control"
-              type="number"
-              min={1}
-              max={50}
-              value={params.top_k}
-              onChange={(e) => setParams((p) => ({ ...p, top_k: Number(e.target.value) }))}
-            />
-            <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 4 }}>
-              {detail.parameter_explanations.top_k}
-            </p>
-          </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" htmlFor="p-temp">
-              temperature
-            </label>
-            <input
-              id="p-temp"
-              className="form-control"
-              type="number"
-              min={0}
-              max={1}
-              step={0.1}
-              value={params.temperature}
-              onChange={(e) => setParams((p) => ({ ...p, temperature: Number(e.target.value) }))}
-            />
-            <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 4 }}>
-              {detail.parameter_explanations.temperature}
-            </p>
+            <div className="done-sub scores">
+              <span>
+                faithfulness <strong>{submitResult.evaluation_report.faithfulness_score}/5</strong>
+              </span>
+              <span>
+                relevance <strong>{submitResult.evaluation_report.relevance_score}/5</strong>
+              </span>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">AI 답 실험</span>
-        </div>
-        <div className="card-body">
-          <div className="chat-log">
-            {messages.length === 0 && (
-              <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>
-                아래 질문이 입력되어 있습니다. 전송을 눌러 바로 시작해 보세요.
-              </div>
-            )}
-            {messages.map((m, i) => (
-              <div key={`${m.role}-${i}`}>
-                <div className={`chat-bubble ${m.role}`}>{m.text}</div>
-                {m.meta && (
-                  <div style={{ fontSize: 11, color: 'var(--gray-500)', marginTop: 4 }}>{m.meta}</div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="form-control"
-              value={chatInput}
-              readOnly
-              aria-label="고정 질문"
-              title="가이드라인의 고정 질문입니다. 전송만 누르면 됩니다."
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  void sendChat();
-                }
-              }}
-              disabled={chatBusy}
-            />
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => void sendChat()}
-              disabled={chatBusy}
-            >
-              전송
-            </button>
-          </div>
-          <div style={{ marginTop: 14 }}>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void submit()}>
-              현재 답변 · 파라미터로 제출
-            </button>
-          </div>
-          {actionErr && <p className="inline-alert error">{actionErr}</p>}
-          {submitResult && (
-            <div
-              style={{
-                marginTop: 14,
-                padding: 12,
-                background: 'var(--gray-50)',
-                borderRadius: 10,
-                fontSize: 13,
-                lineHeight: 1.55,
-              }}
-            >
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                점수 {submitResult.current_score}점
-                {submitResult.is_highest_score ? ' (최고점)' : ''} · 최고{' '}
-                {submitResult.highest_score}점
+        <div className="done-grid">
+          <section className="info-card">
+            <div className="info-card-head">
+              <span className="info-icon" aria-hidden="true">
+                ◎
+              </span>
+              <p className="side-title">문제</p>
+            </div>
+            <p className="mission-text">{detail.question}</p>
+          </section>
+          <section className="info-card">
+            <div className="info-card-head">
+              <span className="info-icon" aria-hidden="true">
+                ▦
+              </span>
+              <p className="side-title">학습 자료</p>
+            </div>
+            <p className="mission-text">{detail.document_filename || '학습 자료'}</p>
+          </section>
+          <section className="info-card">
+            <div className="info-card-head">
+              <span className="info-icon" aria-hidden="true">
+                ▤
+              </span>
+              <p className="side-title">최고점 파라미터</p>
+            </div>
+            <div className="done-params">
+              <div>
+                <span>chunk_size</span>
+                <strong>{(detail.best_parameters ?? params).chunk_size}</strong>
               </div>
               <div>
-                faithfulness {submitResult.evaluation_report.faithfulness_score} · relevance{' '}
-                {submitResult.evaluation_report.relevance_score}
+                <span>top_k</span>
+                <strong>{(detail.best_parameters ?? params).top_k}</strong>
               </div>
-              <div style={{ marginTop: 6 }}>{submitResult.evaluation_report.feedback}</div>
-              <div style={{ color: 'var(--gray-500)', marginTop: 6 }}>
-                남은 시도 {submitResult.attempts.remaining_attempts}회
+              <div>
+                <span>temperature</span>
+                <strong>{(detail.best_parameters ?? params).temperature}</strong>
               </div>
             </div>
-          )}
+          </section>
+          <section className="info-card done-span-2">
+            <div className="info-card-head">
+              <span className="info-icon" aria-hidden="true">
+                ◇
+              </span>
+              <p className="side-title">피드백</p>
+            </div>
+            <p className="mission-text">{submitResult.evaluation_report.feedback}</p>
+          </section>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
-  const [detail, setDetail] = useState<Stage2AssignmentDetailResponse | null>(null);
-  const [loadError, setLoadError] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [highlightText, setHighlightText] = useState('');
-  const [errorType, setErrorType] = useState<HallucinationType>('RETRIEVAL_ERROR');
-  const [reason, setReason] = useState('');
-  const [highlightResult, setHighlightResult] = useState<Step2HighlightResponse | null>(null);
-  const [corrections, setCorrections] = useState<{ original_highlight: string; student_answer: string }[]>(
-    [],
-  );
-  const [correctionResult, setCorrectionResult] = useState<Step2CorrectionResponse | null>(null);
-  const [actionErr, setActionErr] = useState('');
-
-  const reload = async () => {
-    setLoading(true);
-    setLoadError('');
-    try {
-      const res = await getStudentStep2Api(assignmentId);
-      setDetail(res);
-      const firstOption = res.hallucination_type_options?.[0];
-      if (firstOption?.value) {
-        setErrorType(firstOption.value as HallucinationType);
-      }
-      if (res.highlight_phase_complete && res.cleared_highlights.length) {
-        setCorrections((prev) => {
-          const byHighlight = new Map(prev.map((c) => [c.original_highlight, c.student_answer]));
-          return res.cleared_highlights.map((h) => ({
-            original_highlight: h,
-            student_answer: byHighlight.get(h) ?? '',
-          }));
-        });
-      }
-    } catch (err) {
-      setDetail(null);
-      setLoadError(err instanceof ApiError ? err.message : '과제를 불러오지 못했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assignmentId]);
-
-  const submitHighlight = async () => {
-    if (!highlightText.trim() || !reason.trim()) {
-      setActionErr('하이라이트 문장과 이유를 입력해 주세요.');
-      return;
-    }
-    setActionErr('');
-    try {
-      const res = await postStudentStep2HighlightApi(assignmentId, {
-        submissions: [
-          {
-            highlighted_text: highlightText.trim(),
-            student_error_type: errorType,
-            student_reason: reason.trim(),
-          },
-        ],
-      });
-      setHighlightResult(res);
-      await reload();
-      if (res.highlight_phase_complete) {
-        setCorrections(
-          res.cleared_highlights.map((h) => ({
-            original_highlight: h,
-            student_answer: '',
-          })),
-        );
-      }
-    } catch (err) {
-      setActionErr(err instanceof ApiError ? err.message : '하이라이트 제출에 실패했습니다.');
-    }
-  };
-
-  const submitCorrection = async () => {
-    if (!detail) return;
-    if (corrections.length !== detail.expected_error_count) {
-      setActionErr(`교정 항목이 ${detail.expected_error_count}개여야 합니다.`);
-      return;
-    }
-    if (corrections.some((c) => !c.student_answer.trim())) {
-      setActionErr('모든 교정 답을 입력해 주세요.');
-      return;
-    }
-    setActionErr('');
-    setCorrectionResult(null);
-    try {
-      const res = await postStudentStep2CorrectionApi(assignmentId, {
-        corrections: corrections.map((c) => ({
-          original_highlight: c.original_highlight,
-          student_answer: c.student_answer.trim(),
-        })),
-      });
-      setCorrectionResult(res);
-      await reload();
-    } catch (err) {
-      setActionErr(err instanceof ApiError ? err.message : '교정 제출에 실패했습니다.');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="card">
-        <div className="placeholder-body">과제 불러오는 중…</div>
-      </div>
+        <div className="actions">
+          <button type="button" className="btn btn-ghost" onClick={() => setDone(false)}>
+            다시 실험해보기
+          </button>
+        </div>
+      </section>
     );
   }
-  if (loadError || !detail) {
-    return (
-      <div className="card">
-        <div className="placeholder-body" style={{ color: 'var(--negative)' }}>
-          {loadError || '과제 정보가 없습니다.'}
-        </div>
-      </div>
-    );
-  }
-
-  const typeOptions =
-    detail.hallucination_type_options?.length > 0
-      ? detail.hallucination_type_options
-      : [...FALLBACK_HALLUCINATION_OPTIONS];
-
-  const selectedOption = typeOptions.find((opt) => opt.value === errorType);
 
   return (
     <>
-      <div className="grid-2" style={{ marginBottom: 16 }}>
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">참고 문서</span>
-          </div>
-          <div className="card-body">
-            <p style={{ fontSize: 14, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-              {detail.reference_document_text}
-            </p>
-          </div>
-        </div>
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">AI 오답 · 질문</span>
-          </div>
-          <div className="card-body">
-            <p style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 8 }}>{detail.question}</p>
-            <p style={{ fontSize: 14, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-              {detail.flawed_ai_response}
-            </p>
-            <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 12 }}>
-              남은 오류 {detail.remaining_errors_to_find}개 · 시도 {detail.attempts.used_attempts}
-              {detail.attempts.max_attempts != null ? `/${detail.attempts.max_attempts}` : ''} · 남음{' '}
-              {detail.attempts.remaining_attempts}
-              {detail.due_at ? ` · 마감 ${formatDueAt(detail.due_at)}` : ''}
+      <div className="layout-split">
+        <aside className="side">
+          <section className="info-card info-card-mission">
+            <div className="info-card-head">
+              <span className="info-icon" aria-hidden="true">
+                ◎
+              </span>
+              <p className="side-title">문제</p>
             </div>
-            {detail.cleared_highlights.length > 0 && (
-              <div style={{ marginTop: 10, fontSize: 13 }}>
-                <strong>찾은 구간:</strong>
-                <ul style={{ marginTop: 6, paddingLeft: 18 }}>
-                  {detail.cleared_highlights.map((h) => (
-                    <li key={h}>{h}</li>
-                  ))}
-                </ul>
+            <p className="mission-text">{detail.question}</p>
+            <p className="hint" style={{ marginTop: 10 }}>
+              채팅 질문은 고정되어 있습니다.
+            </p>
+          </section>
+
+          <section className="info-card info-card-due">
+            <div className="info-card-head">
+              <span className="info-icon" aria-hidden="true">
+                ◷
+              </span>
+              <p className="side-title">마감</p>
+            </div>
+            <p className="due-value">{formatDueLabel(detail.due_at)}</p>
+          </section>
+
+          <section className="info-card">
+            <div className="info-card-head">
+              <span className="info-icon" aria-hidden="true">
+                ▦
+              </span>
+              <p className="side-title">학습 자료</p>
+            </div>
+            <div className="file-card">
+              <div className="file-badge">{fileExtBadge(detail.document_filename)}</div>
+              <div className="file-meta">
+                <strong>{detail.document_filename || '학습 자료'}</strong>
+                <span>선생님이 올린 원문</span>
               </div>
-            )}
+              <button
+                className="btn btn-ghost btn-small"
+                type="button"
+                onClick={() => setFileOpen(true)}
+                disabled={!detail.document_text}
+              >
+                보기
+              </button>
+            </div>
+          </section>
+
+          <section className="info-card">
+            <div className="info-card-head">
+              <span className="info-icon" aria-hidden="true">
+                ▤
+              </span>
+              <p className="side-title">파라미터</p>
+            </div>
+            <div className="params params-stack">
+              <div className="field-group param">
+                <label className="label" htmlFor="p-chunk">
+                  chunk_size
+                </label>
+                <select
+                  id="p-chunk"
+                  className="field"
+                  value={params.chunk_size}
+                  onChange={(e) => setParams((p) => ({ ...p, chunk_size: Number(e.target.value) }))}
+                >
+                  {STAGE1_CHUNK_SIZE_PRESETS.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field-group param">
+                <label className="label" htmlFor="p-topk">
+                  top_k
+                </label>
+                <input
+                  id="p-topk"
+                  className="field"
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={params.top_k}
+                  onChange={(e) => setParams((p) => ({ ...p, top_k: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="field-group param">
+                <label className="label" htmlFor="p-temp">
+                  temperature
+                </label>
+                <input
+                  id="p-temp"
+                  className="field"
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  value={params.temperature}
+                  onChange={(e) =>
+                    setParams((p) => ({ ...p, temperature: Number(e.target.value) }))
+                  }
+                />
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <section className="main">
+          <div className="main-head">
+            <h1>대화</h1>
+            <p>AI 답을 클릭해 고른 뒤 제출하세요.</p>
           </div>
+
+          <div className="chat">
+            <div className="chat-log" aria-live="polite">
+              {userTurns.length === 0 && aiAnswers.length === 0 && (
+                <p className="hint">전송을 누르면 고정 질문으로 AI 답을 받습니다.</p>
+              )}
+              {userTurns.map((text, i) => (
+                <article key={`u-${i}`} className="bubble user">
+                  <div className="meta">
+                    <span>나</span>
+                  </div>
+                  <div>{text}</div>
+                </article>
+              ))}
+              {aiAnswers.map((a, idx) => (
+                <article
+                  key={a.id}
+                  className={`bubble ai${selectedId === a.id ? ' selected' : ''}`}
+                  onClick={() => {
+                    if (remaining <= 0) return;
+                    setSelectedId(a.id);
+                  }}
+                >
+                  <div className="meta">
+                    <span>AI 답 {idx + 1}</span>
+                    <span className="select-hint">
+                      {selectedId === a.id ? '제출용으로 선택됨' : '클릭해서 선택'}
+                    </span>
+                  </div>
+                  <div>{a.text}</div>
+                </article>
+              ))}
+            </div>
+            <div className="chat-compose">
+              <input className="field" type="text" value={fixedPrompt} readOnly />
+              <button
+                className="btn btn-primary"
+                type="button"
+                onClick={() => void sendChat()}
+                disabled={chatBusy || remaining <= 0}
+              >
+                {chatBusy ? '…' : '전송'}
+              </button>
+            </div>
+          </div>
+
+          <div className="submit-bar">
+            <div className="submit-meta">
+              <span className="pill">
+                시도 {usedAttempts}/{maxAttempts}
+              </span>
+              <div className="selected-preview">
+                {selectedAnswer ? (
+                  <>
+                    선택한 답:{' '}
+                    <em>
+                      {selectedAnswer.slice(0, 42)}
+                      {selectedAnswer.length > 42 ? '…' : ''}
+                    </em>
+                  </>
+                ) : remaining <= 0 ? (
+                  '제출을 모두 마쳤습니다.'
+                ) : (
+                  '제출할 답을 선택하세요.'
+                )}
+              </div>
+            </div>
+            <div className="actions" style={{ paddingTop: 0 }}>
+              <button className="btn btn-ghost" type="button" onClick={finish}>
+                과제 제출
+              </button>
+              <button
+                className="btn btn-primary"
+                type="button"
+                disabled={!selectedId || submitBusy || remaining <= 0}
+                onClick={() => void submit()}
+              >
+                {submitBusy ? '제출 중…' : '고른 AI 답변 확인'}
+              </button>
+            </div>
+          </div>
+
+          {submitResult && (
+            <div className="result show">
+              <div className="score-row">
+                <strong>{submitResult.current_score}</strong>
+                <span>점</span>
+              </div>
+              <p className="hint">{submitResult.evaluation_report.feedback}</p>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <div
+        className={`modal${fileOpen ? ' open' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setFileOpen(false);
+        }}
+      >
+        <div className="modal-card">
+          <header>
+            <h2>{detail.document_filename || '학습 자료'}</h2>
+            <button className="btn btn-ghost" type="button" onClick={() => setFileOpen(false)}>
+              닫기
+            </button>
+          </header>
+          <div className="doc">{detail.document_text || '원문을 불러올 수 없습니다.'}</div>
         </div>
       </div>
 
-      {!detail.highlight_phase_complete ? (
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">오답 하이라이트</span>
-          </div>
-          <div className="card-body">
-            <div className="form-group">
-              <label className="form-label" htmlFor="hl-text">
-                틀린 문장 (AI 오답에서 복사)
-              </label>
-              <textarea
-                id="hl-text"
-                className="form-control"
-                rows={3}
-                value={highlightText}
-                onChange={(e) => setHighlightText(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="hl-type">
-                환각 유형
-              </label>
-              <select
-                id="hl-type"
-                className="form-control"
-                value={errorType}
-                onChange={(e) => setErrorType(e.target.value as HallucinationType)}
-              >
-                {typeOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label || HALLUCINATION_LABELS[opt.value] || opt.value}
-                  </option>
-                ))}
-              </select>
-              {selectedOption?.description && (
-                <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 6 }}>
-                  {selectedOption.description}
-                </p>
-              )}
-              {detail.hallucination_type_hints?.length > 0 && (
-                <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 6 }}>
-                  힌트:{' '}
-                  {detail.hallucination_type_hints
-                    .map((hint) => HALLUCINATION_LABELS[hint] ?? hint)
-                    .join(' · ')}
-                </p>
-              )}
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="hl-reason">
-                왜 틀렸는지 (문서 근거 포함)
-              </label>
-              <textarea
-                id="hl-reason"
-                className="form-control"
-                rows={3}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </div>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => void submitHighlight()}>
-              하이라이트 제출
-            </button>
-            {actionErr && <p className="inline-alert error">{actionErr}</p>}
-            {highlightResult?.results[0] && (
-              <div
-                style={{
-                  marginTop: 12,
-                  padding: 12,
-                  background: 'var(--gray-50)',
-                  borderRadius: 10,
-                  fontSize: 13,
-                  lineHeight: 1.55,
-                }}
-              >
-                <div style={{ fontWeight: 700 }}>
-                  {highlightResult.results[0].is_correct ? '정답' : '오답'}
-                </div>
-                <div style={{ marginTop: 6 }}>
-                  {highlightResult.results[0].evaluation_report?.ai_feedback}
-                </div>
-                {highlightResult.results[0].correct_answer && (
-                  <div style={{ marginTop: 6 }}>정답 예: {highlightResult.results[0].correct_answer}</div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">빈칸 교정 제출</span>
-          </div>
-          <div className="card-body">
-            <p style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 12 }}>
-              찾은 오류 {detail.expected_error_count}개에 대해 올바른 문장을 작성하세요.
-            </p>
-            {corrections.map((c, idx) => (
-              <div key={c.original_highlight} className="form-group">
-                <label className="form-label">원문: {c.original_highlight}</label>
-                <textarea
-                  className="form-control"
-                  rows={2}
-                  value={c.student_answer}
-                  onChange={(e) => {
-                    const next = [...corrections];
-                    next[idx] = { ...c, student_answer: e.target.value };
-                    setCorrections(next);
-                  }}
-                  placeholder="올바른 문장"
-                />
-              </div>
-            ))}
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => void submitCorrection()}>
-              교정 제출
-            </button>
-            {actionErr && <p className="inline-alert error">{actionErr}</p>}
-            {correctionResult && (
-              <div
-                style={{
-                  marginTop: 14,
-                  padding: 12,
-                  background: 'var(--gray-50)',
-                  borderRadius: 10,
-                  fontSize: 13,
-                  lineHeight: 1.55,
-                }}
-              >
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                  {correctionResult.is_passed ? '통과' : '미통과'} · 점수 {correctionResult.score}점
-                </div>
-                {correctionResult.final_correct_sentence && (
-                  <div style={{ marginBottom: 10 }}>
-                    최종 정답 예: {correctionResult.final_correct_sentence}
-                  </div>
-                )}
-                {correctionResult.feedback_details?.map((item, idx) => (
-                  <div
-                    key={`${item.student_found_error}-${idx}`}
-                    style={{
-                      paddingTop: 10,
-                      marginTop: idx === 0 ? 0 : 10,
-                      borderTop: idx === 0 ? undefined : '1px solid var(--border)',
-                    }}
-                  >
-                    <div style={{ fontWeight: 600 }}>
-                      {item.is_item_passed ? '항목 통과' : '항목 미통과'} · {item.student_found_error}
-                    </div>
-                    <div style={{ marginTop: 4 }}>내 답: {item.student_answer}</div>
-                    {item.ai_feedback && <div style={{ marginTop: 4 }}>{item.ai_feedback}</div>}
-                    {item.hallucination_reason && (
-                      <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>
-                        환각 이유: {item.hallucination_reason}
-                      </div>
-                    )}
-                    {item.reference_evidence && (
-                      <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>
-                        문서 근거: {item.reference_evidence}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <div className={`toast${toast ? ' show' : ''}`} role="status">
+        {toast}
+      </div>
     </>
   );
 }
+
 
 export function StudentResultsPage() {
   const { user } = useAuth();
