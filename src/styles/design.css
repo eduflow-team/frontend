@@ -1,0 +1,329 @@
+/* design 브랜치 — 3색 + 모션
+   1) ink   #111111
+   2) paper #FFFFFF
+   3) accent #0F766E
+*/
+:root {
+  --c-ink: #111111;
+  --c-paper: #ffffff;
+  --c-accent: #0f766e;
+
+  --primary: var(--c-ink);
+  --primary-hover: #2a2a2a;
+  --primary-soft: #3a3a3a;
+  --primary-bg: color-mix(in srgb, var(--c-ink) 6%, var(--c-paper));
+  --primary-border: color-mix(in srgb, var(--c-ink) 16%, var(--c-paper));
+  --primary-muted: color-mix(in srgb, var(--c-ink) 8%, var(--c-paper));
+
+  --gray-900: var(--c-ink);
+  --gray-800: color-mix(in srgb, var(--c-ink) 88%, var(--c-paper));
+  --gray-700: color-mix(in srgb, var(--c-ink) 72%, var(--c-paper));
+  --gray-600: color-mix(in srgb, var(--c-ink) 55%, var(--c-paper));
+  --gray-500: color-mix(in srgb, var(--c-ink) 45%, var(--c-paper));
+  --gray-400: color-mix(in srgb, var(--c-ink) 32%, var(--c-paper));
+  --gray-300: color-mix(in srgb, var(--c-ink) 20%, var(--c-paper));
+  --gray-200: color-mix(in srgb, var(--c-ink) 12%, var(--c-paper));
+  --gray-100: color-mix(in srgb, var(--c-ink) 6%, var(--c-paper));
+  --gray-50: color-mix(in srgb, var(--c-ink) 3%, var(--c-paper));
+
+  --bg: var(--c-paper);
+  --surface: var(--c-paper);
+  --border: color-mix(in srgb, var(--c-ink) 12%, var(--c-paper));
+
+  --positive: var(--c-accent);
+  --positive-bg: color-mix(in srgb, var(--c-accent) 10%, var(--c-paper));
+  --warning: var(--c-ink);
+  --warning-bg: var(--gray-50);
+  --negative: var(--c-ink);
+  --negative-bg: var(--gray-50);
+
+  --t: 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 120ms cubic-bezier(0.22, 1, 0.36, 1);
+  --t-slow: 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 페이지 진입 */
+@keyframes design-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-content {
+  animation: design-fade-up var(--t-slow) both;
+}
+
+/* 버튼 프레스 */
+.btn,
+button.btn,
+.s1 .btn,
+.s2 .btn,
+.s3 .btn,
+.s4 .btn {
+  transition:
+    transform var(--t-fast),
+    background-color var(--t),
+    border-color var(--t),
+    color var(--t),
+    box-shadow var(--t),
+    opacity var(--t);
+}
+
+.btn:hover:not(:disabled),
+button.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled),
+button.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.97);
+}
+
+.btn-primary {
+  background: var(--c-ink);
+  border-color: var(--c-ink);
+  color: var(--c-paper);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+}
+
+/* 사이드바 탭 이동 */
+.nav-item,
+.nav-sub-item,
+.mode-nav-item,
+.class-item {
+  transition:
+    background-color var(--t),
+    color var(--t),
+    border-color var(--t),
+    transform var(--t-fast),
+    padding-left var(--t);
+}
+
+.nav-item:hover,
+.nav-sub-item:hover,
+.mode-nav-item:hover {
+  transform: translateX(2px);
+}
+
+.nav-item.active,
+.nav-sub-item.active,
+.mode-nav-item.active {
+  background: var(--c-ink);
+  color: var(--c-paper);
+}
+
+.mode-nav-item.active .mode-nav-icon {
+  color: var(--c-paper);
+}
+
+/* 상단 진행 스텝 탭 */
+.steps .step,
+.teacher-flow-steps .step,
+.s1 .step,
+.s2 .step,
+.s3 .step,
+.s4 .step {
+  transition: color var(--t);
+}
+
+.steps .step[aria-current='step']::after,
+.teacher-flow-steps .step[aria-current='step']::after,
+.s1 .step[aria-current='step']::after,
+.s2 .teacher-flow-steps .step[aria-current='step']::after,
+.s3 .step[aria-current='step']::after,
+.s4 .step[aria-current='step']::after {
+  transform-origin: left center;
+  animation: design-underline var(--t-slow) both;
+  background: var(--c-accent);
+}
+
+@keyframes design-underline {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* 학습모드 카드 */
+.s-dash .mode-card {
+  transition:
+    transform var(--t),
+    border-color var(--t),
+    box-shadow var(--t);
+}
+
+.s-dash .mode-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--c-accent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--c-ink) 10%, transparent);
+}
+
+.s-dash .mode-card:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+.s-dash .mode-card-icon {
+  background: color-mix(in srgb, var(--c-accent) 12%, var(--c-paper));
+  color: var(--c-accent);
+  transition: transform var(--t);
+}
+
+.s-dash .mode-card:hover .mode-card-icon {
+  transform: scale(1.08);
+}
+
+.s-dash .skill-bar-track > span {
+  background: var(--c-accent);
+  transition: width var(--t-slow);
+}
+
+.s-dash .skill-bars li:nth-child(2) .skill-bar-track > span,
+.s-dash .skill-bars li:nth-child(3) .skill-bar-track > span,
+.s-dash .skill-bars li:nth-child(4) .skill-bar-track > span {
+  background: color-mix(in srgb, var(--c-ink) calc(55% + 10% * var(--i, 1)), var(--c-accent));
+}
+
+.s-dash .skill-bars li:nth-child(2) .skill-bar-track > span {
+  background: color-mix(in srgb, var(--c-ink) 70%, var(--c-accent));
+}
+
+.s-dash .skill-bars li:nth-child(3) .skill-bar-track > span {
+  background: color-mix(in srgb, var(--c-ink) 45%, var(--c-accent));
+}
+
+.s-dash .skill-bars li:nth-child(4) .skill-bar-track > span {
+  background: color-mix(in srgb, var(--c-ink) 25%, var(--c-accent));
+}
+
+.s-dash .dash-chip.is-accent,
+.s-dash .status-pill.is-progress {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--c-paper);
+}
+
+/* 과제 선택 행 */
+.stage-assign-row {
+  transition:
+    transform var(--t),
+    border-color var(--t),
+    box-shadow var(--t);
+}
+
+.stage-assign-row:hover {
+  transform: translateX(4px);
+  border-color: var(--c-accent);
+}
+
+.stage-assign-row:active {
+  transform: translateX(2px) scale(0.995);
+}
+
+.stage-assign-status {
+  background: color-mix(in srgb, var(--c-accent) 12%, var(--c-paper));
+  color: var(--c-accent);
+}
+
+/* 모달 등장 */
+@keyframes design-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.stage-flow-modal.open,
+.s3 .modal.open,
+.s4 .modal.open {
+  animation: design-fade-up var(--t) both;
+}
+
+.stage-flow-modal-card,
+.s3 .modal.open .modal-card,
+.s4 .modal.open .modal-card {
+  animation: design-modal-in var(--t-slow) both;
+}
+
+.stage-flow-guide-num {
+  background: var(--c-accent);
+}
+
+/* 교사 위자드 스텝 원 */
+.s2 .teacher-step-circle {
+  transition:
+    transform var(--t),
+    background-color var(--t),
+    border-color var(--t),
+    color var(--t);
+}
+
+.s2 .teacher-step-circle.active,
+.s2 .teacher-step-circle.done {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--c-paper);
+  transform: scale(1.05);
+}
+
+.s2 .teacher-step-line.done {
+  background: var(--c-accent);
+}
+
+.s2 .teacher-card,
+.s2 .teacher-aside {
+  transition:
+    border-color var(--t),
+    box-shadow var(--t),
+    transform var(--t);
+}
+
+.s2 .teacher-grid > .teacher-card {
+  animation: design-fade-up var(--t-slow) both;
+}
+
+/* 스위치/토글성 컨트롤 */
+.switch-btn,
+.sidebar-toggle,
+.topbar .btn,
+.topbar button {
+  transition:
+    transform var(--t-fast),
+    background-color var(--t),
+    opacity var(--t);
+}
+
+.sidebar-toggle:active,
+.topbar button:active {
+  transform: scale(0.94);
+}
+
+/* 포커스 링 — accent만 */
+:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
