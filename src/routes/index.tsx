@@ -20,6 +20,7 @@ import {
   TeacherNoticesPage,
   TeacherStudentsPage,
 } from '../pages/teacher/ManagementPages';
+import { TeacherStudentReportPage } from '../pages/teacher/TeacherStudentReportPage';
 import { TeacherStagePage } from '../pages/teacher/StagePage';
 import { GuestRoute, ProtectedRoute, RootRedirect } from './ProtectedRoute';
 
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
           { path: '/teacher/stage/:stage', element: <TeacherStagePage /> },
           { path: '/teacher/materials', element: <TeacherMaterialsPage /> },
           { path: '/teacher/students', element: <TeacherStudentsPage /> },
+          { path: '/teacher/students/:studentId', element: <TeacherStudentReportPage /> },
           { path: '/teacher/grades', element: <TeacherGradesPage /> },
           { path: '/teacher/attendance', element: <TeacherAttendancePage /> },
           { path: '/teacher/notices', element: <TeacherNoticesPage /> },

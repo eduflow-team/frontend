@@ -71,6 +71,7 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
   const [result, setResult] = useState<Stage3GradeResult | null>(null);
   const floorRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
+  const decisionsRef = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!toast) return;
@@ -100,16 +101,43 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
     });
   };
 
+  const applyDebateStart = (nextDebate: Stage3Debate) => {
+    setDebate(nextDebate);
+    setGuideOpen(false);
+    decisionsRef.current = {};
+    setDecisions({});
+    setIdx(0);
+    setFloor(
+      nextDebate.turns[0]
+        ? [{ kind: 'turn', turn: nextDebate.turns[0], checked: null }]
+        : [],
+    );
+    setPhase('decide');
+  };
+
   const begin = async () => {
     if (startedRef.current) return;
     startedRef.current = true;
     setStarting(true);
-    let nextDebate = cloneSampleDebate(assignment);
+
+    // Langflow 대기 중에도 화면이 막히지 않도록 샘플로 즉시 시작
+    const sample = cloneSampleDebate(assignment);
+    applyDebateStart(sample);
+    setLangLabel('연결 확인 중');
+
     try {
-      const live = await loadStage3Debate(assignment);
+      const live = await Promise.race([
+        loadStage3Debate(assignment),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error('timeout')), 8000);
+        }),
+      ]);
       if (assignment?.proPersona) live.pro.role = assignment.proPersona;
       if (assignment?.conPersona) live.con.role = assignment.conPersona;
-      nextDebate = live;
+      // 사용자가 아직 판단하지 않았을 때만 라이브 토론으로 교체
+      if (Object.keys(decisionsRef.current).length === 0) {
+        applyDebateStart(live);
+      }
       setLangOk(true);
       setLangLabel('Langflow 연결됨');
       setToast(`토론 준비 완료 (${live.elapsed ?? '?'}초)`);
@@ -118,19 +146,21 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
       setLangLabel('샘플 토론');
       setToast('Langflow에 연결하지 못해 샘플 토론으로 진행합니다.');
     }
-    setDebate(nextDebate);
-    setGuideOpen(false);
-    setFloor([]);
-    setDecisions({});
-    setIdx(0);
-    pushTurn(nextDebate.turns[0]);
-    setPhase('decide');
     setStarting(false);
   };
 
   useEffect(() => {
     if (!skipIntroGuide) return;
-    void begin();
+    let cancelled = false;
+    void (async () => {
+      if (cancelled) return;
+      await begin();
+    })();
+    return () => {
+      cancelled = true;
+      // Strict Mode 재마운트 시 다시 시작할 수 있게 허용
+      startedRef.current = false;
+    };
     // 공통 플로우에서 이미 안내 팝업을 봤으므로 바로 토론 시작
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skipIntroGuide]);
@@ -139,6 +169,7 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
     if (!currentTurn || phase !== 'decide') return;
     const turn = currentTurn;
     const nextDecisions = { ...decisions, [turn.id]: checked };
+    decisionsRef.current = nextDecisions;
     setDecisions(nextDecisions);
     setFloor((prev) => {
       const next = prev.map((item) =>
@@ -191,7 +222,7 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
         <header className="topbar">
           <div className="brand">
             <strong>EduFlow</strong>
-            <span>학생 · 3단계</span>
+            <span>학생 · AI 토론</span>
           </div>
           <div className="topbar-actions">
             <span className={`lang-status${langOk ? ' ok' : ' off'}`}>{langLabel}</span>
@@ -208,7 +239,7 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
         </header>
 
         <nav className="steps" aria-label="진행 단계">
-          <div className="step">과제 받기</div>
+          <div className="step">과제 선택</div>
           <div className="step" aria-current="step">
             토론 평가
           </div>
@@ -239,7 +270,11 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
           </div>
 
           <div className="floor" id="floor" ref={floorRef}>
-            {floor.length === 0 && <p className="floor-empty">안내를 읽고 토론을 시작하세요.</p>}
+            {floor.length === 0 && (
+              <p className="floor-empty">
+                {starting ? 'AI가 토론을 준비하는 중…' : '토론을 시작해 주세요.'}
+              </p>
+            )}
             {floor.map((item, i) =>
               item.kind === 'turn' ? (
                 <div
@@ -288,8 +323,21 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
         <div className="decide-bar">
           {phase === 'guide' && (
             <>
-              <p className="decide-q">아직 토론이 시작되지 않았습니다</p>
-              <p className="decide-sub">안내 창의 &lsquo;토론 시작하기&rsquo;를 누르면 첫 발언이 나옵니다.</p>
+              <p className="decide-q">
+                {starting ? 'AI가 토론을 준비하는 중…' : '아직 토론이 시작되지 않았습니다'}
+              </p>
+              <p className="decide-sub">
+                {starting
+                  ? '잠시만 기다려 주세요. 준비가 끝나면 첫 발언이 나타납니다.'
+                  : '아래 버튼으로 토론을 시작할 수 있습니다.'}
+              </p>
+              {!starting && (
+                <div className="decide-actions">
+                  <button className="btn btn-primary" type="button" onClick={() => void begin()}>
+                    토론 시작하기
+                  </button>
+                </div>
+              )}
             </>
           )}
           {phase === 'decide' && (
@@ -480,11 +528,11 @@ function StudentStage3Done({
         <header className="topbar">
           <div className="brand">
             <strong>EduFlow</strong>
-            <span>학생 · 3단계</span>
+            <span>학생 · AI 토론</span>
           </div>
         </header>
         <nav className="steps" aria-label="진행 단계">
-          <div className="step">과제 받기</div>
+          <div className="step">과제 선택</div>
           <div className="step">토론 평가</div>
           <div className="step" aria-current="step">
             결과 확인

@@ -7,7 +7,7 @@ export const VERIFY_PROTOTYPE = {
     cardLabel: '2/5',
     meta: '이 카드 = 환각 1개 · 과제 1개',
   },
-  modeTitle: '동아시아사 검증 훈련',
+  modeTitle: '동아시아사 Hallucination 탐지',
   referenceExcerpt:
     '1876년 조일수호조규 체결 후 일본의 영향력이 확대되었다. 1894년 청일전쟁에서 일본이 승리한 뒤 러·청·일 삼국 간섭이 이루어졌다.',
   hint: '잘못된 문서 검색 · 페르소나 편향 · 정보 날조',

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { learningModeByStage } from '../../../constants/navigation';
 import {
   STAGE3_SAMPLE,
   readStage3Assignment,
@@ -33,7 +34,7 @@ export function TeacherStage3Form() {
       conPersona: conPersona.trim(),
     });
     setCreated(true);
-    setToast('과제를 만들었습니다. 학생 화면에서 토론이 시작됩니다.');
+    setToast('과제를 게시했습니다. 학생 화면에서 토론을 시작할 수 있습니다.');
   };
 
   return (
@@ -43,11 +44,11 @@ export function TeacherStage3Form() {
           <div className="step" aria-current="step">
             과제 만들기
           </div>
-          <div className="step">학생 토론 평가</div>
+          <div className="step">학생 학습</div>
           <div className="step">결과 확인</div>
         </nav>
 
-        <h1 className="page-title">토론 과제 만들기</h1>
+        <h1 className="page-title">{learningModeByStage(3)?.module ?? 'AI 토론'}</h1>
         <p className="page-desc">
           주제와 양측 페르소나를 정하면 찬성·반대 AI가 번갈아 토론합니다. 학생은 평가자로 참여합니다.
         </p>
@@ -133,10 +134,10 @@ export function TeacherStage3Form() {
                 <span className="info-icon" aria-hidden="true">
                   ✓
                 </span>
-                <p className="side-title">배포 완료</p>
+                <p className="side-title">게시 완료</p>
               </div>
               <p className="mission-text">
-                주제를 저장했습니다. 같은 브라우저의 학생 화면에서 토론을 시작할 수 있습니다.
+                과제를 게시했습니다. 같은 브라우저의 학생 화면에서 AI 토론을 시작할 수 있습니다.
                 (Langflow 서버가 없으면 샘플 토론으로 진행됩니다.)
               </p>
             </div>

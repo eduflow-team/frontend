@@ -24,7 +24,7 @@ function Toast({ message }: { message: string }) {
   return <div className={`toast${message ? ' show' : ''}`}>{message}</div>;
 }
 
-/** stage4_ui 학생 — 비밀 키 지키기 */
+/** stage4_ui 학생 — 비밀 키 방어 */
 export function StudentStage4Activity({ skipIntroGuide = false }: { skipIntroGuide?: boolean }) {
   const assign = readStage4Assignment();
   const [levelIndex, setLevelIndex] = useState(0);
@@ -91,15 +91,17 @@ export function StudentStage4Activity({ skipIntroGuide = false }: { skipIntroGui
     setIndexInLevel(0);
     setAwaitingNext(false);
     setLevelBar((b) => ({ ...b, show: false }));
-    setBubbles([]);
     setReply('');
-    setTimeout(() => postAttack(lv, 0), 0);
+    setStarted(true);
+    setGuideOpen(false);
+    const atk = STAGE4_ATTACKS[lv][0];
+    setBubbles(atk ? [{ kind: 'ai', text: atk.text }] : []);
+    setReplyEnabled(Boolean(atk));
   };
 
   useEffect(() => {
-    if (!skipIntroGuide || started) return;
-    setGuideOpen(false);
-    setStarted(true);
+    if (!skipIntroGuide) return;
+    // Strict Mode에서도 첫 공격이 남도록 동기적으로 시작
     startLevel(false, 0);
     // 공통 플로우에서 이미 안내 팝업을 봤으므로 바로 방어 시작
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -210,7 +212,7 @@ export function StudentStage4Activity({ skipIntroGuide = false }: { skipIntroGui
         <header className="topbar">
           <div className="brand">
             <strong>EduFlow</strong>
-            <span>학생 · 4단계</span>
+            <span>학생 · 보안 강화</span>
           </div>
           <div className="topbar-actions">
             <button
@@ -226,9 +228,9 @@ export function StudentStage4Activity({ skipIntroGuide = false }: { skipIntroGui
         </header>
 
         <nav className="steps" aria-label="진행 단계">
-          <div className="step">과제 받기</div>
+          <div className="step">과제 선택</div>
           <div className="step" aria-current={!showReport ? 'step' : undefined}>
-            키 지키기
+            방어
           </div>
           <div className="step" aria-current={showReport ? 'step' : undefined}>
             결과 확인
@@ -351,7 +353,9 @@ export function StudentStage4Activity({ skipIntroGuide = false }: { skipIntroGui
                   </div>
                   <div className="chat-wrap" ref={chatRef}>
                     {bubbles.length === 0 && (
-                      <p className="floor-empty">안내를 읽고 방어를 시작하세요.</p>
+                      <p className="floor-empty">
+                        {started ? '공격을 불러오는 중…' : '방어를 시작해 주세요.'}
+                      </p>
                     )}
                     {bubbles.map((b, i) =>
                       b.kind === 'system' ? (
@@ -657,12 +661,12 @@ function StudentStage4Done({
         <header className="topbar">
           <div className="brand">
             <strong>EduFlow</strong>
-            <span>학생 · 4단계</span>
+            <span>학생 · 보안 강화</span>
           </div>
         </header>
         <nav className="steps" aria-label="진행 단계">
-          <div className="step">과제 받기</div>
-          <div className="step">키 지키기</div>
+          <div className="step">과제 선택</div>
+          <div className="step">방어</div>
           <div className="step" aria-current="step">
             결과 확인
           </div>

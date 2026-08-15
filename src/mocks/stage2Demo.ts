@@ -22,7 +22,7 @@ export const STAGE2_HALLUC_OPTIONS: {
 ];
 
 export const STAGE2_DEMO = {
-  title: '2단계 · AI가 틀린 말 찾기',
+  title: 'Hallucination 탐지 · AI가 틀린 말 찾기',
   topic: '한국사 · 조선 시대 장영실의 과학 기술 업적',
   question: '장영실의 발명품에 대해 설명해줘.',
   persona: '장영실이 연을 만들었다고 믿는 한국사 선생님',

@@ -269,8 +269,13 @@
 }
 
 @media (max-width: 900px) {
-  .s-dash .dash-hero {
+  .s-dash .dash-hero-main {
     flex-direction: column;
+  }
+
+  .s-dash .dash-total {
+    width: 100%;
+    max-width: 280px;
   }
 
   .s-dash .dash-layout {
@@ -749,6 +754,11 @@
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: calc(1.45em * 2);
 }
 
 .s-dash .mode-card-tag {

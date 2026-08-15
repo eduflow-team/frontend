@@ -26,7 +26,7 @@
   --shadow: none;
   --transition: all 0.15s ease-in-out;
   --layout-max-width: 1200px;
-  --layout-practice-max-width: min(1420px, calc(100vw - 4rem));
+  --layout-practice-max-width: min(1080px, calc(100% - 48px));
   --layout-gutter: 40px;
   --sidebar-width: 300px;
   --work-column-width: 45rem;
@@ -1470,7 +1470,7 @@
 }
 
 .s2 .teacher-card textarea {
-  min-height: 140px;
+  min-height: 148px;
   resize: vertical;
   line-height: 1.6;
 }
@@ -1500,7 +1500,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 160px;
+  min-height: 148px;
   padding: 24px 20px;
   border: 2px dashed var(--border-dark);
   border-radius: 12px;

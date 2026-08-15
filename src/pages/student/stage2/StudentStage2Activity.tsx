@@ -125,7 +125,7 @@ function buildRubricFromHighlightResult(
 }
 
 function formatTitle(title: string | undefined) {
-  return (title || '검증 훈련').trim().replace(/^\d+단계:\s*/, '');
+  return (title || 'Hallucination 탐지').trim().replace(/^\d+단계:\s*/, '');
 }
 
 export function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
@@ -382,7 +382,7 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
 
           <div className="type-pills">
             <button type="button" className="type-pill active">
-              검증 훈련
+              Hallucination 탐지
             </button>
           </div>
 
