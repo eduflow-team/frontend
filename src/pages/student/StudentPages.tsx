@@ -24,6 +24,9 @@ import type {
 } from '../../api/types';
 import { STAGE1_CHUNK_SIZE_PRESETS } from '../../api/types';
 import { ApiStateBody, PageHero, PlaceholderCard } from '../../components/common';
+import { CorrectionConfirmModal } from '../../components/stage2/CorrectionConfirmModal';
+import { PdfViewerModal } from '../../components/stage2/PdfViewerModal';
+import { SelectableAiResponse } from '../../components/stage2/SelectableAiResponse';
 import {
   FALLBACK_HALLUCINATION_OPTIONS,
   HALLUCINATION_LABELS,
@@ -39,6 +42,8 @@ interface ChatMessage {
   text: string;
   meta?: string;
 }
+
+type Stage2Phase = 'find' | 'correct' | 'done';
 
 export function StudentStagePage() {
   const { subject, stage } = useParams<{ subject: SubjectKey; stage: string }>();
@@ -439,6 +444,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
 
 function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
   const [detail, setDetail] = useState<Stage2AssignmentDetailResponse | null>(null);
+  const [phase, setPhase] = useState<Stage2Phase>('find');
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
   const [highlightText, setHighlightText] = useState('');
@@ -450,6 +456,9 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
   );
   const [correctionResult, setCorrectionResult] = useState<Step2CorrectionResponse | null>(null);
   const [actionErr, setActionErr] = useState('');
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [correctionSubmitting, setCorrectionSubmitting] = useState(false);
 
   const reload = async () => {
     setLoading(true);
@@ -457,10 +466,18 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
     try {
       const res = await getStudentStep2Api(assignmentId);
       setDetail(res);
-      const firstOption = res.hallucination_type_options?.[0];
-      if (firstOption?.value) {
-        setErrorType(firstOption.value as HallucinationType);
+      const firstHint = res.hallucination_type_hints?.[0];
+      const firstOption = res.hallucination_type_options?.[0]?.value;
+      if (firstHint || firstOption) {
+        setErrorType((firstHint ?? firstOption) as HallucinationType);
       }
+      setPhase(
+        res.status === 'COMPLETED'
+          ? 'done'
+          : res.highlight_phase_complete
+            ? 'correct'
+            : 'find',
+      );
       if (res.highlight_phase_complete && res.cleared_highlights.length) {
         setCorrections((prev) => {
           const byHighlight = new Map(prev.map((c) => [c.original_highlight, c.student_answer]));
@@ -479,6 +496,12 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
   };
 
   useEffect(() => {
+    setHighlightResult(null);
+    setCorrectionResult(null);
+    setHighlightText('');
+    setReason('');
+    setConfirmOpen(false);
+    setPdfOpen(false);
     void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignmentId]);
@@ -500,7 +523,6 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
         ],
       });
       setHighlightResult(res);
-      await reload();
       if (res.highlight_phase_complete) {
         setCorrections(
           res.cleared_highlights.map((h) => ({
@@ -508,6 +530,8 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
             student_answer: '',
           })),
         );
+      } else {
+        await reload();
       }
     } catch (err) {
       setActionErr(err instanceof ApiError ? err.message : '하이라이트 제출에 실패했습니다.');
@@ -526,6 +550,7 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
     }
     setActionErr('');
     setCorrectionResult(null);
+    setCorrectionSubmitting(true);
     try {
       const res = await postStudentStep2CorrectionApi(assignmentId, {
         corrections: corrections.map((c) => ({
@@ -534,9 +559,12 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
         })),
       });
       setCorrectionResult(res);
-      await reload();
+      setConfirmOpen(false);
+      setPhase('done');
     } catch (err) {
       setActionErr(err instanceof ApiError ? err.message : '교정 제출에 실패했습니다.');
+    } finally {
+      setCorrectionSubmitting(false);
     }
   };
 
@@ -557,72 +585,82 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
     );
   }
 
-  const typeOptions =
+  const allTypeOptions =
     detail.hallucination_type_options?.length > 0
       ? detail.hallucination_type_options
       : [...FALLBACK_HALLUCINATION_OPTIONS];
+  const hintSet = new Set(detail.hallucination_type_hints ?? []);
+  const typeOptions =
+    hintSet.size > 0
+      ? allTypeOptions.filter((option) => hintSet.has(option.value))
+      : allTypeOptions;
 
   const selectedOption = typeOptions.find((opt) => opt.value === errorType);
+  const attemptsBlocked = detail.attempts.remaining_attempts === 0;
 
   return (
     <>
       <div className="grid-2" style={{ marginBottom: 16 }}>
         <div className="card">
           <div className="card-header">
-            <span className="card-title">참고 문서</span>
+            <span className="card-title">교과 자료 · 발췌</span>
           </div>
           <div className="card-body">
-            <p style={{ fontSize: 14, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+            <p className="stage2-reference-text">
               {detail.reference_document_text}
             </p>
+            {(detail.reference_document_url || detail.reference_document_filename) && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ marginTop: 12 }}
+                onClick={() => setPdfOpen(true)}
+              >
+                PDF 원문 보기
+              </button>
+            )}
           </div>
         </div>
         <div className="card">
           <div className="card-header">
-            <span className="card-title">AI 오답 · 질문</span>
+            <span className="card-title">AI 답변 · 환각 1개 찾기</span>
           </div>
           <div className="card-body">
-            <p style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 8 }}>{detail.question}</p>
-            <p style={{ fontSize: 14, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-              {detail.flawed_ai_response}
-            </p>
+            {phase === 'find' && !highlightResult?.highlight_phase_complete && (
+              <p style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 10 }}>
+                교과 발췌와 비교한 뒤 틀린 구간을 드래그해 선택하세요.
+              </p>
+            )}
+            <SelectableAiResponse
+              text={detail.flawed_ai_response}
+              clearedHighlights={detail.cleared_highlights}
+              selectedText={highlightText}
+              selectable={
+                phase === 'find' &&
+                !highlightResult?.highlight_phase_complete &&
+                !attemptsBlocked
+              }
+              onSelect={(text) => {
+                setHighlightText(text);
+                setHighlightResult(null);
+                setActionErr('');
+              }}
+            />
             <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 12 }}>
               남은 오류 {detail.remaining_errors_to_find}개 · 시도 {detail.attempts.used_attempts}
               {detail.attempts.max_attempts != null ? `/${detail.attempts.max_attempts}` : ''} · 남음{' '}
               {detail.attempts.remaining_attempts}
             </div>
-            {detail.cleared_highlights.length > 0 && (
-              <div style={{ marginTop: 10, fontSize: 13 }}>
-                <strong>찾은 구간:</strong>
-                <ul style={{ marginTop: 6, paddingLeft: 18 }}>
-                  {detail.cleared_highlights.map((h) => (
-                    <li key={h}>{h}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         </div>
       </div>
 
-      {!detail.highlight_phase_complete ? (
+      {phase === 'find' ? (
         <div className="card">
           <div className="card-header">
-            <span className="card-title">오답 하이라이트</span>
+            <span className="card-title">환각 유형 · 교과 근거</span>
           </div>
           <div className="card-body">
-            <div className="form-group">
-              <label className="form-label" htmlFor="hl-text">
-                틀린 문장 (AI 오답에서 복사)
-              </label>
-              <textarea
-                id="hl-text"
-                className="form-control"
-                rows={3}
-                value={highlightText}
-                onChange={(e) => setHighlightText(e.target.value)}
-              />
-            </div>
             <div className="form-group">
               <label className="form-label" htmlFor="hl-type">
                 환각 유형
@@ -655,7 +693,7 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
             </div>
             <div className="form-group">
               <label className="form-label" htmlFor="hl-reason">
-                왜 틀렸는지 (문서 근거 포함)
+                하이라이트한 이유 (교과 근거 포함)
               </label>
               <textarea
                 id="hl-reason"
@@ -663,44 +701,55 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
                 rows={3}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
+                placeholder="발췌문에서 확인한 근거와 AI 답변이 왜 틀렸는지 적어 주세요."
               />
             </div>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => void submitHighlight()}>
-              하이라이트 제출
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={attemptsBlocked || !highlightText.trim() || !reason.trim()}
+              onClick={() => void submitHighlight()}
+            >
+              제출 및 피드백 받기
             </button>
+            {attemptsBlocked && (
+              <p className="inline-alert error">하이라이트 제출 기회를 모두 사용했습니다.</p>
+            )}
             {actionErr && <p className="inline-alert error">{actionErr}</p>}
             {highlightResult?.results[0] && (
-              <div
-                style={{
-                  marginTop: 12,
-                  padding: 12,
-                  background: 'var(--gray-50)',
-                  borderRadius: 10,
-                  fontSize: 13,
-                  lineHeight: 1.55,
-                }}
-              >
+              <div className="stage2-feedback">
                 <div style={{ fontWeight: 700 }}>
-                  {highlightResult.results[0].is_correct ? '정답' : '오답'}
+                  {highlightResult.results[0].is_correct ? '맞았습니다' : '다시 확인해 보세요'}
                 </div>
                 <div style={{ marginTop: 6 }}>
                   {highlightResult.results[0].evaluation_report?.ai_feedback}
                 </div>
-                {highlightResult.results[0].correct_answer && (
-                  <div style={{ marginTop: 6 }}>정답 예: {highlightResult.results[0].correct_answer}</div>
+                {highlightResult.highlight_phase_complete && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    style={{ marginTop: 12 }}
+                    onClick={() => {
+                      setHighlightText('');
+                      setActionErr('');
+                      void reload();
+                    }}
+                  >
+                    교정 단계로 이동
+                  </button>
                 )}
               </div>
             )}
           </div>
         </div>
-      ) : (
+      ) : phase === 'correct' ? (
         <div className="card">
           <div className="card-header">
-            <span className="card-title">빈칸 교정 제출</span>
+            <span className="card-title">교정 문장 작성</span>
           </div>
           <div className="card-body">
             <p style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 12 }}>
-              찾은 오류 {detail.expected_error_count}개에 대해 올바른 문장을 작성하세요.
+              찾은 오류를 교과 근거에 맞는 문장으로 고쳐 쓰세요.
             </p>
             {corrections.map((c, idx) => (
               <div key={c.original_highlight} className="form-group">
@@ -718,21 +767,24 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
                 />
               </div>
             ))}
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => void submitCorrection()}>
-              교정 제출
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setConfirmOpen(true)}
+            >
+              교정 최종 제출
             </button>
             {actionErr && <p className="inline-alert error">{actionErr}</p>}
-            {correctionResult && (
-              <div
-                style={{
-                  marginTop: 14,
-                  padding: 12,
-                  background: 'var(--gray-50)',
-                  borderRadius: 10,
-                  fontSize: 13,
-                  lineHeight: 1.55,
-                }}
-              >
+          </div>
+        </div>
+      ) : (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">검증 훈련 완료</span>
+          </div>
+          <div className="card-body">
+            {correctionResult ? (
+              <div className="stage2-feedback">
                 <div style={{ fontWeight: 700, marginBottom: 6 }}>
                   {correctionResult.is_passed ? '통과' : '미통과'} · 점수 {correctionResult.score}점
                 </div>
@@ -741,37 +793,38 @@ function StudentStage2Activity({ assignmentId }: { assignmentId: string }) {
                     최종 정답 예: {correctionResult.final_correct_sentence}
                   </div>
                 )}
-                {correctionResult.feedback_details?.map((item, idx) => (
+                {correctionResult.feedback_details?.map((item, index) => (
                   <div
-                    key={`${item.student_found_error}-${idx}`}
+                    key={`${item.student_found_error}-${index}`}
                     style={{
                       paddingTop: 10,
-                      marginTop: idx === 0 ? 0 : 10,
-                      borderTop: idx === 0 ? undefined : '1px solid var(--border)',
+                      marginTop: index === 0 ? 0 : 10,
+                      borderTop: index === 0 ? undefined : '1px solid var(--border)',
                     }}
                   >
-                    <div style={{ fontWeight: 600 }}>
-                      {item.is_item_passed ? '항목 통과' : '항목 미통과'} · {item.student_found_error}
-                    </div>
-                    <div style={{ marginTop: 4 }}>내 답: {item.student_answer}</div>
-                    {item.ai_feedback && <div style={{ marginTop: 4 }}>{item.ai_feedback}</div>}
-                    {item.hallucination_reason && (
-                      <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>
-                        환각 이유: {item.hallucination_reason}
-                      </div>
-                    )}
-                    {item.reference_evidence && (
-                      <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>
-                        문서 근거: {item.reference_evidence}
-                      </div>
-                    )}
+                    <strong>{item.is_item_passed ? '항목 통과' : '항목 미통과'}</strong>
+                    <div style={{ marginTop: 4 }}>{item.ai_feedback}</div>
                   </div>
                 ))}
               </div>
+            ) : (
+              <p>이미 완료한 과제입니다.</p>
             )}
           </div>
         </div>
       )}
+      <PdfViewerModal
+        assignmentId={assignmentId}
+        filename={detail.reference_document_filename}
+        open={pdfOpen}
+        onClose={() => setPdfOpen(false)}
+      />
+      <CorrectionConfirmModal
+        open={confirmOpen}
+        submitting={correctionSubmitting}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => void submitCorrection()}
+      />
     </>
   );
 }
