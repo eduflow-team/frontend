@@ -141,7 +141,9 @@ export function TeacherStage2Form() {
     setPublishedIds([]);
     setAccepted(false);
     try {
-      const title = question.trim().slice(0, 48) || 'Hallucination 탐지 과제';
+      // 제목은 학생 화면 헤더에 노출되므로 질문 문장을 그대로 쓰지 않는다
+      const subjectLabel = SUBJECT_OPTIONS.find((s) => s.value === subject)?.label ?? '';
+      const title = `${subjectLabel ? `${subjectLabel} · ` : ''}Hallucination 탐지`;
       const base = {
         title,
         subject,
@@ -450,13 +452,16 @@ export function TeacherStage2Form() {
                   <span className="field-label">환각 유형 (중복 선택 가능)</span>
                   <div className="teacher-checklist">
                     {HALLUCINATION_OPTIONS.map((opt, index) => (
-                      <label key={opt.value} className="teacher-check-item">
+                      <label
+                        key={opt.value}
+                        className={`teacher-check-item${hallucFlags[index] ? ' checked' : ''}`}
+                      >
                         <input
                           type="checkbox"
                           checked={hallucFlags[index]}
                           onChange={() => toggleHalluc(index)}
                         />
-                        {opt.label}
+                        <span>{opt.label}</span>
                       </label>
                     ))}
                   </div>
@@ -499,13 +504,13 @@ export function TeacherStage2Form() {
               <div className="teacher-grid">
                 <div className="teacher-card">
                   <span className="teacher-step-badge">STEP 5 · 5</span>
-                  <label htmlFor="candidate-count">후보 카드 개수</label>
+                  <label htmlFor="candidate-count">후보 카드 개수 (최대 3개)</label>
                   <select
                     id="candidate-count"
                     value={cardCount}
                     onChange={(e) => setCardCount(Number(e.target.value))}
                   >
-                    {[1, 2, 3, 4, 5].map((n) => (
+                    {[1, 2, 3].map((n) => (
                       <option key={n} value={n}>
                         {n}개
                       </option>
