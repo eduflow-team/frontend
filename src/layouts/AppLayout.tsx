@@ -2,17 +2,15 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   PAGE_TITLES,
+  STUDENT_LEARNING_MODES,
   STUDENT_NAV,
-  STUDENT_SUBJECTS,
-  TEACHER_CLASSES,
   TEACHER_NAV,
-  TEACHER_SUBJECTS,
+  learningModeByStage,
 } from '../constants/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError, leaveApi } from '../api';
 import { NavLinkItem } from '../components/common';
 import { TopbarSearch } from '../components/TopbarSearch';
-import type { SubjectKey } from '../types';
 
 function TopbarSearchGate() {
   const { user } = useAuth();
@@ -50,29 +48,7 @@ function BellIcon() {
   );
 }
 
-function SwitchIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M16 3h5v5" />
-      <path d="M8 21H3v-5" />
-      <path d="M21 3l-7 7" />
-      <path d="M3 21l7-7" />
-    </svg>
-  );
-}
-
 function TeacherSidebar() {
-  const [activeSubject, setActiveSubject] = useState<SubjectKey>('hist');
-  const [activeClass, setActiveClass] = useState('all');
-  const subjectName = TEACHER_SUBJECTS.find((s) => s.key === activeSubject)?.name ?? '';
-
   return (
     <nav className="sidebar-nav">
       {TEACHER_NAV.map((section) => (
@@ -89,48 +65,12 @@ function TeacherSidebar() {
           ))}
         </div>
       ))}
-
-      <div className="nav-section-label">내 교과</div>
-      {TEACHER_SUBJECTS.map((subject) => (
-        <button
-          key={subject.key}
-          type="button"
-          className={`class-item${activeSubject === subject.key ? ' active' : ''}`}
-          onClick={() => setActiveSubject(subject.key)}
-        >
-          {subject.name}
-        </button>
-      ))}
-
-      <div className="nav-section-label">학급</div>
-      {TEACHER_CLASSES.map((cls) => (
-        <button
-          key={cls.id}
-          type="button"
-          className={`class-item${activeClass === cls.id ? ' active' : ''}`}
-          onClick={() => setActiveClass(cls.id)}
-        >
-          {cls.label}
-          <span className="class-count">{cls.count}</span>
-        </button>
-      ))}
-
-      <input type="hidden" value={subjectName} readOnly aria-hidden />
     </nav>
   );
 }
 
 function StudentSidebar() {
   const location = useLocation();
-  const [openSubjects, setOpenSubjects] = useState<Record<SubjectKey, boolean>>({
-    hist: true,
-    sci: false,
-    soc: false,
-  });
-
-  const toggleSubject = (key: SubjectKey) => {
-    setOpenSubjects((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   return (
     <nav className="sidebar-nav">
@@ -148,29 +88,18 @@ function StudentSidebar() {
         </div>
       ))}
 
-      <div className="nav-section-label">내 과목</div>
-      {STUDENT_SUBJECTS.map((subject) => (
-        <div key={subject.key} className="nav-subject-group">
-          <button
-            type="button"
-            className={`nav-subject-head${openSubjects[subject.key] ? ' open' : ''}`}
-            onClick={() => toggleSubject(subject.key)}
-          >
-            <span>{subject.name}</span>
-            <span className="nav-chevron">▾</span>
-          </button>
-          <div className={`nav-sub-items${openSubjects[subject.key] ? ' show' : ''}`}>
-            {subject.activities.map((activity) => (
-              <Link
-                key={activity.path}
-                to={activity.path}
-                className={`nav-sub-item${location.pathname === activity.path ? ' active' : ''}`}
-              >
-                {activity.title}
-              </Link>
-            ))}
-          </div>
-        </div>
+      <div className="nav-section-label">학습 모드</div>
+      {STUDENT_LEARNING_MODES.map((mode) => (
+        <Link
+          key={mode.path}
+          to={mode.path}
+          className={`nav-sub-item mode-nav-item${location.pathname === mode.path || location.pathname.endsWith(`/stage/${mode.stage}`) ? ' active' : ''}`}
+        >
+          <span className="mode-nav-icon" aria-hidden="true">
+            {mode.icon}
+          </span>
+          <span className="mode-nav-label">{mode.module}</span>
+        </Link>
       ))}
     </nav>
   );
@@ -179,19 +108,19 @@ function StudentSidebar() {
 function resolvePageTitle(pathname: string): string {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
 
-  const stageMatch = pathname.match(/^\/student\/(hist|sci|soc)\/stage\/(\d)$/);
-  if (stageMatch) {
-    const subject = STUDENT_SUBJECTS.find((s) => s.key === stageMatch[1]);
-    const stage = Number(stageMatch[2]);
-    const activity = subject?.activities.find((a) => a.stage === stage);
-    return activity?.title ?? '활동';
+  if (/^\/teacher\/students\/\d+$/.test(pathname)) return '학생 리포트';
+
+  const modeMatch = pathname.match(/^\/student\/(?:(?:hist|sci|soc)\/)?stage\/(\d)$/);
+  if (modeMatch) {
+    const mode = learningModeByStage(Number(modeMatch[1]));
+    return mode?.module ?? '학습 모드';
   }
 
   return '페이지';
 }
 
 export function AppLayout() {
-  const { user, switchRole, logout } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -206,12 +135,6 @@ export function AppLayout() {
   const userSub = isTeacher
     ? `${user.subject ?? '한국사'} · 전체 학급`
     : (user.className ?? '3학년 2반');
-
-  const handleSwitchRole = () => {
-    if (!user.isDemo) return;
-    switchRole();
-    navigate(user.role === 'teacher' ? '/student' : '/teacher');
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -258,17 +181,6 @@ export function AppLayout() {
               </div>
               <div className="user-sub">{userSub}</div>
             </div>
-            <button
-              type="button"
-              className="switch-btn"
-              title={user.isDemo ? '역할 전환 (데모)' : '역할 전환'}
-              aria-label="역할 전환"
-              onClick={handleSwitchRole}
-              disabled={!user.isDemo}
-              style={user.isDemo ? undefined : { opacity: 0.35, cursor: 'not-allowed' }}
-            >
-              <SwitchIcon />
-            </button>
           </div>
         </div>
       </aside>

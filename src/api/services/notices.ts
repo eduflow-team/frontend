@@ -21,6 +21,20 @@ export async function fetchStudentNoticesApi(params?: {
   return api.get(path);
 }
 
+export async function fetchTeacherNoticesApi(params?: {
+  page?: number;
+  size?: number;
+}): Promise<StudentNoticesResponse> {
+  const query = new URLSearchParams();
+  if (params?.page != null) query.set('page', String(params.page));
+  if (params?.size != null) query.set('size', String(params.size));
+  const qs = query.toString();
+  const path = qs
+    ? `${API_ENDPOINTS.teacher.notices}?${qs}`
+    : API_ENDPOINTS.teacher.notices;
+  return api.get(path);
+}
+
 export async function createTeacherNoticeApi(
   payload: CreateNoticeRequest,
 ): Promise<CreateNoticeResponse> {

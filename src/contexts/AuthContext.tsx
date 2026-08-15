@@ -17,15 +17,26 @@ import {
   loginApi,
   logoutApi,
   signupApi,
+  socialSignupApi,
   toApiRole,
 } from '../api';
-import type { MeResponse, SignupRequest } from '../api/types';
+import type { MeResponse, SignupRequest, SocialProvider } from '../api/types';
 import type { User, UserRole } from '../types';
 
 export interface SignupPayload {
   name: string;
   email: string;
   password: string;
+  phone: string;
+  role: UserRole;
+  classId?: number | null;
+  signupCode?: string | null;
+}
+
+export interface SocialSignupPayload {
+  provider: SocialProvider;
+  socialToken: string;
+  name: string;
   phone: string;
   role: UserRole;
   classId?: number | null;
@@ -40,6 +51,7 @@ interface AuthContextValue {
   authReady: boolean;
   login: (email: string, password: string) => Promise<AuthResult>;
   signup: (payload: SignupPayload) => Promise<AuthResult>;
+  socialSignup: (payload: SocialSignupPayload) => Promise<AuthResult>;
   logout: () => Promise<void>;
   enterDemo: (role: UserRole) => void;
   switchRole: () => void;
@@ -192,6 +204,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
+  const socialSignup = useCallback(
+    async (payload: SocialSignupPayload): Promise<AuthResult> => {
+      if (!payload.socialToken.trim() || !payload.name.trim() || !payload.phone.trim()) {
+        return { ok: false, error: '필수 항목을 모두 입력해 주세요.' };
+      }
+      if (payload.role === 'student' && payload.classId == null) {
+        return { ok: false, error: '학급을 선택해 주세요.' };
+      }
+      if (payload.role === 'teacher' && !payload.signupCode?.trim()) {
+        return { ok: false, error: '교사 가입 코드를 입력해 주세요.' };
+      }
+
+      try {
+        await socialSignupApi(payload.provider, {
+          social_token: payload.socialToken.trim(),
+          name: payload.name.trim(),
+          phone: payload.phone.trim(),
+          role: toApiRole(payload.role),
+          class_id: payload.role === 'student' ? (payload.classId ?? null) : null,
+          signup_code: payload.role === 'teacher' ? (payload.signupCode?.trim() ?? null) : null,
+        });
+        const me = await fetchMeApi();
+        const nextUser = meToUser(me);
+        persist(nextUser);
+        return { ok: true, role: nextUser.role };
+      } catch (error) {
+        clearTokens();
+        return { ok: false, error: authErrorMessage(error) };
+      }
+    },
+    [persist],
+  );
+
   const syncSession = useCallback(async (): Promise<AuthResult> => {
     try {
       const me = await fetchMeApi();
@@ -238,12 +283,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authReady,
       login,
       signup,
+      socialSignup,
       logout,
       enterDemo,
       switchRole,
       syncSession,
     }),
-    [user, authReady, login, signup, logout, enterDemo, switchRole, syncSession],
+    [user, authReady, login, signup, socialSignup, logout, enterDemo, switchRole, syncSession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

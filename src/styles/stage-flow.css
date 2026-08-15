@@ -1,0 +1,263 @@
+/* Shared student stage flow: guide modal + assignment select */
+
+.stage-flow-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 50;
+}
+
+.stage-flow-modal.open {
+  display: grid;
+}
+
+.stage-flow-modal-card {
+  width: min(620px, 100%);
+  max-height: min(80vh, 720px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--line, #e5e7eb);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+}
+
+.stage-flow-modal-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line, #e5e7eb);
+  position: sticky;
+  top: 0;
+  background: #fff;
+}
+
+.stage-flow-modal-card header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.stage-flow-modal-body {
+  padding: 18px;
+}
+
+.stage-flow-intro {
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--muted, #64748b);
+}
+
+.stage-flow-intro b {
+  color: var(--ink, #0f172a);
+  font-weight: 650;
+}
+
+.stage-flow-guide-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stage-flow-guide-list li {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.stage-flow-guide-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink, #0f172a);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stage-flow-guide-list strong {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 650;
+  margin-bottom: 2px;
+  color: var(--ink, #0f172a);
+}
+
+.stage-flow-guide-list p {
+  margin: 0;
+  color: var(--muted, #64748b);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.stage-flow-callout {
+  margin-top: 16px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--line, #e5e7eb);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink, #0f172a);
+}
+
+.stage-flow-callout b {
+  font-weight: 650;
+}
+
+.stage-flow-hint {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--muted, #64748b);
+  line-height: 1.5;
+}
+
+.stage-flow-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 18px 18px;
+}
+
+/* Assignment select */
+.stage-assign {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  padding: 8px 0 32px;
+}
+
+.stage-assign-eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, #64748b);
+}
+
+.stage-assign-title {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  color: var(--ink, #0f172a);
+}
+
+.stage-assign-desc {
+  margin: 0 0 22px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted, #64748b);
+}
+
+.stage-assign-list {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stage-assign-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 14px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stage-assign-row:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.stage-assign-row-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stage-assign-row-main strong {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--ink, #0f172a);
+  line-height: 1.35;
+}
+
+.stage-assign-meta {
+  font-size: 12px;
+  color: var(--muted, #64748b);
+}
+
+.stage-assign-status {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.stage-assign-chevron {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.stage-assign-manual {
+  padding: 16px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid var(--line, #e5e7eb);
+}
+
+.stage-assign-manual-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+}
+
+.stage-assign-manual-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.stage-assign-input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+}
+
+.stage-assign-shell {
+  padding: 24px 0 40px;
+}

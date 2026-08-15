@@ -38,6 +38,7 @@ export interface Stage1AssignmentDetailResponse {
   assignment_id: number;
   question: string;
   guideline: string;
+  due_at?: string | null;
   parameter_explanations: {
     chunk_size: string;
     top_k: string;
@@ -47,6 +48,9 @@ export interface Stage1AssignmentDetailResponse {
   attempts: Stage1AttemptsInfo;
   highest_score: number | null;
   best_parameters: Stage1Parameters | null;
+  document_filename?: string | null;
+  document_text?: string | null;
+  subject?: string | null;
 }
 
 export interface Stage1ChatRequest {
@@ -87,6 +91,9 @@ export interface Stage1SubmitResponse {
 export interface Stage1CreateResponse {
   assignment_id: number;
   created_at: string | null;
+  due_at?: string | null;
+  question: string;
+  guideline: string;
 }
 
 export interface HallucinationTypeOption {
@@ -103,6 +110,7 @@ export interface Stage2AssignmentDetailResponse {
   reference_document_text: string;
   question: string;
   flawed_ai_response: string;
+  due_at?: string | null;
   expected_error_count: number;
   hallucination_type_options: HallucinationTypeOption[];
   hallucination_type_hints: string[];
@@ -133,6 +141,7 @@ export interface Stage2CreateResponse {
   title: string;
   question: string;
   flawed_ai_response: string;
+  due_at?: string | null;
   expected_error_count: number;
   generated_errors: Stage2GeneratedError[];
 }

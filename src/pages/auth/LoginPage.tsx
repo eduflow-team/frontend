@@ -5,6 +5,8 @@ import type { SocialProvider } from '../../api/types';
 import { useAuth } from '../../contexts/AuthContext';
 import { fromApiRole } from '../../api';
 
+const SOCIAL_PROVIDERS: SocialProvider[] = ['kakao', 'google', 'apple'];
+
 export function LoginPage() {
   const { login, enterDemo, syncSession } = useAuth();
   const navigate = useNavigate();
@@ -44,6 +46,12 @@ export function LoginPage() {
       }
       navigate(fromApiRole(data.role) === 'teacher' ? '/teacher' : '/student');
     } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        navigate('/signup', {
+          state: { socialProvider: provider, socialToken: token.trim() },
+        });
+        return;
+      }
       setError(err instanceof ApiError ? err.message : '소셜 로그인에 실패했습니다.');
     } finally {
       setSocialBusy(false);
@@ -117,7 +125,7 @@ export function LoginPage() {
             flexWrap: 'wrap',
           }}
         >
-          {(['kakao', 'google', 'apple'] as SocialProvider[]).map((provider) => (
+          {SOCIAL_PROVIDERS.map((provider) => (
             <button
               key={provider}
               type="button"
