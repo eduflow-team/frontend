@@ -4,9 +4,12 @@ import {
   ApiError,
   createTeacherAssignmentStep1Api,
   createTeacherAssignmentStep2Api,
+  createTeacherAssignmentStep2SetApi,
   fetchClassesApi,
+  fetchTeacherAssignmentStep2SetApi,
+  publishTeacherAssignmentStep2SetApi,
 } from '../../api';
-import type { ClassItem, HallucinationType, Stage2CreateResponse } from '../../api/types';
+import type { ClassItem, HallucinationType, Stage2SetCardPreview } from '../../api/types';
 import { STAGE1_CHUNK_SIZE_PRESETS } from '../../api/types';
 import { PageHero, PlaceholderCard } from '../../components/common';
 import { HALLUCINATION_LABELS, SUBJECT_OPTIONS } from '../../constants/assignments';
@@ -262,43 +265,135 @@ function TeacherStage2Form() {
     'PERSONA_BIAS',
     'RETRIEVAL_ERROR',
   ]);
-  const [errorCount, setErrorCount] = useState(2);
+  const [cardCount, setCardCount] = useState(2);
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [preview, setPreview] = useState<Stage2CreateResponse | null>(null);
+  const [setId, setSetId] = useState<number | null>(null);
+  const [previewCards, setPreviewCards] = useState<Stage2SetCardPreview[]>([]);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [publishedIds, setPublishedIds] = useState<number[]>([]);
 
   const toggleType = (t: HallucinationType) => {
     setTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   };
 
+  const selectSuccessfulCards = (cards: Stage2SetCardPreview[]) =>
+    cards
+      .filter((card) => card.generation_succeeded && card.assignment_id != null)
+      .map((card) => card.assignment_id as number);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('');
     setError('');
-    setPreview(null);
+    setSetId(null);
+    setPreviewCards([]);
+    setSelectedIds([]);
+    setPublishedIds([]);
     if (!title.trim() || !question.trim() || !persona.trim() || !types.length || !file) {
       setError('제목, 질문, 페르소나, 환각 유형, 파일을 모두 입력해 주세요.');
       return;
     }
     setSubmitting(true);
     try {
-      const res = await createTeacherAssignmentStep2Api({
+      const baseForm = {
         title: title.trim(),
         subject,
         question: question.trim(),
         persona: persona.trim().slice(0, 100),
         hallucination_types: types,
-        expected_error_count: errorCount,
         file,
-      });
-      setPreview(res);
-      setMessage(`과제가 업로드되었습니다. (assignment_id: ${res.assignment_id})`);
+      };
+
+      if (cardCount === 1) {
+        const res = await createTeacherAssignmentStep2Api({
+          ...baseForm,
+          expected_error_count: 1,
+        });
+        const card: Stage2SetCardPreview = {
+          assignment_id: res.assignment_id,
+          card_index: 0,
+          title: res.title,
+          flawed_ai_response: res.flawed_ai_response,
+          expected_error_count: 1,
+          generation_error_type: res.generated_errors[0]?.error_type ?? '',
+          generated_errors: res.generated_errors,
+          publish_status: 'PUBLISHED',
+          generation_succeeded: true,
+          failure_codes: [],
+        };
+        setPreviewCards([card]);
+        setSelectedIds([res.assignment_id]);
+        setMessage('후보 1개가 생성되어 바로 게시되었습니다.');
+      } else {
+        const res = await createTeacherAssignmentStep2SetApi({
+          ...baseForm,
+          card_count: cardCount,
+        });
+        setSetId(res.set_id);
+        setPreviewCards(res.cards);
+        setSelectedIds(selectSuccessfulCards(res.cards));
+        const successCount = res.cards.filter((card) => card.generation_succeeded).length;
+        setMessage(
+          `후보 ${successCount}개가 생성되었습니다.${
+            res.failed_cards.length ? ` 실패 ${res.failed_cards.length}개` : ''
+          } 게시할 카드를 선택해 주세요.`,
+        );
+      }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '업로드에 실패했습니다.');
+      setError(err instanceof ApiError ? err.message : '후보 생성에 실패했습니다.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const toggleCandidate = (assignmentId: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(assignmentId)
+        ? prev.filter((id) => id !== assignmentId)
+        : [...prev, assignmentId],
+    );
+  };
+
+  const refreshPreview = async () => {
+    if (setId == null) return;
+    setError('');
+    try {
+      const res = await fetchTeacherAssignmentStep2SetApi(setId);
+      setPreviewCards(res.cards);
+      setSelectedIds((prev) => {
+        const available = selectSuccessfulCards(res.cards);
+        const kept = prev.filter((id) => available.includes(id));
+        return kept.length ? kept : available;
+      });
+      setMessage('후보 미리보기를 새로고침했습니다.');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '미리보기를 불러오지 못했습니다.');
+    }
+  };
+
+  const publishSelected = async () => {
+    if (setId == null || selectedIds.length === 0) return;
+    setPublishing(true);
+    setError('');
+    try {
+      const res = await publishTeacherAssignmentStep2SetApi(setId, selectedIds);
+      setPublishedIds(res.published_assignment_ids);
+      setPreviewCards((prev) =>
+        prev.map((card) =>
+          card.assignment_id != null && res.published_assignment_ids.includes(card.assignment_id)
+            ? { ...card, publish_status: 'PUBLISHED' }
+            : card,
+        ),
+      );
+      setMessage(`과제 ${res.published_assignment_ids.join(', ')}번을 게시했습니다.`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '과제 게시에 실패했습니다.');
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -379,18 +474,24 @@ function TeacherStage2Form() {
               </div>
             </div>
             <div className="form-group" style={{ maxWidth: 200 }}>
-              <label className="form-label" htmlFor="s2-count">
-                찾을 오류 개수 (1~5)
+              <label className="form-label" htmlFor="s2-card-count">
+                후보 카드 개수 (1~5)
               </label>
-              <input
-                id="s2-count"
+              <select
+                id="s2-card-count"
                 className="form-control"
-                type="number"
-                min={1}
-                max={5}
-                value={errorCount}
-                onChange={(e) => setErrorCount(Number(e.target.value))}
-              />
+                value={cardCount}
+                onChange={(e) => setCardCount(Number(e.target.value))}
+              >
+                {[1, 2, 3, 4, 5].map((count) => (
+                  <option key={count} value={count}>
+                    {count}개
+                  </option>
+                ))}
+              </select>
+              <p style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 6 }}>
+                카드마다 학생이 찾을 환각은 1개입니다.
+              </p>
             </div>
             <div className="form-group">
               <label className="form-label" htmlFor="s2-file">
@@ -407,39 +508,105 @@ function TeacherStage2Form() {
             {error && <p className="inline-alert error">{error}</p>}
             {message && <p className="inline-alert ok">{message}</p>}
             <button type="submit" className="btn btn-primary btn-cta" disabled={submitting}>
-              {submitting ? '생성 중…' : '업로드하기'}
+              {submitting ? 'AI 후보 생성 중…' : '후보 생성하기'}
             </button>
           </form>
         </div>
       </div>
 
-      {preview && (
+      {previewCards.length > 0 && (
         <div className="card" style={{ marginTop: 16 }}>
           <div className="card-header">
-            <span className="card-title">교사 미리보기 (학생에게는 비공개)</span>
+            <span className="card-title">후보 미리보기 · 게시할 카드 선택</span>
           </div>
           <div className="card-body">
-            <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 12 }}>
-              <strong>AI 오답:</strong> {preview.flawed_ai_response}
-            </p>
-            {preview.generated_errors.map((err) => (
-              <div
-                key={err.answer_id}
-                style={{
-                  padding: '10px 0',
-                  borderTop: '1px solid var(--border)',
-                  fontSize: 13,
-                }}
-              >
-                <div style={{ fontWeight: 600 }}>
-                  {HALLUCINATION_LABELS[err.error_type] ?? err.error_type}
+            {previewCards.map((card) => {
+              const assignmentId = card.assignment_id;
+              const selected =
+                assignmentId != null && selectedIds.includes(assignmentId);
+              const disabled = !card.generation_succeeded || assignmentId == null;
+              return (
+                <div
+                  key={`card-${card.card_index}`}
+                  style={{
+                    marginBottom: 12,
+                    padding: 14,
+                    border: `1px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
+                    borderRadius: 10,
+                    opacity: disabled ? 0.65 : 1,
+                  }}
+                >
+                  <label
+                    style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      disabled={disabled || card.publish_status === 'PUBLISHED'}
+                      onChange={() => assignmentId != null && toggleCandidate(assignmentId)}
+                    />
+                    카드 {card.card_index + 1}
+                    {assignmentId != null ? ` · 과제 #${assignmentId}` : ''}
+                    {card.publish_status === 'PUBLISHED' ? ' · 게시됨' : ''}
+                  </label>
+                  {card.generation_succeeded ? (
+                    <>
+                      <p style={{ fontSize: 14, lineHeight: 1.65, marginTop: 10 }}>
+                        {card.flawed_ai_response}
+                      </p>
+                      {card.generated_errors.map((generatedError) => (
+                        <div
+                          key={generatedError.answer_id}
+                          style={{
+                            borderTop: '1px solid var(--border)',
+                            marginTop: 10,
+                            paddingTop: 10,
+                            fontSize: 13,
+                          }}
+                        >
+                          <strong>
+                            {HALLUCINATION_LABELS[generatedError.error_type] ??
+                              generatedError.error_type}
+                          </strong>
+                          <div style={{ marginTop: 4 }}>{generatedError.error_sentence}</div>
+                          <div style={{ color: 'var(--gray-500)', marginTop: 4 }}>
+                            정답 예: {generatedError.correct_sentence}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <p className="inline-alert error" style={{ marginTop: 10 }}>
+                      생성 실패: {card.failure_codes.join(', ') || '알 수 없는 오류'}
+                    </p>
+                  )}
                 </div>
-                <div style={{ marginTop: 4 }}>{err.error_sentence}</div>
-                <div style={{ color: 'var(--gray-500)', marginTop: 4 }}>
-                  정답 예: {err.correct_sentence}
-                </div>
+              );
+            })}
+            {setId != null && publishedIds.length === 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => void refreshPreview()}
+                >
+                  미리보기 새로고침
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={publishing || selectedIds.length === 0}
+                  onClick={() => void publishSelected()}
+                >
+                  {publishing ? '게시 중…' : `선택한 ${selectedIds.length}개 게시`}
+                </button>
               </div>
-            ))}
+            )}
+            {publishedIds.length > 0 && (
+              <p className="inline-alert ok">
+                게시 완료: {publishedIds.map((id) => `#${id}`).join(', ')}
+              </p>
+            )}
           </div>
         </div>
       )}
