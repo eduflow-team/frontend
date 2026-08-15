@@ -150,6 +150,8 @@ export interface TeacherStep2SetCreateForm {
   subject: string;
   question: string;
   persona: string;
+  /** ISO 8601 (UTC 권장) */
+  due_at: string;
   hallucination_types: string[];
   card_count: number;
   file: File;
@@ -161,6 +163,7 @@ function buildTeacherStep2SetForm(form: TeacherStep2SetCreateForm): FormData {
   body.append('subject', form.subject);
   body.append('question', form.question);
   body.append('persona', form.persona);
+  body.append('due_at', form.due_at);
   body.append('hallucination_types', JSON.stringify(form.hallucination_types));
   body.append('card_count', String(form.card_count));
   body.append('file', form.file);

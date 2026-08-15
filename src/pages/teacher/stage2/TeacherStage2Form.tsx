@@ -149,6 +149,7 @@ export function TeacherStage2Form() {
         subject,
         question: question.trim(),
         persona: persona.trim().slice(0, 100),
+        due_at: localDateTimeToIso(defaultDueAtLocal()),
         hallucination_types: [...hallucinationTypes],
         file: referenceFile,
       };
@@ -156,7 +157,6 @@ export function TeacherStage2Form() {
       if (cardCount === 1) {
         const res = await createTeacherAssignmentStep2Api({
           ...base,
-          due_at: localDateTimeToIso(defaultDueAtLocal()),
           expected_error_count: 1,
         });
         const card = singleCreateToCard(res);
