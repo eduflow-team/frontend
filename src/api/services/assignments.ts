@@ -1,4 +1,4 @@
-import { api, apiRequest } from '../client';
+import { api, apiRequest, ApiError, getAccessToken } from '../client';
 import { API_ENDPOINTS } from '../endpoints';
 import type {
   Stage1AssignmentDetailResponse,
@@ -9,11 +9,16 @@ import type {
   Stage1SubmitResponse,
   Stage2AssignmentDetailResponse,
   Stage2CreateResponse,
+  Stage2SetCreateResponse,
+  Stage2SetDetailResponse,
+  Stage2SetPublishResponse,
   Step2CorrectionRequest,
   Step2CorrectionResponse,
   Step2HighlightRequest,
   Step2HighlightResponse,
 } from '../types';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
 export async function getStudentStep1Api(
   assignmentId: number | string,
@@ -53,6 +58,31 @@ export async function postStudentStep2CorrectionApi(
   body: Step2CorrectionRequest,
 ): Promise<Step2CorrectionResponse> {
   return api.post(API_ENDPOINTS.student.assignmentStep2Correction(assignmentId), body);
+}
+
+export async function fetchStudentStep2DocumentBlobApi(
+  assignmentId: number | string,
+): Promise<Blob> {
+  const token = getAccessToken();
+  const response = await fetch(
+    `${API_BASE}${API_ENDPOINTS.student.assignmentStep2Document(assignmentId)}`,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+  );
+
+  if (!response.ok) {
+    let detail = '';
+    try {
+      const body = (await response.json()) as { detail?: unknown };
+      detail = typeof body.detail === 'string' ? body.detail : '';
+    } catch {
+      detail = '';
+    }
+    throw new ApiError(detail || `PDF를 불러오지 못했습니다. (${response.status})`, response.status);
+  }
+
+  return response.blob();
 }
 
 export interface TeacherStep1CreateForm {
@@ -104,11 +134,57 @@ export async function createTeacherAssignmentStep2Api(
   body.append('question', form.question);
   body.append('persona', form.persona);
   body.append('hallucination_types', JSON.stringify(form.hallucination_types));
-  body.append('expected_error_count', String(form.expected_error_count));
+  body.append('expected_error_count', '1');
   body.append('file', form.file);
 
   return apiRequest<Stage2CreateResponse>(API_ENDPOINTS.teacher.createAssignmentStep2, {
     method: 'POST',
     body,
+  });
+}
+
+export interface TeacherStep2SetCreateForm {
+  title: string;
+  subject: string;
+  question: string;
+  persona: string;
+  hallucination_types: string[];
+  card_count: number;
+  file: File;
+}
+
+function buildTeacherStep2SetForm(form: TeacherStep2SetCreateForm): FormData {
+  const body = new FormData();
+  body.append('title', form.title);
+  body.append('subject', form.subject);
+  body.append('question', form.question);
+  body.append('persona', form.persona);
+  body.append('hallucination_types', JSON.stringify(form.hallucination_types));
+  body.append('card_count', String(form.card_count));
+  body.append('file', form.file);
+  return body;
+}
+
+export async function createTeacherAssignmentStep2SetApi(
+  form: TeacherStep2SetCreateForm,
+): Promise<Stage2SetCreateResponse> {
+  return apiRequest<Stage2SetCreateResponse>(API_ENDPOINTS.teacher.createAssignmentStep2Set, {
+    method: 'POST',
+    body: buildTeacherStep2SetForm(form),
+  });
+}
+
+export async function fetchTeacherAssignmentStep2SetApi(
+  setId: number | string,
+): Promise<Stage2SetDetailResponse> {
+  return api.get(API_ENDPOINTS.teacher.assignmentStep2Set(setId));
+}
+
+export async function publishTeacherAssignmentStep2SetApi(
+  setId: number | string,
+  assignmentIds: number[],
+): Promise<Stage2SetPublishResponse> {
+  return api.patch(API_ENDPOINTS.teacher.assignmentStep2Set(setId), {
+    assignment_ids: assignmentIds,
   });
 }
