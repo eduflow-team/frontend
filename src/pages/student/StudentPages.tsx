@@ -197,8 +197,8 @@ export function StudentStagePage() {
 
 
 
-interface Stage1AiMessage {
-  id: string;
+interface Stage1ChatBubble {
+  role: 'user' | 'bot';
   text: string;
   meta?: string;
 }
@@ -222,13 +222,13 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
   const [loading, setLoading] = useState(true);
   const [params, setParams] = useState<Stage1Parameters>({
     chunk_size: 50,
-    top_k: 1,
+    top_k: 2,
     temperature: 1,
   });
-  const [userTurns, setUserTurns] = useState<string[]>([]);
-  const [aiAnswers, setAiAnswers] = useState<Stage1AiMessage[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [lastPrompt, setLastPrompt] = useState('');
+  const [messages, setMessages] = useState<Stage1ChatBubble[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chunkPreviews, setChunkPreviews] = useState<string[]>([]);
+  const [studentAnswer, setStudentAnswer] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitResult, setSubmitResult] = useState<Stage1SubmitResponse | null>(null);
@@ -240,9 +240,10 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     let cancelled = false;
     setLoading(true);
     setLoadError('');
-    setUserTurns([]);
-    setAiAnswers([]);
-    setSelectedId(null);
+    setMessages([]);
+    setChunkPreviews([]);
+    setStudentAnswer('');
+    setChatInput('');
     setSubmitResult(null);
     setDone(false);
     getStudentStep1Api(assignmentId)
@@ -271,31 +272,32 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  const fixedPrompt =
-    detail?.guideline?.trim() || '오늘 학습 주제의 내용을 전체적으로 알려줘';
-  const maxAttempts = detail?.attempts.max_attempts ?? 3;
+  const maxAttempts = detail?.attempts.max_attempts ?? 2;
   const usedAttempts = detail?.attempts.used_attempts ?? 0;
-  const remaining = detail?.attempts.remaining_attempts ?? Math.max(0, maxAttempts - usedAttempts);
-  const selectedAnswer = aiAnswers.find((a) => a.id === selectedId)?.text ?? '';
+  const remaining =
+    detail?.attempts.remaining_attempts ?? Math.max(0, maxAttempts - usedAttempts);
 
   const sendChat = async () => {
-    if (!detail || remaining <= 0) {
-      setToast('제출을 모두 마쳤습니다.');
+    const text = chatInput.trim();
+    if (!text) {
+      setToast('AI에게 물어볼 내용을 입력해 주세요.');
       return;
     }
-    const text = fixedPrompt;
-    setLastPrompt(text);
-    setUserTurns((prev) => [...prev, text]);
+    setMessages((prev) => [...prev, { role: 'user', text }]);
+    setChatInput('');
     setChatBusy(true);
     try {
       const res = await postStudentStep1ChatApi(assignmentId, {
         message: text,
         parameters: params,
       });
-      const id = `a${Date.now()}`;
-      const meta = `청크 ${res.rag_process_visualization.retrieved_chunks}/${res.rag_process_visualization.total_chunks}`;
-      setAiAnswers((prev) => [...prev, { id, text: res.ai_response, meta }]);
-      setToast('새 답이 도착했습니다. 제출할 답을 클릭해 고르세요.');
+      const viz = res.rag_process_visualization;
+      const meta =
+        `청크 ${viz.retrieved_chunks}/${viz.total_chunks}` +
+        ` · 유사도 ${viz.vector_search_score}` +
+        (viz.approx_context_chars != null ? ` · 약 ${viz.approx_context_chars}자` : '');
+      setMessages((prev) => [...prev, { role: 'bot', text: res.ai_response, meta }]);
+      setChunkPreviews(viz.retrieved_chunk_previews ?? []);
     } catch (err) {
       setToast(err instanceof ApiError ? err.message : '채팅 요청에 실패했습니다.');
     } finally {
@@ -304,8 +306,8 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
   };
 
   const submit = async () => {
-    if (!selectedAnswer.trim() || !lastPrompt.trim()) {
-      setToast('먼저 AI 답을 클릭해 고르세요.');
+    if (!studentAnswer.trim()) {
+      setToast('제출할 답을 입력해 주세요.');
       return;
     }
     if (remaining <= 0) {
@@ -316,12 +318,10 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     try {
       const res = await postStudentStep1SubmitApi(assignmentId, {
         final_parameters: params,
-        selected_ai_response: selectedAnswer,
-        student_prompt: lastPrompt,
+        student_answer: studentAnswer.trim(),
       });
       setSubmitResult(res);
-      setToast('선택한 답으로 제출했습니다.');
-      setSelectedId(null);
+      setToast(res.is_correct ? '정답으로 제출했습니다.' : '오답으로 제출했습니다.');
       if (detail) {
         setDetail({
           ...detail,
@@ -332,6 +332,8 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
           },
           highest_score: res.highest_score,
           best_parameters: params,
+          is_answer_revealed: Boolean(res.correct_answer) || detail.is_answer_revealed,
+          correct_answer: res.correct_answer ?? detail.correct_answer,
         });
       }
       if (res.attempts.remaining_attempts <= 0) {
@@ -366,7 +368,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
           <p className="done-eyebrow">RAG 체험 · 완료</p>
           <h1 className="page-title">과제 끝</h1>
           <p className="page-desc">
-            {remaining <= 0 ? '3회 제출을 모두 마쳤습니다.' : '과제를 제출했습니다.'}
+            {remaining <= 0 ? '제출 기회를 모두 사용했습니다.' : '과제를 제출했습니다.'}
           </p>
           <div className="done-score-box">
             <span className="side-title">최종 점수</span>
@@ -375,16 +377,9 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
               <span>점</span>
             </div>
             <p className="hint">
-              제출 {detail.attempts.used_attempts}회 · 최고 점수 기준
+              {submitResult.is_correct ? '정답' : '오답'} · 제출 {detail.attempts.used_attempts}회 ·
+              리소스 감점 {submitResult.evaluation_report.resource_penalty}
             </p>
-            <div className="done-sub scores">
-              <span>
-                faithfulness <strong>{submitResult.evaluation_report.faithfulness_score}/5</strong>
-              </span>
-              <span>
-                relevance <strong>{submitResult.evaluation_report.relevance_score}/5</strong>
-              </span>
-            </div>
           </div>
         </div>
         <div className="done-grid">
@@ -411,7 +406,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
               <span className="info-icon" aria-hidden="true">
                 ▤
               </span>
-              <p className="side-title">최고점 파라미터</p>
+              <p className="side-title">제출 파라미터</p>
             </div>
             <div className="done-params">
               <div>
@@ -436,6 +431,15 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
               <p className="side-title">피드백</p>
             </div>
             <p className="mission-text">{submitResult.evaluation_report.feedback}</p>
+            {submitResult.correct_answer || detail.correct_answer ? (
+              <p className="hint" style={{ marginTop: 8 }}>
+                정답: {submitResult.correct_answer || detail.correct_answer}
+              </p>
+            ) : (
+              <p className="hint" style={{ marginTop: 8 }}>
+                정답 문구는 마감 후에 공개됩니다.
+              </p>
+            )}
           </section>
         </div>
         <div className="actions">
@@ -460,7 +464,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             </div>
             <p className="mission-text">{detail.question}</p>
             <p className="hint" style={{ marginTop: 10 }}>
-              채팅 질문은 고정되어 있습니다.
+              AI와 자유롭게 대화하며 근거를 찾은 뒤, 아래에 본인 답을 제출하세요.
             </p>
           </section>
 
@@ -555,92 +559,107 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
                 />
               </div>
             </div>
+            <p className="hint" style={{ marginTop: 8 }}>
+              기본값보다 top_k·chunk를 과하게 키우면 맞더라도 감점됩니다.
+            </p>
           </section>
         </aside>
 
         <section className="main">
           <div className="main-head">
-            <h1>대화</h1>
-            <p>AI 답을 클릭해 고른 뒤 제출하세요.</p>
+            <h1>근거 탐색 · 답안 제출</h1>
+            <p>자유 질문으로 자료를 찾은 뒤, 본인 답을 제출하세요. (제출 {maxAttempts}회)</p>
           </div>
 
           <div className="chat">
             <div className="chat-log" aria-live="polite">
-              {userTurns.length === 0 && aiAnswers.length === 0 && (
-                <p className="hint">전송을 누르면 고정 질문으로 AI 답을 받습니다.</p>
+              {messages.length === 0 && (
+                <p className="hint">예: &quot;임시정부는 어디에 세워졌어?&quot;</p>
               )}
-              {userTurns.map((text, i) => (
-                <article key={`u-${i}`} className="bubble user">
+              {messages.map((m, i) => (
+                <article key={`${m.role}-${i}`} className={`bubble ${m.role === 'user' ? 'user' : 'ai'}`}>
                   <div className="meta">
-                    <span>나</span>
+                    <span>{m.role === 'user' ? '나' : 'AI'}</span>
+                    {m.meta ? <span className="select-hint">{m.meta}</span> : null}
                   </div>
-                  <div>{text}</div>
-                </article>
-              ))}
-              {aiAnswers.map((a, idx) => (
-                <article
-                  key={a.id}
-                  className={`bubble ai${selectedId === a.id ? ' selected' : ''}`}
-                  onClick={() => {
-                    if (remaining <= 0) return;
-                    setSelectedId(a.id);
-                  }}
-                >
-                  <div className="meta">
-                    <span>AI 답 {idx + 1}</span>
-                    <span className="select-hint">
-                      {selectedId === a.id ? '제출용으로 선택됨' : '클릭해서 선택'}
-                    </span>
-                  </div>
-                  <div>{a.text}</div>
+                  <div>{m.text}</div>
                 </article>
               ))}
             </div>
             <div className="chat-compose">
-              <input className="field" type="text" value={fixedPrompt} readOnly />
+              <input
+                className="field"
+                type="text"
+                value={chatInput}
+                placeholder="AI에게 질문 입력"
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    void sendChat();
+                  }
+                }}
+                disabled={chatBusy}
+              />
               <button
                 className="btn btn-primary"
                 type="button"
                 onClick={() => void sendChat()}
-                disabled={chatBusy || remaining <= 0}
+                disabled={chatBusy}
               >
                 {chatBusy ? '…' : '전송'}
               </button>
             </div>
           </div>
 
+          {chunkPreviews.length > 0 && (
+            <section className="info-card" style={{ marginTop: 12 }}>
+              <div className="info-card-head">
+                <span className="info-icon" aria-hidden="true">
+                  ▤
+                </span>
+                <p className="side-title">검색된 청크 (top-k)</p>
+              </div>
+              <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.45 }}>
+                {chunkPreviews.map((chunk, idx) => (
+                  <li key={`chunk-${idx}`} style={{ marginBottom: 8, whiteSpace: 'pre-wrap' }}>
+                    {chunk}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
           <div className="submit-bar">
-            <div className="submit-meta">
+            <div className="submit-meta" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
               <span className="pill">
-                시도 {usedAttempts}/{maxAttempts}
+                제출 {usedAttempts}/{maxAttempts}
               </span>
-              <div className="selected-preview">
-                {selectedAnswer ? (
-                  <>
-                    선택한 답:{' '}
-                    <em>
-                      {selectedAnswer.slice(0, 42)}
-                      {selectedAnswer.length > 42 ? '…' : ''}
-                    </em>
-                  </>
-                ) : remaining <= 0 ? (
-                  '제출을 모두 마쳤습니다.'
-                ) : (
-                  '제출할 답을 선택하세요.'
-                )}
+              <div className="field-group" style={{ margin: 0 }}>
+                <label className="label" htmlFor="s1-student-answer">
+                  내 답안
+                </label>
+                <input
+                  id="s1-student-answer"
+                  className="field"
+                  placeholder="교과서 표현으로 입력"
+                  value={studentAnswer}
+                  onChange={(e) => setStudentAnswer(e.target.value)}
+                  disabled={remaining <= 0}
+                />
               </div>
             </div>
             <div className="actions" style={{ paddingTop: 0 }}>
               <button className="btn btn-ghost" type="button" onClick={finish}>
-                과제 제출
+                결과 보기
               </button>
               <button
                 className="btn btn-primary"
                 type="button"
-                disabled={!selectedId || submitBusy || remaining <= 0}
+                disabled={!studentAnswer.trim() || submitBusy || remaining <= 0}
                 onClick={() => void submit()}
               >
-                {submitBusy ? '제출 중…' : '고른 AI 답변 확인'}
+                {submitBusy ? '제출 중…' : '답안 제출'}
               </button>
             </div>
           </div>
@@ -649,8 +668,12 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             <div className="result show">
               <div className="score-row">
                 <strong>{submitResult.current_score}</strong>
-                <span>점</span>
+                <span>점 · {submitResult.is_correct ? '정답' : '오답'}</span>
               </div>
+              <p className="hint">
+                정답점수 {submitResult.evaluation_report.correct_score} · 리소스 감점{' '}
+                {submitResult.evaluation_report.resource_penalty}
+              </p>
               <p className="hint">{submitResult.evaluation_report.feedback}</p>
             </div>
           )}
@@ -682,6 +705,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     </>
   );
 }
+
 
 
 export function StudentResultsPage() {

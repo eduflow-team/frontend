@@ -17,7 +17,7 @@ import { TeacherStage3Form } from './stage3/TeacherStage3Form';
 import { TeacherStage4Form } from './stage4/TeacherStage4Form';
 
 const STAGE_DESCRIPTIONS: Record<string, string> = {
-  '1': '학습 자료를 업로드하면 AI가 학생용 문제를 만들고, 가이드라인 질문은 고정됩니다.',
+  '1': '학습 자료와 퀴즈 1문제·정답을 등록하면, 학생이 파라미터를 조절하며 답을 찾아 제출합니다.',
   '2': '참고 문서와 페르소나를 설정해 의도적 환각 과제를 만듭니다.',
   '3': 'AI 관점 비교 토론 주제를 설정합니다.',
   '4': 'AI 보안 실습 과제를 게시합니다.',
@@ -129,6 +129,8 @@ function TeacherStage1Form() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [classId, setClassId] = useState<number | ''>('');
   const [subject, setSubject] = useState('hist');
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
   const [dueAt, setDueAt] = useState(defaultDueAtLocal);
   const [chunkSize, setChunkSize] = useState(50);
   const [topK, setTopK] = useState(2);
@@ -156,6 +158,10 @@ function TeacherStage1Form() {
       setError('학급과 파일을 입력해 주세요.');
       return;
     }
+    if (!question.trim() || !answer.trim()) {
+      setError('문제와 정답을 입력해 주세요.');
+      return;
+    }
     if (!dueAt) {
       setError('마감일을 입력해 주세요.');
       return;
@@ -165,6 +171,8 @@ function TeacherStage1Form() {
       const res = await createTeacherAssignmentStep1Api({
         class_id: Number(classId),
         subject,
+        question: question.trim(),
+        answer: answer.trim(),
         due_at: localDateTimeToIso(dueAt),
         default_chunk_size: chunkSize,
         default_top_k: topK,
@@ -174,8 +182,7 @@ function TeacherStage1Form() {
       setMessage(
         `과제를 게시했습니다. (assignment_id: ${res.assignment_id})\n` +
           `마감: ${formatDueAt(res.due_at) || formatDueAt(localDateTimeToIso(dueAt))}\n` +
-          `생성된 문제: ${res.question}\n` +
-          `가이드라인: ${res.guideline}`,
+          `문제: ${res.question}`,
       );
       setCanRetry(false);
     } catch (err) {
@@ -205,8 +212,8 @@ function TeacherStage1Form() {
 
         <h1 className="page-title">{learningModeByStage(1)?.module ?? 'RAG 체험'}</h1>
         <p className="page-desc">
-          학습 자료를 업로드하면 AI가 학생용 문제를 만들고, 가이드라인은 &quot;오늘 학습 주제의 내용을
-          전체적으로 알려줘&quot;로 고정됩니다.
+          학습 자료를 업로드하고 퀴즈 1문제·정답 1개를 입력하세요. 학생은 파라미터를 조절하며
+          답을 찾아 제출합니다. 기본값보다 검색 자원을 과하게 키우면 맞더라도 감점됩니다.
         </p>
 
         <form className="stack" onSubmit={handleSubmit}>
@@ -248,6 +255,35 @@ function TeacherStage1Form() {
             </div>
           </div>
 
+          <div className="field-group">
+            <label className="label" htmlFor="s1-question">
+              문제 (1개)
+            </label>
+            <textarea
+              id="s1-question"
+              className="field"
+              rows={3}
+              required
+              placeholder="예: 대한민국 임시정부는 어디에 세워졌나요?"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+            />
+          </div>
+
+          <div className="field-group">
+            <label className="label" htmlFor="s1-answer">
+              정답 (1개 · 교과서 표현)
+            </label>
+            <input
+              id="s1-answer"
+              className="field"
+              required
+              placeholder="예: 상하이"
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+            />
+          </div>
+
           <div className="field-group" style={{ maxWidth: 320 }}>
             <label className="label" htmlFor="s1-due">
               마감일
@@ -260,6 +296,7 @@ function TeacherStage1Form() {
               value={dueAt}
               onChange={(e) => setDueAt(e.target.value)}
             />
+            <p className="hint">마감 후에만 학생에게 정답이 공개됩니다.</p>
           </div>
 
           <div className="params">

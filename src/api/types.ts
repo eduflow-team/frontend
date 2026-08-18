@@ -37,7 +37,6 @@ export interface Stage1AttemptsInfo {
 export interface Stage1AssignmentDetailResponse {
   assignment_id: number;
   question: string;
-  guideline: string;
   due_at?: string | null;
   parameter_explanations: {
     chunk_size: string;
@@ -51,6 +50,8 @@ export interface Stage1AssignmentDetailResponse {
   document_filename?: string | null;
   document_text?: string | null;
   subject?: string | null;
+  is_answer_revealed?: boolean;
+  correct_answer?: string | null;
 }
 
 export interface Stage1ChatRequest {
@@ -64,28 +65,32 @@ export interface Stage1ChatResponse {
     total_chunks: number;
     retrieved_chunks: number;
     vector_search_score: number;
+    retrieved_chunk_previews?: string[];
+    approx_context_chars?: number;
   };
 }
 
 export interface Stage1SubmitRequest {
   final_parameters: Stage1Parameters;
-  selected_ai_response: string;
-  student_prompt: string;
+  student_answer: string;
 }
 
 export interface Stage1SubmitResponse {
   current_score: number;
   highest_score: number;
   is_highest_score: boolean;
+  is_correct: boolean;
   evaluation_report: {
-    faithfulness_score: number;
-    relevance_score: number;
+    is_correct: boolean;
+    correct_score: number;
+    resource_penalty: number;
     feedback: string;
   };
   attempts: {
     used_attempts: number;
     remaining_attempts: number;
   };
+  correct_answer?: string | null;
 }
 
 export interface Stage1CreateResponse {
@@ -93,7 +98,6 @@ export interface Stage1CreateResponse {
   created_at: string | null;
   due_at?: string | null;
   question: string;
-  guideline: string;
 }
 
 export interface HallucinationTypeOption {

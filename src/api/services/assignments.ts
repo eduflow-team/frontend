@@ -58,6 +58,8 @@ export async function postStudentStep2CorrectionApi(
 export interface TeacherStep1CreateForm {
   class_id: number;
   subject: string;
+  question: string;
+  answer: string;
   /** ISO 8601 (UTC 권장) */
   due_at: string;
   default_chunk_size?: number;
@@ -72,6 +74,8 @@ export async function createTeacherAssignmentStep1Api(
   const body = new FormData();
   body.append('class_id', String(form.class_id));
   body.append('subject', form.subject);
+  body.append('question', form.question);
+  body.append('answer', form.answer);
   body.append('due_at', form.due_at);
   body.append('default_chunk_size', String(form.default_chunk_size ?? 50));
   body.append('default_top_k', String(form.default_top_k ?? 2));
