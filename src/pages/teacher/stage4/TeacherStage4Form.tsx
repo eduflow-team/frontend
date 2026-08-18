@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { learningModeByStage } from '../../../constants/navigation';
 import {
   STAGE4_DEFAULT_ASSIGN,
   readStage4Assignment,
@@ -37,7 +38,7 @@ export function TeacherStage4Form() {
       hints: hints.map((h) => h.trim()).filter(Boolean),
     });
     setCreated(true);
-    setToast('과제를 만들었습니다');
+    setToast('과제를 게시했습니다.');
   };
 
   return (
@@ -47,11 +48,11 @@ export function TeacherStage4Form() {
           <div className="step" aria-current="step">
             과제 만들기
           </div>
-          <div className="step">학생 키 지키기</div>
+          <div className="step">학생 학습</div>
           <div className="step">결과 확인</div>
         </nav>
 
-        <h1 className="page-title">보안 과제 만들기</h1>
+        <h1 className="page-title">{learningModeByStage(4)?.module ?? '보안 강화'}</h1>
         <p className="page-desc">
           학생이 지켜야 할 비밀 키를 정하세요. AI가 프롬프트 인젝션으로 키를 물어보고, 학생은
           문지기로서 답에 키를 넣지 않아야 합니다.
@@ -60,7 +61,7 @@ export function TeacherStage4Form() {
         <div className="stack">
           <div className="field-group">
             <label className="label" htmlFor="titleInput">
-              시나리오 제목
+              과제 제목
             </label>
             <input
               id="titleInput"
@@ -201,10 +202,10 @@ export function TeacherStage4Form() {
                 <span className="info-icon" aria-hidden="true">
                   ✓
                 </span>
-                <p className="side-title">배포 완료</p>
+                <p className="side-title">게시 완료</p>
               </div>
               <p className="mission-text">
-                설정을 저장했습니다. 같은 브라우저의 학생 4단계 화면에서 키 지키기 흐름을 확인할 수
+                과제를 게시했습니다. 같은 브라우저의 학생 보안 강화 화면에서 방어 활동을 확인할 수
                 있습니다.
               </p>
             </div>

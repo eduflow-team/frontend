@@ -8,6 +8,7 @@ import {
 import type { ClassItem } from '../../api/types';
 import { STAGE1_CHUNK_SIZE_PRESETS } from '../../api/types';
 import { SUBJECT_OPTIONS } from '../../constants/assignments';
+import { learningModeByStage } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { defaultDueAtLocal, formatDueAt, localDateTimeToIso } from '../../utils/datetime';
 import { formatClassLabel } from '../../utils/labels';
@@ -17,9 +18,9 @@ import { TeacherStage4Form } from './stage4/TeacherStage4Form';
 
 const STAGE_DESCRIPTIONS: Record<string, string> = {
   '1': '학습 자료를 업로드하면 AI가 학생용 문제를 만들고, 가이드라인 질문은 고정됩니다.',
-  '2': '참고 문서와 페르소나를 설정해 의도적 환각 과제를 업로드합니다.',
+  '2': '참고 문서와 페르소나를 설정해 의도적 환각 과제를 만듭니다.',
   '3': 'AI 관점 비교 토론 주제를 설정합니다.',
-  '4': 'AI 보안 실습 시나리오를 배포합니다.',
+  '4': 'AI 보안 실습 과제를 게시합니다.',
 };
 
 export function TeacherStagePage() {
@@ -51,14 +52,14 @@ export function TeacherStagePage() {
             <div className="step">학생 학습</div>
             <div className="step">결과 확인</div>
           </nav>
-          <h1 className="page-title">1단계 과제 출제</h1>
+          <h1 className="page-title">{learningModeByStage(1)?.module ?? 'RAG 체험'}</h1>
           <p className="page-desc">{STAGE_DESCRIPTIONS['1']}</p>
           <div className="info-card">
             <div className="info-card-head">
               <span className="info-icon" aria-hidden="true">
                 ◇
               </span>
-              <p className="side-title">1단계 과제 편집 영역</p>
+              <p className="side-title">RAG 체험 과제 편집</p>
             </div>
             <p className="mission-text">
               실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요.
@@ -171,7 +172,7 @@ function TeacherStage1Form() {
         file,
       });
       setMessage(
-        `과제가 업로드되었습니다. (assignment_id: ${res.assignment_id})\n` +
+        `과제를 게시했습니다. (assignment_id: ${res.assignment_id})\n` +
           `마감: ${formatDueAt(res.due_at) || formatDueAt(localDateTimeToIso(dueAt))}\n` +
           `생성된 문제: ${res.question}\n` +
           `가이드라인: ${res.guideline}`,
@@ -198,11 +199,11 @@ function TeacherStage1Form() {
           <div className="step" aria-current="step">
             과제 만들기
           </div>
-          <div className="step">학생 실험</div>
-          <div className="step">제출·점수</div>
+          <div className="step">학생 학습</div>
+          <div className="step">결과 확인</div>
         </nav>
 
-        <h1 className="page-title">답 실험 과제 만들기</h1>
+        <h1 className="page-title">{learningModeByStage(1)?.module ?? 'RAG 체험'}</h1>
         <p className="page-desc">
           학습 자료를 업로드하면 AI가 학생용 문제를 만들고, 가이드라인은 &quot;오늘 학습 주제의 내용을
           전체적으로 알려줘&quot;로 고정됩니다.

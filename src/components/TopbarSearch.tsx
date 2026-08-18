@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, searchApi } from '../api';
 import type { SearchResponse } from '../api/types';
+import { learningModeLabel } from '../constants/navigation';
 import type { UserRole } from '../types';
 
 export function TopbarSearch({ role }: { role?: UserRole }) {
@@ -95,7 +96,7 @@ export function TopbarSearch({ role }: { role?: UserRole }) {
                   {assignments.map((a) => (
                     <div key={a.assignment_id} className="search-item">
                       {a.title ?? `과제 #${a.assignment_id}`}
-                      {a.stage != null ? ` · ${a.stage}단계` : ''}
+                      {a.stage != null ? ` · ${learningModeLabel(a.stage)}` : ''}
                     </div>
                   ))}
                 </div>

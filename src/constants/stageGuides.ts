@@ -53,7 +53,7 @@ export const STAGE_GUIDES: Record<number, StageGuide> = {
       },
       {
         title: '검증 결과를 제출합니다',
-        body: '찾은 오류와 유형을 바탕으로 검증 훈련을 마무리합니다.',
+        body: '찾은 오류와 유형을 바탕으로 Hallucination 탐지를 마무리합니다.',
       },
     ],
     calloutTitle: '포인트',

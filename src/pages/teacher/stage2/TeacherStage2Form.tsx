@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ApiError, createTeacherAssignmentStep2Api } from '../../../api';
 import type { Stage2CreateResponse } from '../../../api/types';
 import { SUBJECT_OPTIONS } from '../../../constants/assignments';
+import { learningModeByStage } from '../../../constants/navigation';
 import { defaultDueAtLocal, localDateTimeToIso } from '../../../utils/datetime';
 
 const HALLUCINATION_OPTIONS = [
@@ -104,7 +105,7 @@ export function TeacherStage2Form() {
     setLoading(true);
     setError('');
     try {
-      const title = question.trim().slice(0, 48) || '검증 훈련 과제';
+      const title = question.trim().slice(0, 48) || 'Hallucination 탐지 과제';
       const res = await createTeacherAssignmentStep2Api({
         title,
         subject,
@@ -141,11 +142,11 @@ export function TeacherStage2Form() {
           <div className="step" aria-current="step">
             과제 만들기
           </div>
-          <div className="step">학생 검증 훈련</div>
+          <div className="step">학생 학습</div>
           <div className="step">결과 확인</div>
         </nav>
 
-        <h1 className="page-title">검증 훈련 과제 만들기</h1>
+        <h1 className="page-title">{learningModeByStage(2)?.module ?? 'Hallucination 탐지'}</h1>
         <p className="page-desc">
           문서·페르소나·환각 유형을 단계별로 입력하면 AI가 의도적 오류를 포함한 답변을 생성합니다.
         </p>
@@ -173,8 +174,8 @@ export function TeacherStage2Form() {
 
           {accepted && preview ? (
             <div className="teacher-success">
-              <div className="teacher-success-title">과제가 게시되었습니다</div>
-              <p>학생들이 학습 화면에서 검증 훈련을 시작할 수 있어요.</p>
+              <div className="teacher-success-title">과제를 게시했습니다.</div>
+              <p>학생들이 학습 화면에서 Hallucination 탐지를 시작할 수 있어요.</p>
               <p className="teacher-published-ids">과제 ID: {preview.assignment_id}</p>
               <button type="button" className="btn btn-ghost" onClick={resetWizard}>
                 새 과제 만들기

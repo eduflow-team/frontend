@@ -87,7 +87,7 @@ export function StudentStagePage() {
           id: STAGE2_DEMO_ASSIGNMENT_ID,
           title: 'Hallucination 탐지 데모 과제',
           statusLabel: '데모',
-          meta: '샘플 문서로 검증 훈련을 시작합니다',
+          meta: '샘플 문서로 환각을 찾아봅니다',
         },
         ...apiList,
       ];
@@ -109,7 +109,7 @@ export function StudentStagePage() {
           id: 'sample-stage4',
           title: '보안 강화 샘플 과제',
           statusLabel: '기본',
-          meta: '프롬프트 방어 · 키 지키기',
+          meta: '비밀 키 방어 연습',
         },
         ...apiList,
       ];
@@ -162,7 +162,7 @@ export function StudentStagePage() {
           <PageHero title={mode.module} description={STAGE_TITLES[1]} />
           <PlaceholderCard
             title={`${mode.module} 학습 활동`}
-            message="1단계는 실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요."
+            message="RAG 체험은 실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요."
           />
         </>
       );
@@ -171,7 +171,7 @@ export function StudentStagePage() {
       <div className="s1">
         <div className="shell wide">
           <nav className="steps" aria-label="진행 단계">
-            <div className="step">설명</div>
+            <div className="step">안내</div>
             <div className="step">과제 선택</div>
             <div className="step" aria-current="step">
               학습
@@ -363,7 +363,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     return (
       <section className="done-layout">
         <div className="done-hero">
-          <p className="done-eyebrow">Stage 1 · 완료</p>
+          <p className="done-eyebrow">RAG 체험 · 완료</p>
           <h1 className="page-title">과제 끝</h1>
           <p className="page-desc">
             {remaining <= 0 ? '3회 제출을 모두 마쳤습니다.' : '과제를 제출했습니다.'}
@@ -700,32 +700,34 @@ export function StudentResultsPage() {
     <div className="s-dash">
       <div className="shell wide">
         <section className="dash-hero">
-          <div className="dash-intro">
-            <p className="done-eyebrow">울산형 AI 리터러시</p>
-            <h1 className="page-title">나의 점수</h1>
-            <p className="page-desc dash-intro-desc">
-              학습 모드를 풀면 연결된 리터러시 축 점수가 올라갑니다.
-            </p>
-          </div>
-          <div className="dash-total">
-            <p className="dash-total-label">전체 AI 리터러시</p>
-            <div className="dash-ring" aria-hidden="true">
-              <svg viewBox="0 0 120 120" className="dash-ring-svg">
-                <circle className="dash-ring-track" cx="60" cy="60" r="52" />
-                <circle
-                  className="dash-ring-value"
-                  cx="60"
-                  cy="60"
-                  r="52"
-                  style={{ ['--p' as string]: String(total) }}
-                />
-              </svg>
-              <div className="dash-ring-score">
-                <strong>{total}</strong>
-                <span>점</span>
-              </div>
+          <div className="dash-hero-main">
+            <div className="dash-intro">
+              <p className="done-eyebrow">울산형 AI 리터러시</p>
+              <h1 className="page-title">나의 점수</h1>
+              <p className="page-desc dash-intro-desc">
+                학습 모드를 풀면 연결된 리터러시 축 점수가 올라갑니다.
+              </p>
             </div>
-            <p className="dash-total-meta">6축 평균 · 미이수 제외</p>
+            <div className="dash-total">
+              <p className="dash-total-label">전체 AI 리터러시</p>
+              <div className="dash-ring" aria-hidden="true">
+                <svg viewBox="0 0 120 120" className="dash-ring-svg">
+                  <circle className="dash-ring-track" cx="60" cy="60" r="52" />
+                  <circle
+                    className="dash-ring-value"
+                    cx="60"
+                    cy="60"
+                    r="52"
+                    style={{ ['--p' as string]: String(total) }}
+                  />
+                </svg>
+                <div className="dash-ring-score">
+                  <strong>{total}</strong>
+                  <span>점</span>
+                </div>
+              </div>
+              <p className="dash-total-meta">6축 평균 · 미이수 제외</p>
+            </div>
           </div>
         </section>
 
@@ -759,16 +761,21 @@ export function StudentResultsPage() {
                 <span className="info-icon" aria-hidden="true">
                   ▤
                 </span>
-                <p className="side-title">학습기록</p>
+                <p className="side-title">학습 기록</p>
               </div>
               <ul className="dash-map">
-                {[1, 2, 3, 4].map((stage) => (
-                  <li key={stage}>
-                    <span className="map-stage">{stage}</span>
-                    <strong>{STAGE_SCENARIO_LABELS[stage]}</strong>
-                    <span className="map-axes">{axisLabelsForStage(stage)}</span>
-                  </li>
-                ))}
+                {[1, 2, 3, 4].map((stage) => {
+                  const mode = learningModeByStage(stage);
+                  return (
+                    <li key={stage}>
+                      <span className="map-stage" aria-hidden="true">
+                        {mode?.icon ?? stage}
+                      </span>
+                      <strong>{STAGE_SCENARIO_LABELS[stage]}</strong>
+                      <span className="map-axes">{axisLabelsForStage(stage)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           </div>

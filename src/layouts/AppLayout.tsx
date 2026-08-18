@@ -4,16 +4,13 @@ import {
   PAGE_TITLES,
   STUDENT_LEARNING_MODES,
   STUDENT_NAV,
-  TEACHER_CLASSES,
   TEACHER_NAV,
-  TEACHER_SUBJECTS,
   learningModeByStage,
 } from '../constants/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError, leaveApi } from '../api';
 import { NavLinkItem } from '../components/common';
 import { TopbarSearch } from '../components/TopbarSearch';
-import type { SubjectKey } from '../types';
 
 function TopbarSearchGate() {
   const { user } = useAuth();
@@ -52,10 +49,6 @@ function BellIcon() {
 }
 
 function TeacherSidebar() {
-  const [activeSubject, setActiveSubject] = useState<SubjectKey>('hist');
-  const [activeClass, setActiveClass] = useState('all');
-  const subjectName = TEACHER_SUBJECTS.find((s) => s.key === activeSubject)?.name ?? '';
-
   return (
     <nav className="sidebar-nav">
       {TEACHER_NAV.map((section) => (
@@ -72,33 +65,6 @@ function TeacherSidebar() {
           ))}
         </div>
       ))}
-
-      <div className="nav-section-label">내 교과</div>
-      {TEACHER_SUBJECTS.map((subject) => (
-        <button
-          key={subject.key}
-          type="button"
-          className={`class-item${activeSubject === subject.key ? ' active' : ''}`}
-          onClick={() => setActiveSubject(subject.key)}
-        >
-          {subject.name}
-        </button>
-      ))}
-
-      <div className="nav-section-label">학급</div>
-      {TEACHER_CLASSES.map((cls) => (
-        <button
-          key={cls.id}
-          type="button"
-          className={`class-item${activeClass === cls.id ? ' active' : ''}`}
-          onClick={() => setActiveClass(cls.id)}
-        >
-          {cls.label}
-          <span className="class-count">{cls.count}</span>
-        </button>
-      ))}
-
-      <input type="hidden" value={subjectName} readOnly aria-hidden />
     </nav>
   );
 }
@@ -141,6 +107,8 @@ function StudentSidebar() {
 
 function resolvePageTitle(pathname: string): string {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+
+  if (/^\/teacher\/students\/\d+$/.test(pathname)) return '학생 리포트';
 
   const modeMatch = pathname.match(/^\/student\/(?:(?:hist|sci|soc)\/)?stage\/(\d)$/);
   if (modeMatch) {
