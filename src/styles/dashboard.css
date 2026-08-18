@@ -873,6 +873,78 @@
   font-weight: 700;
 }
 
+/* ── assignment list (replaces mode-grid) ── */
+.s-dash .assignment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.s-dash .assignment-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: #fff;
+  transition: background 0.15s;
+}
+
+.s-dash .assignment-item:hover {
+  background: #f8fafc;
+}
+
+.s-dash .assignment-item.is-urgent {
+  border-left: 3px solid #ef4444;
+}
+
+.s-dash .assignment-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #f1f5f9;
+  font-size: 18px;
+  color: #334155;
+}
+
+.s-dash .assignment-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.s-dash .assignment-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.s-dash .assignment-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.s-dash .assignment-meta {
+  display: block;
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
 .s-dash .recommend-pill {
   margin: 0;
   display: inline-flex;

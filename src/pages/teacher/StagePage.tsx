@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   ApiError,
+  STAGE1_FIXED_GUIDELINE,
   createTeacherAssignmentStep1Api,
   fetchClassesApi,
 } from '../../api';
@@ -17,7 +18,7 @@ import { TeacherStage3Form } from './stage3/TeacherStage3Form';
 import { TeacherStage4Form } from './stage4/TeacherStage4Form';
 
 const STAGE_DESCRIPTIONS: Record<string, string> = {
-  '1': '학습 자료를 업로드하면 AI가 학생용 문제를 만들고, 가이드라인 질문은 고정됩니다.',
+  '1': '학습 자료와 학생 질문을 올리면 문서가 임베딩되고, 가이드라인 질문은 고정됩니다.',
   '2': '참고 문서와 페르소나를 설정해 의도적 환각 과제를 만듭니다.',
   '3': 'AI 관점 비교 토론 주제를 설정합니다.',
   '4': 'AI 보안 실습 과제를 게시합니다.',
@@ -114,7 +115,10 @@ function formatStage1CreateError(err: unknown): { message: string; canRetry: boo
 
   if (err.status === 401 || err.status === 403) {
     return {
-      message: detail || '권한이 없거나 로그인이 만료되었습니다. 다시 로그인해 주세요.',
+      message:
+        detail.includes('권한') || err.status === 403
+          ? '선택한 학급에 출제 권한이 없습니다. 담당 학급(예: 3학년 2반)을 골라 주세요.'
+          : detail || '권한이 없거나 로그인이 만료되었습니다. 다시 로그인해 주세요.',
       canRetry: false,
     };
   }
@@ -129,6 +133,7 @@ function TeacherStage1Form() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [classId, setClassId] = useState<number | ''>('');
   const [subject, setSubject] = useState('hist');
+  const [question, setQuestion] = useState('오늘 학습 주제의 핵심 내용을 설명해 주세요.');
   const [dueAt, setDueAt] = useState(defaultDueAtLocal);
   const [chunkSize, setChunkSize] = useState(50);
   const [topK, setTopK] = useState(2);
@@ -143,7 +148,11 @@ function TeacherStage1Form() {
     fetchClassesApi()
       .then((res) => {
         setClasses(res.classes);
-        if (res.classes[0]) setClassId(res.classes[0].class_id);
+        const preferred =
+          res.classes.find((c) => c.grade === 3 && c.class_number === 2) ??
+          res.classes.find((c) => c.grade === 3) ??
+          res.classes[0];
+        if (preferred) setClassId(preferred.class_id);
       })
       .catch(() => setClasses([]));
   }, []);
@@ -156,15 +165,22 @@ function TeacherStage1Form() {
       setError('학급과 파일을 입력해 주세요.');
       return;
     }
+    if (!question.trim()) {
+      setError('학생에게 보여줄 질문을 입력해 주세요.');
+      return;
+    }
     if (!dueAt) {
       setError('마감일을 입력해 주세요.');
       return;
     }
     setSubmitting(true);
     try {
+      const trimmedQuestion = question.trim();
       const res = await createTeacherAssignmentStep1Api({
         class_id: Number(classId),
         subject,
+        question: trimmedQuestion,
+        guideline: STAGE1_FIXED_GUIDELINE,
         due_at: localDateTimeToIso(dueAt),
         default_chunk_size: chunkSize,
         default_top_k: topK,
@@ -174,8 +190,8 @@ function TeacherStage1Form() {
       setMessage(
         `과제를 게시했습니다. (assignment_id: ${res.assignment_id})\n` +
           `마감: ${formatDueAt(res.due_at) || formatDueAt(localDateTimeToIso(dueAt))}\n` +
-          `생성된 문제: ${res.question}\n` +
-          `가이드라인: ${res.guideline}`,
+          `질문: ${res.question ?? trimmedQuestion}\n` +
+          `가이드라인: ${res.guideline ?? STAGE1_FIXED_GUIDELINE}`,
       );
       setCanRetry(false);
     } catch (err) {
@@ -205,8 +221,8 @@ function TeacherStage1Form() {
 
         <h1 className="page-title">{learningModeByStage(1)?.module ?? 'RAG 체험'}</h1>
         <p className="page-desc">
-          학습 자료를 업로드하면 AI가 학생용 문제를 만들고, 가이드라인은 &quot;오늘 학습 주제의 내용을
-          전체적으로 알려줘&quot;로 고정됩니다.
+          학습 자료와 학생 질문을 올리면 문서가 임베딩됩니다. 가이드라인은 &quot;
+          {STAGE1_FIXED_GUIDELINE}&quot;로 고정됩니다.
         </p>
 
         <form className="stack" onSubmit={handleSubmit}>
@@ -246,6 +262,22 @@ function TeacherStage1Form() {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="field-group">
+            <label className="label" htmlFor="s1-question">
+              학생 질문
+            </label>
+            <textarea
+              id="s1-question"
+              className="field"
+              rows={3}
+              required
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="예: 장영실의 발명품에 대해 설명해 주세요."
+            />
+            <p className="hint hint-sm">학생이 과제에서 보게 되는 질문입니다.</p>
           </div>
 
           <div className="field-group" style={{ maxWidth: 320 }}>

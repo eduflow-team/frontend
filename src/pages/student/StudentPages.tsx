@@ -92,17 +92,6 @@ export function StudentStagePage() {
         ...apiList,
       ];
     }
-    if (stageNum === 3) {
-      return [
-        {
-          id: 'sample-stage3',
-          title: 'AI 토론 샘플 과제',
-          statusLabel: '기본',
-          meta: 'Multi-Agent 토론 · 팩트체커 평가',
-        },
-        ...apiList,
-      ];
-    }
     if (stageNum === 4) {
       return [
         {
@@ -118,7 +107,7 @@ export function StudentStagePage() {
   })();
 
   const emptyMessage =
-    stageNum <= 2
+    stageNum <= 3
       ? '배정된 과제가 없습니다. 아래에서 과제 ID를 직접 입력할 수 있습니다.'
       : '배정된 과제가 없어 샘플 과제로 시작할 수 있습니다.';
 
@@ -147,7 +136,7 @@ export function StudentStagePage() {
             assignmentIdInput={assignmentIdInput}
             onAssignmentIdInputChange={setAssignmentIdInput}
             onSelect={selectAssignment}
-            showManualId={stageNum === 1 || stageNum === 2}
+            showManualId={stageNum === 1 || stageNum === 2 || stageNum === 3}
           />
         </div>
       </div>
@@ -189,7 +178,7 @@ export function StudentStagePage() {
   }
 
   if (stageNum === 3) {
-    return <StudentStage3Activity skipIntroGuide />;
+    return <StudentStage3Activity assignmentId={activeId} skipIntroGuide />;
   }
 
   return <StudentStage4Activity skipIntroGuide />;

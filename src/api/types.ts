@@ -92,8 +92,8 @@ export interface Stage1CreateResponse {
   assignment_id: number;
   created_at: string | null;
   due_at?: string | null;
-  question: string;
-  guideline: string;
+  question?: string;
+  guideline?: string;
 }
 
 export interface HallucinationTypeOption {
@@ -202,6 +202,141 @@ export interface Step2CorrectionResponse {
   score: number;
   final_correct_sentence: string;
   feedback_details: Step2CorrectionFeedbackDetail[];
+}
+
+export type Stage3Verdict = 'supported' | 'exaggerated' | 'unsupported' | 'false' | string;
+
+export interface Stage3Claim {
+  claim: string;
+  verdict: Stage3Verdict;
+  reason?: string;
+}
+
+export interface Stage3TurnPublic {
+  id: string;
+  side: 'pro' | 'con' | string;
+  round: string;
+  text: string;
+  claim: string;
+  grounds?: string[];
+  verdict?: Stage3Verdict | null;
+  why?: string | null;
+  claims?: Stage3Claim[] | null;
+}
+
+export interface Stage3Speaker {
+  name: string;
+  role: string;
+}
+
+export interface Stage3DebatePublicPayload {
+  topic: string;
+  source: string;
+  mode?: string;
+  elapsed?: number | string | null;
+  pro: Stage3Speaker;
+  con: Stage3Speaker;
+  turns: Stage3TurnPublic[];
+}
+
+export interface Stage3CreateRequest {
+  class_id: number;
+  topic: string;
+  pro_persona: string;
+  con_persona: string;
+  fact_persona?: string;
+  title?: string;
+  subject?: string;
+  debate_mode?: 'v1' | 'v2';
+  due_at?: string | null;
+}
+
+export interface Stage3CreateResponse {
+  assignment_id: number;
+  title?: string | null;
+  topic: string;
+  debate_mode: string;
+  created_at?: string | null;
+}
+
+export interface Stage3AttemptsDetail {
+  max_attempts: number;
+  used_attempts: number;
+  remaining_attempts: number;
+}
+
+export interface Stage3AssignmentDetailResponse {
+  assignment_id: number;
+  title?: string | null;
+  topic: string;
+  question?: string | null;
+  pro_persona: string;
+  con_persona: string;
+  fact_persona?: string | null;
+  debate_mode: string;
+  status: ProgressStatus | string;
+  debate_started: boolean;
+  submitted: boolean;
+  attempts: Stage3AttemptsDetail;
+  highest_score?: number | null;
+  due_at?: string | null;
+  debate?: Stage3DebatePublicPayload | null;
+}
+
+export interface Stage3DebateResponse {
+  assignment_id: number;
+  attempt_id: number;
+  attempt_number: number;
+  reused: boolean;
+  debate: Stage3DebatePublicPayload;
+  attempts: Stage3AttemptsDetail;
+}
+
+export interface Stage3FactcheckRequest {
+  turn_id: string;
+}
+
+export interface Stage3FactcheckResponse {
+  turn_id: string;
+  verdict: Stage3Verdict;
+  why: string;
+  claims: Stage3Claim[];
+}
+
+export interface Stage3DecisionItem {
+  turn_id: string;
+  checked: boolean;
+}
+
+export interface Stage3SubmitRequest {
+  decisions?: Stage3DecisionItem[] | null;
+}
+
+export interface Stage3GradeRow {
+  id: string;
+  side: string;
+  round?: string | null;
+  text: string;
+  claim: string;
+  verdict: Stage3Verdict;
+  why: string;
+  checked: boolean;
+  suspicious: boolean;
+  outcome: string;
+}
+
+export interface Stage3SubmitResponse {
+  current_score: number;
+  highest_score: number;
+  is_highest_score: boolean;
+  caught: number;
+  passed: number;
+  missed: number;
+  wasted: number;
+  headline: string;
+  advice: string;
+  rows: Stage3GradeRow[];
+  attempts: Stage3AttemptsDetail;
 }
 
 /* ── Auth ── */

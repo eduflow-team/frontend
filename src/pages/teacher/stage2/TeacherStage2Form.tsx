@@ -119,7 +119,13 @@ export function TeacherStage2Form() {
       setPreview(res);
       setPreviewing(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'AI 답변 생성에 실패했습니다.');
+      if (err instanceof ApiError && (err.status === 403 || err.message.includes('권한'))) {
+        setError(
+          '2단계 과제 생성 권한이 없습니다. 교사 계정에 학급이 연결되어 있는지 확인해 주세요.',
+        );
+      } else {
+        setError(err instanceof ApiError ? err.message : 'AI 답변 생성에 실패했습니다.');
+      }
     } finally {
       setLoading(false);
     }

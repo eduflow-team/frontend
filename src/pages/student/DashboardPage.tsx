@@ -53,12 +53,12 @@ function pathForAssignment(item: StudentAssignmentItem) {
 function buildHeroCopy(remaining: DashboardTask[]) {
   const dueToday = remaining.filter((a) => a.dueToday).length;
   if (dueToday > 0) {
-    return `오늘 마감인 과제가 ${dueToday}개 있어요. 학습 모드를 골라 이어서 해 보세요.`;
+    return `오늘 마감인 과제가 ${dueToday}개 있어요. 아래에서 과제를 선택해 시작하세요.`;
   }
   if (remaining.length > 0) {
-    return `남은 과제 ${remaining.length}개 · 아래에서 학습 모드를 선택하세요.`;
+    return `남은 과제 ${remaining.length}개 · 아래에서 과제를 선택하세요.`;
   }
-  return '오늘은 여유롭게 학습 모드를 골라 복습해 보세요.';
+  return '배정된 과제가 모두 완료되었습니다.';
 }
 
 function buildFromApi(
@@ -232,21 +232,54 @@ export function StudentDashboardPage() {
 
             <section className="mode-section">
               <div className="mode-section-head">
-                <h2 className="mode-section-title">오늘의 학습 모드</h2>
-                <p className="hint">원하는 과정을 클릭하여 시작하세요.</p>
+                <h2 className="mode-section-title">선생님이 내신 과제</h2>
+                <p className="hint">과제를 클릭하여 바로 시작하세요.</p>
               </div>
-              <div className="mode-grid">
-                {STUDENT_LEARNING_MODES.map((mode) => (
-                  <Link key={mode.path} to={mode.path} className="mode-card">
-                    <span className="mode-card-icon" aria-hidden="true">
-                      {mode.icon}
-                    </span>
-                    <strong className="mode-card-title">{mode.module}</strong>
-                    <p className="mode-card-desc">{mode.content}</p>
-                    <span className="mode-card-tag">{mode.tag}</span>
-                  </Link>
-                ))}
-              </div>
+              {model.tasks.length === 0 ? (
+                <div className="info-card" style={{ textAlign: 'center', padding: '32px 16px' }}>
+                  <p className="hint">배정된 과제가 없습니다.</p>
+                </div>
+              ) : (
+                <ul className="assignment-list">
+                  {model.tasks.map((task) => {
+                    const mode = learningModeByStage(task.stage);
+                    const cta =
+                      task.status === 'COMPLETED'
+                        ? '결과 보기'
+                        : task.status === 'IN_PROGRESS'
+                          ? '이어하기'
+                          : '시작하기';
+                    const btnClass =
+                      task.status === 'IN_PROGRESS'
+                        ? 'btn btn-primary task-go'
+                        : task.status === 'COMPLETED'
+                          ? 'btn btn-ghost task-go'
+                          : 'btn btn-ghost task-go';
+                    return (
+                      <li key={task.id} className={`assignment-item${task.dueToday ? ' is-urgent' : ''}`}>
+                        <span className="assignment-icon" aria-hidden="true">
+                          {mode?.icon ?? '◇'}
+                        </span>
+                        <div className="assignment-main">
+                          <div className="assignment-top">
+                            <p className="assignment-title">{task.title}</p>
+                            <span className={`status-pill ${statusPillClass(task.status)}`}>
+                              {PROGRESS_LABELS[task.status]}
+                            </span>
+                          </div>
+                          <span className="assignment-meta">
+                            {task.subject} · 마감 {task.dueLabel}
+                            {task.score != null ? ` · ${task.score}점` : ''}
+                          </span>
+                        </div>
+                        <Link className={btnClass} to={task.href}>
+                          {cta}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </section>
 
             <div className="dash-layout dash-layout-home">

@@ -1,19 +1,206 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  STAGE3_SAMPLE,
-  VERDICT_LABEL,
-  checkStage3Langflow,
-  cloneSampleDebate,
-  gradeDebate,
-  loadStage3Debate,
-  readStage3Assignment,
-  readStage3Result,
-  saveStage3Result,
-  type Stage3Debate,
-  type Stage3GradeResult,
-  type Stage3Turn,
-  type Stage3Verdict,
-} from '../../../mocks/stage3Debate';
+  ApiError,
+  getStudentStep3Api,
+  postStudentStep3DebateApi,
+  postStudentStep3FactcheckApi,
+  postStudentStep3SubmitApi,
+} from '../../../api';
+import type {
+  Stage3AssignmentDetailResponse,
+  Stage3DebatePublicPayload,
+  Stage3GradeRow as Stage3ApiGradeRow,
+  Stage3SubmitResponse,
+  Stage3TurnPublic,
+} from '../../../api/types';
+
+type Stage3Verdict = 'supported' | 'exaggerated' | 'unsupported' | 'false';
+
+interface Stage3Claim {
+  claim: string;
+  verdict: Stage3Verdict;
+  reason: string;
+}
+
+interface Stage3Turn {
+  id: string;
+  side: 'pro' | 'con';
+  round: string;
+  text: string;
+  claim: string;
+  grounds: string[];
+  verdict: Stage3Verdict;
+  why: string;
+  claims: Stage3Claim[];
+}
+
+interface Stage3Debate {
+  topic: string;
+  source: string;
+  pro: { name: string; role: string };
+  con: { name: string; role: string };
+  turns: Stage3Turn[];
+  elapsed?: string | number;
+}
+
+type Stage3Outcome = 'caught' | 'passed' | 'missed' | 'wasted';
+
+interface Stage3GradeRow extends Stage3Turn {
+  checked: boolean;
+  suspicious: boolean;
+  outcome: Stage3Outcome;
+}
+
+interface Stage3GradeResult {
+  topic: string;
+  source: string;
+  rows: Stage3GradeRow[];
+  caught: number;
+  passed: number;
+  missed: number;
+  wasted: number;
+  score: number;
+  headline: string;
+  advice: string;
+}
+
+const VERDICT_LABEL: Record<Stage3Verdict, string> = {
+  supported: '근거 확인됨',
+  exaggerated: '과장됨',
+  unsupported: '근거 부족',
+  false: '사실과 다름',
+};
+
+const OUTCOMES: Stage3Outcome[] = ['caught', 'passed', 'missed', 'wasted'];
+
+function toUiVerdict(value?: string | null): Stage3Verdict {
+  if (value === 'supported' || value === 'exaggerated' || value === 'unsupported' || value === 'false') {
+    return value;
+  }
+  return 'unsupported';
+}
+
+function createEmptyDebate(seed?: {
+  topic?: string | null;
+  proRole?: string | null;
+  conRole?: string | null;
+}): Stage3Debate {
+  return {
+    topic: seed?.topic || '',
+    source: 'api',
+    pro: { name: '찬성 측 AI', role: seed?.proRole || '' },
+    con: { name: '반대 측 AI', role: seed?.conRole || '' },
+    turns: [],
+  };
+}
+
+function turnFromPublic(turn: Stage3TurnPublic): Stage3Turn {
+  const claims = (turn.claims ?? []).map((c) => ({
+    claim: c.claim,
+    verdict: toUiVerdict(c.verdict),
+    reason: c.reason || '',
+  }));
+  return {
+    id: turn.id,
+    side: turn.side === 'con' ? 'con' : 'pro',
+    round: turn.round,
+    text: turn.text,
+    claim: turn.claim,
+    grounds: turn.grounds ?? [],
+    verdict: toUiVerdict(turn.verdict),
+    why: turn.why || '',
+    claims,
+  };
+}
+
+function debateFromPublic(payload: Stage3DebatePublicPayload): Stage3Debate {
+  return {
+    topic: payload.topic,
+    source: payload.source || 'api',
+    elapsed: payload.elapsed ?? undefined,
+    pro: payload.pro,
+    con: payload.con,
+    turns: (payload.turns ?? []).map(turnFromPublic),
+  };
+}
+
+function toOutcome(value: string): Stage3Outcome {
+  return OUTCOMES.includes(value as Stage3Outcome) ? (value as Stage3Outcome) : 'passed';
+}
+
+function rowFromApi(row: Stage3ApiGradeRow, debate: Stage3Debate): Stage3GradeRow {
+  const turn = debate.turns.find((t) => t.id === row.id);
+  return {
+    id: row.id,
+    side: row.side === 'con' ? 'con' : 'pro',
+    round: row.round || turn?.round || '',
+    text: row.text || turn?.text || '',
+    claim: row.claim || turn?.claim || '',
+    grounds: turn?.grounds ?? [],
+    verdict: toUiVerdict(row.verdict),
+    why: row.why || '',
+    claims: turn?.claims ?? [],
+    checked: row.checked,
+    suspicious: row.suspicious,
+    outcome: toOutcome(row.outcome),
+  };
+}
+
+function resultFromSubmit(res: Stage3SubmitResponse, debate: Stage3Debate): Stage3GradeResult {
+  return {
+    topic: debate.topic,
+    source: debate.source,
+    rows: (res.rows ?? []).map((row) => rowFromApi(row, debate)),
+    caught: res.caught,
+    passed: res.passed,
+    missed: res.missed,
+    wasted: res.wasted,
+    score: res.highest_score ?? res.current_score ?? 0,
+    headline: res.headline,
+    advice: res.advice,
+  };
+}
+
+function resultFromCompleted(detail: Stage3AssignmentDetailResponse): Stage3GradeResult {
+  const debate = detail.debate
+    ? debateFromPublic(detail.debate)
+    : createEmptyDebate({
+        topic: detail.topic,
+        proRole: detail.pro_persona,
+        conRole: detail.con_persona,
+      });
+  return {
+    topic: detail.topic || debate.topic,
+    source: debate.source,
+    rows: [],
+    caught: 0,
+    passed: 0,
+    missed: 0,
+    wasted: 0,
+    score: detail.highest_score ?? 0,
+    headline: '과제를 제출했습니다',
+    advice: '이미 제출한 토론 평가입니다. 최고 점수가 반영되어 있습니다.',
+  };
+}
+
+function apiErrorMessage(err: unknown, fallback: string) {
+  if (err instanceof ApiError) {
+    if (err.status === 503) {
+      return '토론 서버가 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.';
+    }
+    if (err.status === 408 || err.message.toLowerCase().includes('timeout')) {
+      return '토론 생성 시간이 초과되었습니다. 다시 시도해 주세요.';
+    }
+    return err.message || fallback;
+  }
+  if (err instanceof DOMException && err.name === 'TimeoutError') {
+    return '토론 생성 시간이 초과되었습니다. 다시 시도해 주세요.';
+  }
+  if (err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')) {
+    return '토론 생성 시간이 초과되었습니다. 다시 시도해 주세요.';
+  }
+  return fallback;
+}
 
 const AVATAR = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -54,10 +241,15 @@ function Grounds({ turn }: { turn: Stage3Turn }) {
   );
 }
 
-/** stage3_ui 학생 토론장 */
-export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGuide?: boolean }) {
-  const assignment = readStage3Assignment();
-  const [debate, setDebate] = useState<Stage3Debate>(() => cloneSampleDebate(assignment));
+/** stage3_ui 학생 토론장 — 항상 백엔드 API 사용 */
+export function StudentStage3Activity({
+  assignmentId,
+  skipIntroGuide = false,
+}: {
+  assignmentId: string;
+  skipIntroGuide?: boolean;
+}) {
+  const [debate, setDebate] = useState<Stage3Debate>(() => createEmptyDebate());
   const [floor, setFloor] = useState<FloorItem[]>([]);
   const [idx, setIdx] = useState(-1);
   const [decisions, setDecisions] = useState<Record<string, boolean>>({});
@@ -65,13 +257,25 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
   const [guideOpen, setGuideOpen] = useState(!skipIntroGuide);
   const [orderOpen, setOrderOpen] = useState(false);
   const [starting, setStarting] = useState(false);
-  const [langLabel, setLangLabel] = useState('연결 확인 중');
+  const [deciding, setDeciding] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [, setAlreadySubmitted] = useState(false);
+  const completedRef = useRef(false);
+  const [langLabel, setLangLabel] = useState('과제 확인 중');
   const [langOk, setLangOk] = useState(false);
   const [toast, setToast] = useState('');
   const [result, setResult] = useState<Stage3GradeResult | null>(null);
   const floorRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
+  const readyRef = useRef(false);
   const decisionsRef = useRef<Record<string, boolean>>({});
+  const debateRef = useRef(debate);
+
+  useEffect(() => {
+    debateRef.current = debate;
+  }, [debate]);
 
   useEffect(() => {
     if (!toast) return;
@@ -80,11 +284,45 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
   }, [toast]);
 
   useEffect(() => {
-    void checkStage3Langflow().then((ok) => {
-      setLangOk(ok);
-      setLangLabel(ok ? 'Langflow 연결됨' : '서버 대기 중');
-    });
-  }, []);
+    let cancelled = false;
+    setLoading(true);
+    setLoadError('');
+    readyRef.current = false;
+    completedRef.current = false;
+    getStudentStep3Api(assignmentId)
+      .then((detail) => {
+        if (cancelled) return;
+        setDebate((prev) => ({
+          ...prev,
+          topic: detail.topic || prev.topic,
+          pro: { ...prev.pro, role: detail.pro_persona || prev.pro.role },
+          con: { ...prev.con, role: detail.con_persona || prev.con.role },
+        }));
+        setLangOk(true);
+        setLangLabel('과제 연결됨');
+        const completed = detail.submitted || detail.status === 'COMPLETED';
+        if (completed) {
+          completedRef.current = true;
+          setAlreadySubmitted(true);
+          setResult(resultFromCompleted(detail));
+          setPhase('done');
+          setGuideOpen(false);
+        }
+        readyRef.current = true;
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLangOk(false);
+        setLangLabel('연결 실패');
+        setLoadError(apiErrorMessage(err, '과제를 불러오지 못했습니다.'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [assignmentId]);
 
   useEffect(() => {
     if (floorRef.current) floorRef.current.scrollTop = floorRef.current.scrollHeight;
@@ -102,6 +340,7 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
   };
 
   const applyDebateStart = (nextDebate: Stage3Debate) => {
+    debateRef.current = nextDebate;
     setDebate(nextDebate);
     setGuideOpen(false);
     decisionsRef.current = {};
@@ -116,70 +355,69 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
   };
 
   const begin = async () => {
-    if (startedRef.current) return;
+    if (startedRef.current || deciding || submitting) return;
     startedRef.current = true;
     setStarting(true);
-
-    // Langflow 대기 중에도 화면이 막히지 않도록 샘플로 즉시 시작
-    const sample = cloneSampleDebate(assignment);
-    applyDebateStart(sample);
-    setLangLabel('연결 확인 중');
-
+    setLoadError('');
+    setLangLabel('토론 생성 중');
     try {
-      const live = await Promise.race([
-        loadStage3Debate(assignment),
-        new Promise<never>((_, reject) => {
-          window.setTimeout(() => reject(new Error('timeout')), 8000);
-        }),
-      ]);
-      if (assignment?.proPersona) live.pro.role = assignment.proPersona;
-      if (assignment?.conPersona) live.con.role = assignment.conPersona;
-      // 사용자가 아직 판단하지 않았을 때만 라이브 토론으로 교체
-      if (Object.keys(decisionsRef.current).length === 0) {
-        applyDebateStart(live);
-      }
+      const res = await postStudentStep3DebateApi(assignmentId);
+      applyDebateStart(debateFromPublic(res.debate));
       setLangOk(true);
-      setLangLabel('Langflow 연결됨');
-      setToast(`토론 준비 완료 (${live.elapsed ?? '?'}초)`);
-    } catch {
+      setLangLabel('토론 준비 완료');
+      setToast(
+        res.reused
+          ? '저장된 토론을 불러왔습니다.'
+          : `토론 준비 완료 (${res.debate.elapsed ?? '?'}초)`,
+      );
+    } catch (err) {
+      startedRef.current = false;
       setLangOk(false);
-      setLangLabel('샘플 토론');
-      setToast('Langflow에 연결하지 못해 샘플 토론으로 진행합니다.');
+      setLangLabel('연결 실패');
+      setToast(apiErrorMessage(err, '토론을 시작하지 못했습니다.'));
+      setPhase('guide');
+      setGuideOpen(true);
+    } finally {
+      setStarting(false);
     }
-    setStarting(false);
   };
 
   useEffect(() => {
     if (!skipIntroGuide) return;
     let cancelled = false;
-    void (async () => {
-      if (cancelled) return;
+    const waitAndStart = async () => {
+      for (let i = 0; i < 80; i += 1) {
+        if (cancelled) return;
+        if (readyRef.current) break;
+        await new Promise((r) => window.setTimeout(r, 100));
+      }
+      if (!readyRef.current) return;
+      if (cancelled || completedRef.current) return;
       await begin();
-    })();
+    };
+    void waitAndStart();
     return () => {
       cancelled = true;
-      // Strict Mode 재마운트 시 다시 시작할 수 있게 허용
       startedRef.current = false;
     };
-    // 공통 플로우에서 이미 안내 팝업을 봤으므로 바로 토론 시작
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [skipIntroGuide]);
+  }, [skipIntroGuide, assignmentId]);
 
-  const decide = (checked: boolean) => {
-    if (!currentTurn || phase !== 'decide') return;
-    const turn = currentTurn;
-    const nextDecisions = { ...decisions, [turn.id]: checked };
+  const applyDecision = (turn: Stage3Turn, checked: boolean, revealed: Stage3Turn) => {
+    const nextDecisions = { ...decisionsRef.current, [turn.id]: checked };
     decisionsRef.current = nextDecisions;
     setDecisions(nextDecisions);
     setFloor((prev) => {
       const next = prev.map((item) =>
-        item.kind === 'turn' && item.turn.id === turn.id ? { ...item, checked } : item,
+        item.kind === 'turn' && item.turn.id === turn.id
+          ? { ...item, turn: revealed, checked }
+          : item,
       );
       if (checked) {
         const claims =
-          turn.claims?.length > 0
-            ? turn.claims
-            : [{ claim: turn.claim, verdict: turn.verdict, reason: turn.why }];
+          revealed.claims?.length > 0
+            ? revealed.claims
+            : [{ claim: revealed.claim, verdict: revealed.verdict, reason: revealed.why }];
         for (const c of claims) {
           next.push({ kind: 'verdict', claim: c.claim, verdict: c.verdict, reason: c.reason });
         }
@@ -190,16 +428,65 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
     setPhase('next');
   };
 
-  const goResult = (finalDecisions: Record<string, boolean>) => {
-    const graded = gradeDebate(debate.turns, finalDecisions, debate.topic, debate.source);
-    saveStage3Result(graded);
-    setResult(graded);
-    setPhase('done');
+  const decide = async (checked: boolean) => {
+    if (!currentTurn || phase !== 'decide' || deciding || starting) return;
+    const turn = currentTurn;
+    setDeciding(true);
+    try {
+      if (checked) {
+        const fc = await postStudentStep3FactcheckApi(assignmentId, { turn_id: turn.id });
+        const claims =
+          fc.claims?.length > 0
+            ? fc.claims.map((c) => ({
+                claim: c.claim,
+                verdict: toUiVerdict(c.verdict),
+                reason: c.reason || fc.why,
+              }))
+            : [{ claim: turn.claim, verdict: toUiVerdict(fc.verdict), reason: fc.why }];
+        const revealed: Stage3Turn = {
+          ...turn,
+          verdict: toUiVerdict(fc.verdict),
+          why: fc.why,
+          claims,
+        };
+        setDebate((prev) => ({
+          ...prev,
+          turns: prev.turns.map((t) => (t.id === turn.id ? revealed : t)),
+        }));
+        applyDecision(turn, true, revealed);
+      } else {
+        applyDecision(turn, checked, turn);
+      }
+    } catch (err) {
+      setToast(apiErrorMessage(err, '팩트체크 요청에 실패했습니다.'));
+    } finally {
+      setDeciding(false);
+    }
+  };
+
+  const goResult = async (finalDecisions: Record<string, boolean>) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await postStudentStep3SubmitApi(assignmentId, {
+        decisions: Object.entries(finalDecisions).map(([turn_id, checked]) => ({
+          turn_id,
+          checked,
+        })),
+      });
+      setResult(resultFromSubmit(res, debateRef.current));
+      setAlreadySubmitted(true);
+      setPhase('done');
+    } catch (err) {
+      setToast(apiErrorMessage(err, '제출에 실패했습니다.'));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const advance = () => {
     if (idx >= debate.turns.length - 1) {
-      goResult(decisions);
+      void goResult(decisions);
       return;
     }
     const nextIdx = idx + 1;
@@ -209,11 +496,33 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
   };
 
   const finish = () => {
-    goResult(decisions);
+    void goResult(decisions);
   };
 
   if (phase === 'done' && result) {
-    return <StudentStage3Done result={result} onRetry={() => window.location.reload()} />;
+    return <StudentStage3Done result={result} />;
+  }
+
+  if (loading) {
+    return (
+      <div className="s3">
+        <div className="shell">
+          <p className="hint">과제를 불러오는 중…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="s3">
+        <div className="shell">
+          <p className="hint" style={{ color: '#b91c1c' }}>
+            {loadError}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -304,7 +613,7 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
                         {VERDICT_LABEL[item.verdict] || item.verdict}
                       </span>
                     </div>
-                    <p>“{item.claim}”</p>
+                    <p>"{item.claim}"</p>
                     <p className="why">{item.reason}</p>
                   </div>
                 </div>
@@ -345,10 +654,10 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
               <p className="decide-q">이 근거, 팩트체커에게 맡길까요?</p>
               <p className="decide-sub">평가자는 발언마다 검증 여부를 직접 정합니다. 검증도 판단의 일부입니다.</p>
               <div className="decide-actions">
-                <button className="btn btn-check" type="button" onClick={() => decide(true)}>
-                  팩트체커에게 검증 요청
+                <button className="btn btn-check" type="button" disabled={deciding} onClick={() => void decide(true)}>
+                  {deciding ? '검증 요청 중…' : '팩트체커에게 검증 요청'}
                 </button>
-                <button className="btn btn-ghost" type="button" onClick={() => decide(false)}>
+                <button className="btn btn-ghost" type="button" disabled={deciding} onClick={() => void decide(false)}>
                   검증 없이 넘어가기
                 </button>
               </div>
@@ -374,9 +683,14 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
                 <button
                   className="btn btn-primary"
                   type="button"
+                  disabled={submitting}
                   onClick={idx >= debate.turns.length - 1 ? finish : advance}
                 >
-                  {idx >= debate.turns.length - 1 ? '평가 결과 보기' : '다음 발언 듣기'}
+                  {idx >= debate.turns.length - 1
+                    ? submitting
+                      ? '채점 중…'
+                      : '평가 결과 보기'
+                    : '다음 발언 듣기'}
                 </button>
               </div>
             </>
@@ -430,9 +744,7 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
                 때. 검증에도 비용이 든다는 점을 기억하세요.
               </div>
               <p className="hint hint-sm" style={{ marginTop: 14 }}>
-                {starting
-                  ? '찬성·반대·팩트체커가 차례로 말하고 있습니다. 약 15초 걸립니다.'
-                  : '시작을 누르면 찬성·반대·팩트체커 AI가 토론을 준비합니다. 약 15초 걸립니다.'}
+                시작을 누르면 찬성·반대·팩트체커 AI가 토론을 준비합니다. 약 15초 걸립니다.
               </p>
             </div>
             <div className="modal-foot">
@@ -510,10 +822,8 @@ export function StudentStage3Activity({ skipIntroGuide = false }: { skipIntroGui
 
 function StudentStage3Done({
   result,
-  onRetry,
 }: {
   result: Stage3GradeResult;
-  onRetry: () => void;
 }) {
   const MARK = {
     caught: { cls: 'ok', label: '정확히 잡아냄' },
@@ -596,7 +906,7 @@ function StudentStage3Done({
 
         <div className="review">
           {result.rows.map((row) => {
-            const mark = MARK[row.outcome];
+            const mark = MARK[row.outcome] ?? MARK.passed;
             const wrong = row.outcome === 'missed' || row.outcome === 'wasted';
             return (
               <div key={row.id} className={`review-row${wrong ? ' is-wrong' : ''}`}>
@@ -614,28 +924,9 @@ function StudentStage3Done({
         </div>
 
         <div className="actions" style={{ marginTop: 24 }}>
-          <button className="btn btn-primary" type="button" onClick={onRetry}>
-            다시 평가해보기
-          </button>
+          <p className="hint">최고 점수가 저장되어 있습니다.</p>
         </div>
       </div>
     </div>
   );
 }
-
-/** 저장된 결과가 있으면 결과 화면만 (선택적) */
-export function StudentStage3DoneFromStorage() {
-  const result = readStage3Result();
-  if (!result) {
-    return (
-      <div className="s3">
-        <div className="shell">
-          <p className="hint">먼저 토론을 진행해 주세요.</p>
-        </div>
-      </div>
-    );
-  }
-  return <StudentStage3Done result={result} onRetry={() => window.location.reload()} />;
-}
-
-export { STAGE3_SAMPLE };
