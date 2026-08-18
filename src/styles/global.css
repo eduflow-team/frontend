@@ -1762,4 +1762,340 @@ a.search-item:hover {
   .role-cards {
     flex-direction: column;
   }
+
+  .s-chrome {
+    height: auto;
+    min-height: 64px;
+    padding: 10px 16px;
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .s-pills {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .s-chrome-right .s-chip span {
+    display: none;
+  }
+}
+
+/* ── Teacher console: blue sidebar ── */
+.app-shell.is-teacher {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #3b82f6;
+  --primary-bg: #eff6ff;
+  --primary-border: #bfdbfe;
+  --primary-muted: #dbeafe;
+  --positive: #2563eb;
+  --positive-bg: #eff6ff;
+  --bg: #eef2f8;
+}
+
+.app-shell.is-teacher .sidebar {
+  background: #1d4ed8;
+  border-right: none;
+  box-shadow: none;
+  color: #e8eefc;
+}
+
+.app-shell.is-teacher .sidebar-header {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+.app-shell.is-teacher .sidebar-brand .mark {
+  background: #fff;
+  color: #1d4ed8;
+}
+
+.app-shell.is-teacher .sidebar-brand .name {
+  color: #fff;
+}
+
+.app-shell.is-teacher .sidebar-role-badge {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.app-shell.is-teacher .sidebar-subject {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.app-shell.is-teacher .nav-section-label {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.app-shell.is-teacher .nav-item {
+  color: rgba(255, 255, 255, 0.88);
+  border-radius: 8px;
+}
+
+.app-shell.is-teacher .nav-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.app-shell.is-teacher .nav-item.active {
+  background: #fff;
+  color: #1d4ed8;
+}
+
+.app-shell.is-teacher .nav-item.active .nav-badge {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.app-shell.is-teacher .sidebar-user {
+  background: transparent;
+  border-top-color: rgba(255, 255, 255, 0.12);
+}
+
+.app-shell.is-teacher .sidebar-user-inner {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.app-shell.is-teacher .avatar {
+  background: #1e40af;
+  color: #fff;
+}
+
+.app-shell.is-teacher .user-info .user-name {
+  color: #fff;
+}
+
+.app-shell.is-teacher .user-info .user-sub {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.app-shell.is-teacher .main {
+  background: #eef2f8;
+}
+
+.app-shell.is-teacher .topbar {
+  background: #fff;
+  backdrop-filter: none;
+}
+
+.app-shell.is-teacher .page-content {
+  background: transparent;
+}
+
+.app-shell.is-teacher .stat-card {
+  border-left-color: #bfdbfe;
+}
+
+.app-shell.is-teacher .t-home-assign-card:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.app-shell.is-teacher .t-home-assign-cta {
+  color: #2563eb;
+}
+
+.app-shell.is-teacher .s1,
+.app-shell.is-teacher .s2,
+.app-shell.is-teacher .s3,
+.app-shell.is-teacher .s4 {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+  --accent: #2563eb;
+  --accent-light: #eff6ff;
+  --accent-soft: #eff6ff;
+  --bg: #eef2f8;
+  --card: #ffffff;
+  --paper: #f8fafc;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+  --fill: #eff6ff;
+  --fill-hover: #dbeafe;
+  --focus: #2563eb;
+  --border: #e2e8f0;
+  --border-dark: #cbd5e1;
+  --bg-subtle: #ffffff;
+}
+
+.app-shell.is-teacher .page-content:has(> .s1),
+.app-shell.is-teacher .page-content:has(> .s2),
+.app-shell.is-teacher .page-content:has(> .s3),
+.app-shell.is-teacher .page-content:has(> .s4) {
+  background: #eef2f8;
+}
+
+/* ── Student: stage2_ui top chrome, no sidebar ── */
+.app-shell.is-student {
+  --primary: #1e3a34;
+  --primary-hover: #2a4d45;
+  --primary-bg: #eaf0ec;
+  --primary-border: #c9a15a;
+  --primary-muted: #fbf3e1;
+  --bg: #f5f3ee;
+  --surface: #ffffff;
+  --border: #e7e2d6;
+  --text-strong: #1f2a26;
+  --text: #1f2a26;
+  --text-sub: #6e7568;
+  --text-mute: #6e7568;
+  --gray-900: #1f2a26;
+  --gray-800: #1f2a26;
+  --gray-700: #3d4742;
+  --gray-600: #6e7568;
+  --gray-500: #6e7568;
+  --gray-400: #9ca192;
+  --gray-300: #d3cdbe;
+  --gray-200: #e7e2d6;
+  --gray-100: #fbf9f5;
+  --gray-50: #fbf9f5;
+  --positive: #1e3a34;
+  --positive-bg: #eaf0ec;
+  --warning: #c9a15a;
+  --warning-bg: #fbf3e1;
+  flex-direction: column;
+  background: #f5f3ee;
+}
+
+.app-shell.is-student .page-content {
+  margin: 0;
+  max-width: 1240px;
+  padding: 20px 32px 40px;
+  background: transparent;
+}
+
+.s-chrome {
+  height: 72px;
+  background: #fff;
+  border-bottom: 1px solid #e7e2d6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  gap: 16px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 90;
+}
+
+.s-logo {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #1e3a34;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.s-logo span {
+  color: #1f2a26;
+}
+
+.s-pills {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+.s-pill {
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #6e7568;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.s-pill:hover {
+  color: #1f2a26;
+}
+
+.s-pill.on {
+  background: #1e3a34;
+  color: #fff;
+  font-weight: 800;
+}
+
+.s-chrome-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.s-chrome-right .topbar-search {
+  width: 200px;
+}
+
+.s-chrome-right .btn-ghost {
+  color: #6e7568;
+}
+
+.s-chrome-right .btn-ghost:hover {
+  background: #fbf9f5;
+  color: #1e3a34;
+}
+
+.s-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 16px 4px 4px;
+  border: 1px solid #e7e2d6;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1f2a26;
+  white-space: nowrap;
+}
+
+.s-chip .av {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #1e3a34;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.s-modebar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 32px 0;
+  background: #f5f3ee;
+}
+
+.s-mode-pill {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #e7e2d6;
+  background: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #6e7568;
+  text-decoration: none;
+}
+
+.s-mode-pill:hover {
+  border-color: #d3cdbe;
+  color: #1f2a26;
+}
+
+.s-mode-pill.on {
+  background: #1e3a34;
+  border-color: #1e3a34;
+  color: #fff;
 }

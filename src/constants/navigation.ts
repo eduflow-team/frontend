@@ -51,6 +51,15 @@ export const STUDENT_NAV: NavSection[] = [
   },
 ];
 
+/** 학생 상단 알약 탭 (사이드바 대신) */
+export const STUDENT_TOP_NAV: { label: string; path: string; match?: 'exact' | 'learn' }[] = [
+  { label: '홈', path: '/student', match: 'exact' },
+  { label: '학습', path: '/student/stage/1', match: 'learn' },
+  { label: '점수', path: '/student/results' },
+  { label: '출석', path: '/student/attendance' },
+  { label: '공지사항', path: '/student/notices' },
+];
+
 /** 학생 학습 모드 (사이드바·홈 카드) */
 export const STUDENT_LEARNING_MODES: LearningMode[] = [
   {

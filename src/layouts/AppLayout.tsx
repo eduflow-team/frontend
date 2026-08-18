@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   PAGE_TITLES,
   STUDENT_LEARNING_MODES,
-  STUDENT_NAV,
+  STUDENT_TOP_NAV,
   TEACHER_NAV,
   learningModeByStage,
 } from '../constants/navigation';
@@ -69,40 +69,15 @@ function TeacherSidebar() {
   );
 }
 
-function StudentSidebar() {
-  const location = useLocation();
+function isStudentLearnPath(pathname: string) {
+  return /\/student\/(?:(?:hist|sci|soc)\/)?stage\//.test(pathname);
+}
 
-  return (
-    <nav className="sidebar-nav">
-      {STUDENT_NAV.map((section) => (
-        <div key={section.label}>
-          <div className="nav-section-label">{section.label}</div>
-          {section.items.map((item) => (
-            <NavLinkItem
-              key={item.path}
-              to={item.path}
-              label={item.label}
-              end={item.path === '/student'}
-            />
-          ))}
-        </div>
-      ))}
-
-      <div className="nav-section-label">학습 모드</div>
-      {STUDENT_LEARNING_MODES.map((mode) => (
-        <Link
-          key={mode.path}
-          to={mode.path}
-          className={`nav-sub-item mode-nav-item${location.pathname === mode.path || location.pathname.endsWith(`/stage/${mode.stage}`) ? ' active' : ''}`}
-        >
-          <span className="mode-nav-icon" aria-hidden="true">
-            {mode.icon}
-          </span>
-          <span className="mode-nav-label">{mode.module}</span>
-        </Link>
-      ))}
-    </nav>
-  );
+function studentLearnHref(pathname: string) {
+  if (isStudentLearnPath(pathname)) {
+    return pathname;
+  }
+  return '/student/stage/1';
 }
 
 function resolvePageTitle(pathname: string): string {
@@ -153,8 +128,103 @@ export function AppLayout() {
     }
   };
 
+  const accountActions = (
+    <>
+      <button type="button" className="topbar-icon-btn" title="알림" aria-label="알림">
+        <BellIcon />
+        <span className="dot" />
+      </button>
+      {!user.isDemo && (
+        <button type="button" className="btn btn-ghost btn-sm" onClick={handleLeave}>
+          탈퇴
+        </button>
+      )}
+      <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
+        로그아웃
+      </button>
+    </>
+  );
+
+  if (!isTeacher) {
+    const learnActive = isStudentLearnPath(location.pathname);
+
+    return (
+      <div className="app-shell is-student">
+        <header className="s-chrome">
+          <Link to="/student" className="s-logo">
+            Edu<span>flow</span>
+          </Link>
+          <nav className="s-pills" aria-label="학생 메뉴">
+            {STUDENT_TOP_NAV.map((item) => {
+              if (item.match === 'learn') {
+                return (
+                  <Link
+                    key={item.label}
+                    to={studentLearnHref(location.pathname)}
+                    className={`s-pill${learnActive ? ' on' : ''}`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              }
+              if (item.match === 'exact') {
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end
+                    className={({ isActive }) => `s-pill${isActive ? ' on' : ''}`}
+                  >
+                    {item.label}
+                  </NavLink>
+                );
+              }
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) => `s-pill${isActive ? ' on' : ''}`}
+                >
+                  {item.label}
+                </NavLink>
+              );
+            })}
+          </nav>
+          <div className="s-chrome-right">
+            <TopbarSearchGate />
+            {accountActions}
+            <div className="s-chip">
+              <span className="av">{avatarInitial}</span>
+              <span>
+                {user.name} · {userSub}
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {learnActive ? (
+          <nav className="s-modebar" aria-label="학습 모드">
+            {STUDENT_LEARNING_MODES.map((mode) => {
+              const active =
+                location.pathname === mode.path || location.pathname.endsWith(`/stage/${mode.stage}`);
+              return (
+                <Link key={mode.path} to={mode.path} className={`s-mode-pill${active ? ' on' : ''}`}>
+                  {mode.module}
+                </Link>
+              );
+            })}
+          </nav>
+        ) : null}
+
+        <main className="page-content">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="app-shell">
+    <div className="app-shell is-teacher">
       <aside
         className={`sidebar${sidebarOpen ? '' : ' collapsed'}${mobileOpen ? ' open-mobile' : ''}`}
       >
@@ -165,20 +235,17 @@ export function AppLayout() {
           </div>
           <div className="sidebar-role-badge">{roleLabel}</div>
           <div className="sidebar-subject">
-            {isTeacher ? `${user.subject ?? '한국사'} · 전체 학급 관리` : '내 학습 현황'}
+            {`${user.subject ?? '한국사'} · 전체 학급 관리`}
           </div>
         </div>
 
-        {isTeacher ? <TeacherSidebar /> : <StudentSidebar />}
+        <TeacherSidebar />
 
         <div className="sidebar-user">
           <div className="sidebar-user-inner">
             <div className="avatar">{avatarInitial}</div>
             <div className="user-info">
-              <div className="user-name">
-                {user.name}
-                {isTeacher ? ' 선생님' : ''}
-              </div>
+              <div className="user-name">{user.name} 선생님</div>
               <div className="user-sub">{userSub}</div>
             </div>
           </div>
@@ -204,18 +271,7 @@ export function AppLayout() {
           </button>
           <div className="topbar-title">{pageTitle}</div>
           <TopbarSearchGate />
-          <button type="button" className="topbar-icon-btn" title="알림" aria-label="알림">
-            <BellIcon />
-            <span className="dot" />
-          </button>
-          {!user.isDemo && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={handleLeave}>
-              탈퇴
-            </button>
-          )}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
-            로그아웃
-          </button>
+          {accountActions}
         </header>
 
         <main className="page-content">

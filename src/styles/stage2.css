@@ -1,25 +1,25 @@
-/* Stage2 — stage2-ui layout + stage1_ui (black/white) tokens. Scoped under .s2 */
-.page-content:has(> .s2) { background: #ffffff; }
+/* Stage2 — stage2-ui layout + warm paper tokens. Scoped under .s2 */
+.page-content:has(> .s2) { background: #f5f3ee; }
 
 .s2 *, .s2 *::before, .s2 *::after { box-sizing: border-box; }
 
 .s2 {
-  --primary: #0d0d0d;
-  --primary-hover: #2a2a2a;
-  --primary-light: #f4f4f5;
-  --accent: #0d0d0d;
-  --accent-light: #f7f7f8;
-  --warn: #6e6e80;
-  --warn-light: #f7f7f8;
-  --danger: #0d0d0d;
-  --danger-light: #f4f4f5;
-  --bg: #ffffff;
+  --primary: #1e3a34;
+  --primary-hover: #2a4d45;
+  --primary-light: #eaf0ec;
+  --accent: #c9a15a;
+  --accent-light: #fbf3e1;
+  --warn: #c9a15a;
+  --warn-light: #fbf3e1;
+  --danger: #b0392f;
+  --danger-light: #fbeae7;
+  --bg: #f5f3ee;
   --card: #ffffff;
-  --paper: #f7f7f8;
-  --text: #0d0d0d;
-  --text-muted: #6e6e80;
-  --border: #e5e5e5;
-  --border-dark: #d1d1d6;
+  --paper: #fbf9f5;
+  --text: #1f2a26;
+  --text-muted: #6e7568;
+  --border: #e7e2d6;
+  --border-dark: #d3cdbe;
   --radius: 10px;
   --radius-sm: 4px;
   --shadow-sm: none;
@@ -37,7 +37,7 @@
   line-height: 1.55;
   font-size: 15px;
   letter-spacing: -0.01em;
-  margin: -24px -28px;
+  margin: -20px -32px;
   padding: 8px 0 48px;
   min-height: calc(100% + 48px);
   box-sizing: border-box;

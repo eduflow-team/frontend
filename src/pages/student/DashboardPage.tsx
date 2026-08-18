@@ -161,59 +161,49 @@ export function StudentDashboardPage() {
           <p className="hint">{error}</p>
         ) : (
           <>
-            <section className="dash-hero">
-              <div className="dash-hero-main">
-                <div className="dash-intro">
-                  <p className="done-eyebrow">울산형 AI 리터러시</p>
-                  <h1 className="page-title">
-                    <span className="dash-hello">안녕하세요,</span>
-                    {model.studentName}님
-                  </h1>
-                  {model.classLabel ? <p className="dash-class">{model.classLabel}</p> : null}
-                  <p className="page-desc dash-intro-desc">{heroDesc}</p>
-                  <div className="dash-chips">
-                    <span className="dash-chip">
-                      남은 과제 <strong>{remaining.length}</strong>
-                    </span>
-                    <span className="dash-chip">
-                      출석 <strong>{Math.round(model.attendanceRate)}%</strong>
-                    </span>
-                    {dueToday > 0 ? (
-                      <span className="dash-chip is-accent">오늘 마감 {dueToday}</span>
-                    ) : (
-                      <span className="dash-chip">
-                        완료 <strong>{completedCount}</strong>
-                      </span>
-                    )}
-                  </div>
+            <section className="dash-hero-banner">
+              <div>
+                <div className="dash-streak">
+                  {dueToday > 0
+                    ? `오늘 마감 ${dueToday}개`
+                    : remaining.length > 0
+                      ? `남은 과제 ${remaining.length}개`
+                      : `완료 ${completedCount}개`}
                 </div>
-
-                <div className="dash-total">
-                  <p className="dash-total-label">전체 AI 리터러시</p>
-                  <div className="dash-ring" aria-hidden="true">
-                    <svg viewBox="0 0 120 120" className="dash-ring-svg">
-                      <circle className="dash-ring-track" cx="60" cy="60" r="52" />
-                      <circle
-                        className="dash-ring-value"
-                        cx="60"
-                        cy="60"
-                        r="52"
-                        style={{ ['--p' as string]: String(total) }}
-                      />
-                    </svg>
-                    <div className="dash-ring-score">
-                      <strong>{total}</strong>
-                      <span>점</span>
-                    </div>
-                  </div>
-                  <p className="dash-total-meta">
-                    <Link to="/student/results" className="dash-link">
-                      육각 점수판 보기
-                    </Link>
-                  </p>
-                </div>
+                <h1>
+                  {model.studentName}님 · {remaining[0]?.subject ?? '학습'}
+                </h1>
+                {model.classLabel ? <p className="dash-class">{model.classLabel}</p> : null}
+                <p className="page-desc">{heroDesc}</p>
               </div>
+              <Link
+                to="/student/results"
+                className="dash-hero-ring"
+                style={{
+                  background: `conic-gradient(#e8c878 0% ${Math.min(100, total)}%, rgba(255,255,255,.2) ${Math.min(100, total)}% 100%)`,
+                }}
+                aria-label={`종합 역량 ${total}점, 육각 점수판 보기`}
+              >
+                <i>{total}</i>
+              </Link>
+            </section>
 
+            {remaining[0] ? (
+              <div className="dash-continue">
+                <div>
+                  <div className="dash-continue-kicker">선생님이 새 과제를 냈어요</div>
+                  <strong>
+                    {remaining[0].subject} · {remaining[0].title}
+                    {remaining.length > 1 ? ` — 미완료 ${remaining.length}개` : ''}
+                  </strong>
+                </div>
+                <Link className="btn" to={remaining[0].href}>
+                  {remaining[0].status === 'IN_PROGRESS' ? '이어서 학습하기' : '시작하기'}
+                </Link>
+              </div>
+            ) : null}
+
+            <section className="dash-hero">
               <section className="info-card dash-week-card">
                 <div className="info-card-head">
                   <span className="info-icon" aria-hidden="true">
@@ -223,6 +213,7 @@ export function StudentDashboardPage() {
                 </div>
                 <p className="progress-label">
                   학습 모드 달성률 <strong>{weekPct}%</strong>
+                  <span className="hint"> · 출석 {Math.round(model.attendanceRate)}%</span>
                 </p>
                 <div className="skill-bar-track thick">
                   <span style={{ width: `${weekPct}%` }} />

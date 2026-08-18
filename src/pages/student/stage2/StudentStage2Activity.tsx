@@ -55,7 +55,7 @@ function RubricDot({ mark }: { mark: string }) {
 
 function AttemptGauge({ used, max, blocked }: { used: number; max: number; blocked: boolean }) {
   const pct = max > 0 ? Math.min(100, (used / max) * 100) : 0;
-  const ring = blocked ? '#0d0d0d' : '#6e6e80';
+  const ring = blocked ? '#b0392f' : '#1e3a34';
   return (
     <div
       className="attempt-gauge"
