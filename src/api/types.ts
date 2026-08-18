@@ -48,6 +48,7 @@ export interface Stage1AssignmentDetailResponse {
   highest_score: number | null;
   best_parameters: Stage1Parameters | null;
   document_filename?: string | null;
+  document_url?: string | null;
   document_text?: string | null;
   subject?: string | null;
   is_answer_revealed?: boolean;

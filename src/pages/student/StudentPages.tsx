@@ -7,6 +7,7 @@ import {
   fetchStudentDashboardSummaryApi,
   fetchStudentNoticesApi,
   getStudentStep1Api,
+  getStudentStep1DocumentBlobApi,
   postStudentStep1ChatApi,
   postStudentStep1SubmitApi,
 } from '../../api';
@@ -24,6 +25,7 @@ import {
 } from '../../components/student/AssignmentSelectPanel';
 import { HexLiteracyRadar } from '../../components/student/HexLiteracyRadar';
 import { StageGuideModal } from '../../components/student/StageGuideModal';
+import { Stage1Tour } from '../../components/student/Stage1Tour';
 import {
   LITERACY_AXES,
   STAGE_SCENARIO_LABELS,
@@ -201,6 +203,8 @@ interface Stage1ChatBubble {
   role: 'user' | 'bot';
   text: string;
   meta?: string;
+  /** AI가 top-k로 참고한 문장 (정리된 preview) */
+  references?: string[];
 }
 
 function formatDueLabel(iso?: string | null) {
@@ -220,41 +224,48 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
   const [detail, setDetail] = useState<Stage1AssignmentDetailResponse | null>(null);
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [params, setParams] = useState<Stage1Parameters>({
-    chunk_size: 50,
-    top_k: 2,
-    temperature: 1,
-  });
+  const [params, setParams] = useState<Stage1Parameters | null>(null);
   const [messages, setMessages] = useState<Stage1ChatBubble[]>([]);
   const [chatInput, setChatInput] = useState('');
-  const [chunkPreviews, setChunkPreviews] = useState<string[]>([]);
+  const [lastTopkRefs, setLastTopkRefs] = useState<string[]>([]);
+  const [topkOpen, setTopkOpen] = useState(false);
   const [studentAnswer, setStudentAnswer] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitResult, setSubmitResult] = useState<Stage1SubmitResponse | null>(null);
   const [fileOpen, setFileOpen] = useState(false);
+  const [docObjectUrl, setDocObjectUrl] = useState<string | null>(null);
+  const [docLoading, setDocLoading] = useState(false);
+  const [docError, setDocError] = useState('');
   const [toast, setToast] = useState('');
   const [done, setDone] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setLoadError('');
+    setDetail(null);
+    setParams(null);
     setMessages([]);
-    setChunkPreviews([]);
+    setLastTopkRefs([]);
+    setTopkOpen(false);
     setStudentAnswer('');
     setChatInput('');
     setSubmitResult(null);
     setDone(false);
+    setTourOpen(false);
     getStudentStep1Api(assignmentId)
       .then((res) => {
         if (cancelled) return;
         setDetail(res);
-        setParams(res.default_parameters);
+        setParams({ ...res.default_parameters });
+        setTourOpen(true);
       })
       .catch((err) => {
         if (!cancelled) {
           setDetail(null);
+          setParams(null);
           setLoadError(err instanceof ApiError ? err.message : '과제를 불러오지 못했습니다.');
         }
       })
@@ -272,13 +283,47 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  const maxAttempts = detail?.attempts.max_attempts ?? 2;
+  useEffect(() => {
+    if (!fileOpen) return;
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setDocLoading(true);
+    setDocError('');
+    setDocObjectUrl(null);
+    getStudentStep1DocumentBlobApi(assignmentId)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        objectUrl = url;
+        setDocObjectUrl(url);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDocError(err instanceof ApiError ? err.message : '학습 자료를 불러오지 못했습니다.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDocLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [fileOpen, assignmentId]);
+
+  const maxAttempts = detail?.attempts.max_attempts;
   const usedAttempts = detail?.attempts.used_attempts ?? 0;
-  const remaining =
-    detail?.attempts.remaining_attempts ?? Math.max(0, maxAttempts - usedAttempts);
+  const remaining = detail?.attempts.remaining_attempts ?? 0;
 
   const sendChat = async () => {
     const text = chatInput.trim();
+    if (!params) {
+      setToast('과제 파라미터를 불러오는 중입니다.');
+      return;
+    }
     if (!text) {
       setToast('AI에게 물어볼 내용을 입력해 주세요.');
       return;
@@ -292,12 +337,9 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
         parameters: params,
       });
       const viz = res.rag_process_visualization;
-      const meta =
-        `청크 ${viz.retrieved_chunks}/${viz.total_chunks}` +
-        ` · 유사도 ${viz.vector_search_score}` +
-        (viz.approx_context_chars != null ? ` · 약 ${viz.approx_context_chars}자` : '');
-      setMessages((prev) => [...prev, { role: 'bot', text: res.ai_response, meta }]);
-      setChunkPreviews(viz.retrieved_chunk_previews ?? []);
+      const refs = viz.retrieved_chunk_previews ?? [];
+      setLastTopkRefs(refs);
+      setMessages((prev) => [...prev, { role: 'bot', text: res.ai_response, references: refs }]);
     } catch (err) {
       setToast(err instanceof ApiError ? err.message : '채팅 요청에 실패했습니다.');
     } finally {
@@ -306,6 +348,10 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
   };
 
   const submit = async () => {
+    if (!params) {
+      setToast('과제 파라미터를 불러오는 중입니다.');
+      return;
+    }
     if (!studentAnswer.trim()) {
       setToast('제출할 답을 입력해 주세요.');
       return;
@@ -357,7 +403,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
   if (loading) {
     return <p className="hint">과제 불러오는 중…</p>;
   }
-  if (loadError || !detail) {
+  if (loadError || !detail || !params || maxAttempts == null) {
     return <p className="hint">{loadError || '과제 정보가 없습니다.'}</p>;
   }
 
@@ -455,7 +501,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     <>
       <div className="layout-split">
         <aside className="side">
-          <section className="info-card info-card-mission">
+          <section className="info-card info-card-mission" data-tour="s1-tour-mission">
             <div className="info-card-head">
               <span className="info-icon" aria-hidden="true">
                 ◎
@@ -464,7 +510,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             </div>
             <p className="mission-text">{detail.question}</p>
             <p className="hint" style={{ marginTop: 10 }}>
-              AI와 자유롭게 대화하며 근거를 찾은 뒤, 아래에 본인 답을 제출하세요.
+              파라미터를 조절하며 올바른 AI 답변을 찾고, 그걸 참고해서 정답을 찾으면 됩니다.
             </p>
           </section>
 
@@ -478,7 +524,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             <p className="due-value">{formatDueLabel(detail.due_at)}</p>
           </section>
 
-          <section className="info-card">
+          <section className="info-card" data-tour="s1-tour-doc">
             <div className="info-card-head">
               <span className="info-icon" aria-hidden="true">
                 ▦
@@ -489,20 +535,20 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
               <div className="file-badge">{fileExtBadge(detail.document_filename)}</div>
               <div className="file-meta">
                 <strong>{detail.document_filename || '학습 자료'}</strong>
-                <span>선생님이 올린 원문</span>
+                <span>선생님이 올린 PDF</span>
               </div>
               <button
                 className="btn btn-ghost btn-small"
                 type="button"
                 onClick={() => setFileOpen(true)}
-                disabled={!detail.document_text}
+                disabled={!detail.document_url && !detail.document_filename}
               >
                 보기
               </button>
             </div>
           </section>
 
-          <section className="info-card">
+          <section className="info-card" data-tour="s1-tour-params">
             <div className="info-card-head">
               <span className="info-icon" aria-hidden="true">
                 ▤
@@ -518,7 +564,10 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
                   id="p-chunk"
                   className="field"
                   value={params.chunk_size}
-                  onChange={(e) => setParams((p) => ({ ...p, chunk_size: Number(e.target.value) }))}
+                  onChange={(e) => {
+                    const chunk_size = Number(e.target.value);
+                    setParams((p) => (p ? { ...p, chunk_size } : p));
+                  }}
                 >
                   {STAGE1_CHUNK_SIZE_PRESETS.map((n) => (
                     <option key={n} value={n}>
@@ -527,19 +576,32 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
                   ))}
                 </select>
               </div>
-              <div className="field-group param">
+              <div className="field-group param" data-tour="s1-tour-topk">
                 <label className="label" htmlFor="p-topk">
                   top_k
                 </label>
-                <input
-                  id="p-topk"
-                  className="field"
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={params.top_k}
-                  onChange={(e) => setParams((p) => ({ ...p, top_k: Number(e.target.value) }))}
-                />
+                <div className="topk-row">
+                  <input
+                    id="p-topk"
+                    className="field"
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={params.top_k}
+                    onChange={(e) => {
+                      const top_k = Number(e.target.value);
+                      setParams((p) => (p ? { ...p, top_k } : p));
+                    }}
+                  />
+                  <button
+                    className="btn btn-ghost btn-small topk-detail-btn"
+                    type="button"
+                    disabled={lastTopkRefs.length === 0}
+                    onClick={() => setTopkOpen(true)}
+                  >
+                    top-k 자세히 보기
+                  </button>
+                </div>
               </div>
               <div className="field-group param">
                 <label className="label" htmlFor="p-temp">
@@ -553,9 +615,10 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
                   max={1}
                   step={0.1}
                   value={params.temperature}
-                  onChange={(e) =>
-                    setParams((p) => ({ ...p, temperature: Number(e.target.value) }))
-                  }
+                  onChange={(e) => {
+                    const temperature = Number(e.target.value);
+                    setParams((p) => (p ? { ...p, temperature } : p));
+                  }}
                 />
               </div>
             </div>
@@ -565,16 +628,16 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
           </section>
         </aside>
 
-        <section className="main">
+        <section className="s1-main">
           <div className="main-head">
-            <h1>근거 탐색 · 답안 제출</h1>
+            <h1>AI와 대화로 힌트 받기</h1>
             <p>자유 질문으로 자료를 찾은 뒤, 본인 답을 제출하세요. (제출 {maxAttempts}회)</p>
           </div>
 
-          <div className="chat">
+          <div className="chat" data-tour="s1-tour-chat">
             <div className="chat-log" aria-live="polite">
               {messages.length === 0 && (
-                <p className="hint">예: &quot;임시정부는 어디에 세워졌어?&quot;</p>
+                <p className="hint">학습 자료와 문제를 바탕으로 AI에게 자유롭게 질문해 보세요.</p>
               )}
               {messages.map((m, i) => (
                 <article key={`${m.role}-${i}`} className={`bubble ${m.role === 'user' ? 'user' : 'ai'}`}>
@@ -612,25 +675,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             </div>
           </div>
 
-          {chunkPreviews.length > 0 && (
-            <section className="info-card" style={{ marginTop: 12 }}>
-              <div className="info-card-head">
-                <span className="info-icon" aria-hidden="true">
-                  ▤
-                </span>
-                <p className="side-title">검색된 청크 (top-k)</p>
-              </div>
-              <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.45 }}>
-                {chunkPreviews.map((chunk, idx) => (
-                  <li key={`chunk-${idx}`} style={{ marginBottom: 8, whiteSpace: 'pre-wrap' }}>
-                    {chunk}
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-
-          <div className="submit-bar">
+          <div className="submit-bar" data-tour="s1-tour-submit">
             <div className="submit-meta" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
               <span className="pill">
                 제출 {usedAttempts}/{maxAttempts}
@@ -680,6 +725,8 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
         </section>
       </div>
 
+      <Stage1Tour open={tourOpen} onFinish={() => setTourOpen(false)} />
+
       <div
         className={`modal${fileOpen ? ' open' : ''}`}
         role="dialog"
@@ -688,14 +735,53 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
           if (e.target === e.currentTarget) setFileOpen(false);
         }}
       >
-        <div className="modal-card">
+        <div className="modal-card modal-card-doc">
           <header>
             <h2>{detail.document_filename || '학습 자료'}</h2>
             <button className="btn btn-ghost" type="button" onClick={() => setFileOpen(false)}>
               닫기
             </button>
           </header>
-          <div className="doc">{detail.document_text || '원문을 불러올 수 없습니다.'}</div>
+          {docLoading ? (
+            <div className="doc-viewer-state">학습 자료를 불러오는 중…</div>
+          ) : docError ? (
+            <div className="doc-viewer-state">{docError}</div>
+          ) : docObjectUrl ? (
+            <iframe
+              className="doc-frame"
+              title={detail.document_filename || '학습 자료'}
+              src={docObjectUrl}
+            />
+          ) : (
+            <div className="doc-viewer-state">원문을 불러올 수 없습니다.</div>
+          )}
+        </div>
+      </div>
+
+      <div
+        className={`modal${topkOpen ? ' open' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setTopkOpen(false);
+        }}
+      >
+        <div className="modal-card">
+          <header>
+            <h2>top-k로 참고한 문장 ({lastTopkRefs.length}개)</h2>
+            <button className="btn btn-ghost" type="button" onClick={() => setTopkOpen(false)}>
+              닫기
+            </button>
+          </header>
+          {lastTopkRefs.length > 0 ? (
+            <ol className="topk-modal-list">
+              {lastTopkRefs.map((ref, idx) => (
+                <li key={`topk-modal-${idx}`}>{ref}</li>
+              ))}
+            </ol>
+          ) : (
+            <div className="doc-viewer-state">아직 참고 문장이 없습니다. AI에게 먼저 질문해 보세요.</div>
+          )}
         </div>
       </div>
 

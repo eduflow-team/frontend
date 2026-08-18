@@ -1,23 +1,23 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   ApiError,
   createTeacherAssignmentStep1Api,
   fetchClassesApi,
 } from '../../api';
 import type { ClassItem } from '../../api/types';
-import { STAGE1_CHUNK_SIZE_PRESETS } from '../../api/types';
 import { SUBJECT_OPTIONS } from '../../constants/assignments';
 import { learningModeByStage } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
-import { defaultDueAtLocal, formatDueAt, localDateTimeToIso } from '../../utils/datetime';
+import { TeacherStage1Tour } from '../../components/teacher/TeacherStage1Tour';
+import { defaultDueAtLocal, localDateTimeToIso } from '../../utils/datetime';
 import { formatClassLabel } from '../../utils/labels';
 import { TeacherStage2Form } from './stage2/TeacherStage2Form';
 import { TeacherStage3Form } from './stage3/TeacherStage3Form';
 import { TeacherStage4Form } from './stage4/TeacherStage4Form';
 
 const STAGE_DESCRIPTIONS: Record<string, string> = {
-  '1': '학습 자료와 퀴즈 1문제·정답을 등록하면, 학생이 파라미터를 조절하며 답을 찾아 제출합니다.',
+  '1': '학습 자료와 퀴즈 1문제·정답을 등록합니다.',
   '2': '참고 문서와 페르소나를 설정해 의도적 환각 과제를 만듭니다.',
   '3': 'AI 관점 비교 토론 주제를 설정합니다.',
   '4': 'AI 보안 실습 과제를 게시합니다.',
@@ -45,13 +45,6 @@ export function TeacherStagePage() {
     return (
       <div className="s1">
         <div className="shell">
-          <nav className="steps" aria-label="진행 단계">
-            <div className="step" aria-current="step">
-              과제 만들기
-            </div>
-            <div className="step">학생 학습</div>
-            <div className="step">결과 확인</div>
-          </nav>
           <h1 className="page-title">{learningModeByStage(1)?.module ?? 'RAG 체험'}</h1>
           <p className="page-desc">{STAGE_DESCRIPTIONS['1']}</p>
           <div className="info-card">
@@ -126,20 +119,18 @@ function formatStage1CreateError(err: unknown): { message: string; canRetry: boo
 }
 
 function TeacherStage1Form() {
+  const navigate = useNavigate();
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [classId, setClassId] = useState<number | ''>('');
   const [subject, setSubject] = useState('hist');
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [dueAt, setDueAt] = useState(defaultDueAtLocal);
-  const [chunkSize, setChunkSize] = useState(50);
-  const [topK, setTopK] = useState(2);
-  const [temperature, setTemperature] = useState(1.0);
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [canRetry, setCanRetry] = useState(false);
+  const [tourOpen, setTourOpen] = useState(true);
 
   useEffect(() => {
     fetchClassesApi()
@@ -151,7 +142,6 @@ function TeacherStage1Form() {
   }, []);
 
   const uploadAssignment = async () => {
-    setMessage('');
     setError('');
     setCanRetry(false);
     if (classId === '' || !file) {
@@ -168,23 +158,18 @@ function TeacherStage1Form() {
     }
     setSubmitting(true);
     try {
-      const res = await createTeacherAssignmentStep1Api({
+      await createTeacherAssignmentStep1Api({
         class_id: Number(classId),
         subject,
         question: question.trim(),
         answer: answer.trim(),
         due_at: localDateTimeToIso(dueAt),
-        default_chunk_size: chunkSize,
-        default_top_k: topK,
-        default_temperature: temperature,
         file,
       });
-      setMessage(
-        `과제를 게시했습니다. (assignment_id: ${res.assignment_id})\n` +
-          `마감: ${formatDueAt(res.due_at) || formatDueAt(localDateTimeToIso(dueAt))}\n` +
-          `문제: ${res.question}`,
-      );
-      setCanRetry(false);
+      navigate('/teacher', {
+        replace: true,
+        state: { flashSuccess: '과제 출제 완료' },
+      });
     } catch (err) {
       const formatted = formatStage1CreateError(err);
       setError(formatted.message);
@@ -202,22 +187,10 @@ function TeacherStage1Form() {
   return (
     <div className="s1">
       <div className="shell">
-        <nav className="steps" aria-label="진행 단계">
-          <div className="step" aria-current="step">
-            과제 만들기
-          </div>
-          <div className="step">학생 학습</div>
-          <div className="step">결과 확인</div>
-        </nav>
-
         <h1 className="page-title">{learningModeByStage(1)?.module ?? 'RAG 체험'}</h1>
-        <p className="page-desc">
-          학습 자료를 업로드하고 퀴즈 1문제·정답 1개를 입력하세요. 학생은 파라미터를 조절하며
-          답을 찾아 제출합니다. 기본값보다 검색 자원을 과하게 키우면 맞더라도 감점됩니다.
-        </p>
 
         <form className="stack" onSubmit={handleSubmit}>
-          <div className="row-2">
+          <div className="row-2" data-tour="t1-tour-class">
             <div className="field-group">
               <label className="label" htmlFor="s1-class">
                 학급
@@ -255,36 +228,36 @@ function TeacherStage1Form() {
             </div>
           </div>
 
-          <div className="field-group">
+          <div className="field-group" data-tour="t1-tour-question">
             <label className="label" htmlFor="s1-question">
-              문제 (1개)
+              문제
             </label>
             <textarea
               id="s1-question"
               className="field"
               rows={3}
               required
-              placeholder="예: 대한민국 임시정부는 어디에 세워졌나요?"
+              placeholder="퀴즈 문제 1개"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
             />
           </div>
 
-          <div className="field-group">
+          <div className="field-group" data-tour="t1-tour-answer">
             <label className="label" htmlFor="s1-answer">
-              정답 (1개 · 교과서 표현)
+              정답
             </label>
             <input
               id="s1-answer"
               className="field"
               required
-              placeholder="예: 상하이"
+              placeholder="채점용 정답 1개"
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
             />
           </div>
 
-          <div className="field-group" style={{ maxWidth: 320 }}>
+          <div className="field-group" style={{ maxWidth: 320 }} data-tour="t1-tour-due">
             <label className="label" htmlFor="s1-due">
               마감일
             </label>
@@ -296,61 +269,11 @@ function TeacherStage1Form() {
               value={dueAt}
               onChange={(e) => setDueAt(e.target.value)}
             />
-            <p className="hint">마감 후에만 학생에게 정답이 공개됩니다.</p>
           </div>
 
-          <div className="params">
-            <div className="param">
-              <label className="label" htmlFor="s1-chunk">
-                기본 chunk_size
-              </label>
-              <select
-                id="s1-chunk"
-                className="field"
-                value={chunkSize}
-                onChange={(e) => setChunkSize(Number(e.target.value))}
-              >
-                {STAGE1_CHUNK_SIZE_PRESETS.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="param">
-              <label className="label" htmlFor="s1-topk">
-                기본 top_k
-              </label>
-              <input
-                id="s1-topk"
-                className="field"
-                type="number"
-                min={1}
-                max={50}
-                value={topK}
-                onChange={(e) => setTopK(Number(e.target.value))}
-              />
-            </div>
-            <div className="param">
-              <label className="label" htmlFor="s1-temp">
-                기본 temperature
-              </label>
-              <input
-                id="s1-temp"
-                className="field"
-                type="number"
-                min={0}
-                max={1}
-                step={0.1}
-                value={temperature}
-                onChange={(e) => setTemperature(Number(e.target.value))}
-              />
-            </div>
-          </div>
-
-          <div className="field-group">
+          <div className="field-group" data-tour="t1-tour-file">
             <label className="label" htmlFor="s1-file">
-              학습 문서 (pdf / txt / md, 최대 10MB)
+              학습 문서
             </label>
             <input
               id="s1-file"
@@ -361,7 +284,6 @@ function TeacherStage1Form() {
                 setFile(e.target.files?.[0] ?? null);
                 setError('');
                 setCanRetry(false);
-                setMessage('');
               }}
             />
           </div>
@@ -382,24 +304,16 @@ function TeacherStage1Form() {
               )}
             </div>
           )}
-          {message && (
-            <p className="hint" style={{ whiteSpace: 'pre-wrap', color: '#15803d' }}>
-              {message}
-            </p>
-          )}
 
-          <div className="actions">
+          <div className="actions" data-tour="t1-tour-submit">
             <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? '문서 임베딩·업로드 중…' : '과제 만들기'}
+              {submitting ? '업로드 중…' : '과제 만들기'}
             </button>
           </div>
-          {submitting && (
-            <p className="hint">
-              문서 청크를 여러 preset으로 임베딩하는 중이라 최대 1~2분 걸릴 수 있습니다.
-            </p>
-          )}
         </form>
       </div>
+
+      <TeacherStage1Tour open={tourOpen} onFinish={() => setTourOpen(false)} />
     </div>
   );
 }

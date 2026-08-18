@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ApiError,
   deleteTeacherAssignmentApi,
@@ -49,10 +49,28 @@ function AssignShortcuts() {
 
 export function TeacherDashboardPage() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const useApi = user && !user.isDemo;
   const [reloadKey, setReloadKey] = useState(0);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [actionError, setActionError] = useState('');
+  const [flashToast, setFlashToast] = useState('');
+
+  useEffect(() => {
+    const state = location.state as { flashSuccess?: string } | null;
+    const msg = state?.flashSuccess?.trim();
+    if (!msg) return;
+    setFlashToast(msg);
+    setReloadKey((k) => k + 1);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    if (!flashToast) return;
+    const t = window.setTimeout(() => setFlashToast(''), 2800);
+    return () => window.clearTimeout(t);
+  }, [flashToast]);
 
   const summary = useFetch(fetchTeacherDashboardSummaryApi, [reloadKey], Boolean(useApi));
   const unsubmitted = useFetch(fetchTeacherUnsubmittedApi, [reloadKey], Boolean(useApi));
@@ -72,9 +90,23 @@ export function TeacherDashboardPage() {
     }
   };
 
+  const flash = (
+    <div
+      className={`app-flash-toast${flashToast ? ' show' : ''}`}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="app-flash-toast-check" aria-hidden>
+        ✓
+      </span>
+      <span>{flashToast || '완료'}</span>
+    </div>
+  );
+
   if (!useApi) {
     return (
       <div className="t-home">
+        {flash}
         <PageHero
           title={`안녕하세요, ${user?.name ?? '선생님'} 선생님`}
           description="한국사 교과 · 전체 학급 AI 리터러시 활동 현황 (데모)"
@@ -141,6 +173,7 @@ export function TeacherDashboardPage() {
 
   return (
     <div className="t-home">
+      {flash}
       <PageHero
         title={`안녕하세요, ${user?.name ?? '선생님'} 선생님`}
         description="전체 학급 AI 리터러시 활동 현황"

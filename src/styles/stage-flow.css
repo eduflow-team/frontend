@@ -124,9 +124,35 @@
   line-height: 1.5;
 }
 
+.stage-flow-page-meta {
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--muted, #64748b);
+  white-space: nowrap;
+}
+
+.stage-flow-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.stage-flow-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d1d5db;
+}
+
+.stage-flow-dot.active {
+  background: var(--ink, #0f172a);
+}
+
 .stage-flow-modal-foot {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 10px;
   padding: 0 18px 18px;
 }
