@@ -1,4 +1,4 @@
-import { api, apiRequest, ApiError, getAccessToken } from '../client';
+import { api, apiRequest, apiRequestBlob } from '../client';
 import { API_ENDPOINTS } from '../endpoints';
 import type {
   Stage1AssignmentDetailResponse,
@@ -18,12 +18,16 @@ import type {
   Step2HighlightResponse,
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
-
 export async function getStudentStep1Api(
   assignmentId: number | string,
 ): Promise<Stage1AssignmentDetailResponse> {
   return api.get(API_ENDPOINTS.student.assignmentStep1(assignmentId));
+}
+
+export async function getStudentStep1DocumentBlobApi(
+  assignmentId: number | string,
+): Promise<Blob> {
+  return apiRequestBlob(API_ENDPOINTS.student.assignmentStep1Document(assignmentId));
 }
 
 export async function postStudentStep1ChatApi(
@@ -63,36 +67,16 @@ export async function postStudentStep2CorrectionApi(
 export async function fetchStudentStep2DocumentBlobApi(
   assignmentId: number | string,
 ): Promise<Blob> {
-  const token = getAccessToken();
-  const response = await fetch(
-    `${API_BASE}${API_ENDPOINTS.student.assignmentStep2Document(assignmentId)}`,
-    {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    },
-  );
-
-  if (!response.ok) {
-    let detail = '';
-    try {
-      const body = (await response.json()) as { detail?: unknown };
-      detail = typeof body.detail === 'string' ? body.detail : '';
-    } catch {
-      detail = '';
-    }
-    throw new ApiError(detail || `PDF를 불러오지 못했습니다. (${response.status})`, response.status);
-  }
-
-  return response.blob();
+  return apiRequestBlob(API_ENDPOINTS.student.assignmentStep2Document(assignmentId));
 }
 
 export interface TeacherStep1CreateForm {
   class_id: number;
   subject: string;
+  question: string;
+  answer: string;
   /** ISO 8601 (UTC 권장) */
   due_at: string;
-  default_chunk_size?: number;
-  default_top_k?: number;
-  default_temperature?: number;
   file: File;
 }
 
@@ -102,10 +86,9 @@ export async function createTeacherAssignmentStep1Api(
   const body = new FormData();
   body.append('class_id', String(form.class_id));
   body.append('subject', form.subject);
+  body.append('question', form.question);
+  body.append('answer', form.answer);
   body.append('due_at', form.due_at);
-  body.append('default_chunk_size', String(form.default_chunk_size ?? 50));
-  body.append('default_top_k', String(form.default_top_k ?? 2));
-  body.append('default_temperature', String(form.default_temperature ?? 1.0));
   body.append('file', form.file);
 
   return apiRequest<Stage1CreateResponse>(API_ENDPOINTS.teacher.createAssignmentStep1, {
