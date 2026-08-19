@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ApiError,
   getStudentStep2Api,
@@ -544,6 +545,22 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                     </div>
                   )}
 
+                  {attemptsBlocked && phase === 'find' && highlightDone && (
+                    <div className="feedback-panel blocked">
+                      <strong>시도 횟수를 모두 사용했습니다</strong>
+                      <p>환각 구간은 찾았습니다. 교정 단계로 이동해 마무리해 주세요.</p>
+                      <div className="input-actions feedback-actions">
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-pill btn-sm"
+                          onClick={() => setPhase('correct')}
+                        >
+                          교정 단계로 이동
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {phase === 'done' && correctionResult && (
                     <div className={`feedback-panel${correctionResult.is_passed ? ' success' : ''}`}>
                       <strong>
@@ -655,6 +672,9 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                 {phase === 'done' && (
                   <div className="done-card-bar">
                     <p>이 카드의 검증과 교정이 완료되었습니다.</p>
+                    <Link to="/student" className="btn btn-primary btn-sm">
+                      학습 화면으로
+                    </Link>
                   </div>
                 )}
               </div>
