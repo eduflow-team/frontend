@@ -18,9 +18,13 @@ export const API_ENDPOINTS = {
     notices: '/student/notices',
     records: '/student/records',
     assignmentStep1: (id: number | string) => `/student/assignments/${id}/step1`,
+    assignmentStep1Document: (id: number | string) =>
+      `/student/assignments/${id}/step1/document`,
     assignmentStep1Chat: (id: number | string) => `/student/assignments/${id}/step1/chat`,
     assignmentStep1Submit: (id: number | string) => `/student/assignments/${id}/step1/submit`,
     assignmentStep2: (id: number | string) => `/student/assignments/${id}/step2`,
+    assignmentStep2Document: (id: number | string) =>
+      `/student/assignments/${id}/step2/document`,
     assignmentStep2Highlight: (id: number | string) =>
       `/student/assignments/${id}/step2/highlight`,
     assignmentStep2Correction: (id: number | string) =>
@@ -30,6 +34,9 @@ export const API_ENDPOINTS = {
     assignmentStep3Factcheck: (id: number | string) =>
       `/student/assignments/${id}/step3/factcheck`,
     assignmentStep3Submit: (id: number | string) => `/student/assignments/${id}/step3/submit`,
+    assignmentStep4: (id: number | string) => `/student/assignments/${id}/step4`,
+    assignmentStep4Chat: (id: number | string) => `/student/assignments/${id}/step4/chat`,
+    assignmentStep4Submit: (id: number | string) => `/student/assignments/${id}/step4/submit`,
   },
   teacher: {
     dashboardSummary: '/teacher/dashboard/summary',
@@ -43,7 +50,10 @@ export const API_ENDPOINTS = {
     recordsStudents: '/teacher/records/students',
     createAssignmentStep1: '/teacher/assignments/step1',
     createAssignmentStep2: '/teacher/assignments/step2',
+    createAssignmentStep2Set: '/teacher/assignments/step2/set',
+    assignmentStep2Set: (id: number | string) => `/teacher/assignments/step2/set/${id}`,
     createAssignmentStep3: '/teacher/assignments/step3',
+    createAssignmentStep4: '/teacher/assignments/step4',
   },
   search: '/search',
 } as const;

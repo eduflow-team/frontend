@@ -24,6 +24,8 @@ function buildDemoStage2Detail(): Stage2AssignmentDetailResponse {
   return {
     assignment_id: 0,
     title: STAGE2_DEMO.title,
+    reference_document_filename: 'stage2-demo.pdf',
+    reference_document_url: '',
     reference_document_text: STAGE2_DEMO.referenceDoc,
     question: STAGE2_DEMO.question,
     flawed_ai_response: flawed,
@@ -452,11 +454,6 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
               <div className="work-scroll">
                 <div className="work-body">
                   <p className="work-intro-muted">{verifyIntro(phase)}</p>
-                  {detail.question && (
-                    <p className="ai-question" style={{ marginBottom: 12, fontWeight: 600 }}>
-                      Q. {detail.question}
-                    </p>
-                  )}
 
                   {phase !== 'correct' && (
                     <>

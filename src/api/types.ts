@@ -37,7 +37,6 @@ export interface Stage1AttemptsInfo {
 export interface Stage1AssignmentDetailResponse {
   assignment_id: number;
   question: string;
-  guideline: string;
   due_at?: string | null;
   parameter_explanations: {
     chunk_size: string;
@@ -49,8 +48,11 @@ export interface Stage1AssignmentDetailResponse {
   highest_score: number | null;
   best_parameters: Stage1Parameters | null;
   document_filename?: string | null;
+  document_url?: string | null;
   document_text?: string | null;
   subject?: string | null;
+  is_answer_revealed?: boolean;
+  correct_answer?: string | null;
 }
 
 export interface Stage1ChatRequest {
@@ -64,36 +66,39 @@ export interface Stage1ChatResponse {
     total_chunks: number;
     retrieved_chunks: number;
     vector_search_score: number;
+    retrieved_chunk_previews?: string[];
+    approx_context_chars?: number;
   };
 }
 
 export interface Stage1SubmitRequest {
   final_parameters: Stage1Parameters;
-  selected_ai_response: string;
-  student_prompt: string;
+  student_answer: string;
 }
 
 export interface Stage1SubmitResponse {
   current_score: number;
   highest_score: number;
   is_highest_score: boolean;
+  is_correct: boolean;
   evaluation_report: {
-    faithfulness_score: number;
-    relevance_score: number;
+    is_correct: boolean;
+    correct_score: number;
+    resource_penalty: number;
     feedback: string;
   };
   attempts: {
     used_attempts: number;
     remaining_attempts: number;
   };
+  correct_answer?: string | null;
 }
 
 export interface Stage1CreateResponse {
   assignment_id: number;
   created_at: string | null;
   due_at?: string | null;
-  question?: string;
-  guideline?: string;
+  question: string;
 }
 
 export interface HallucinationTypeOption {
@@ -105,6 +110,8 @@ export interface HallucinationTypeOption {
 export interface Stage2AssignmentDetailResponse {
   assignment_id: number;
   title: string;
+  reference_document_filename: string;
+  reference_document_url: string;
   reference_document_text: string;
   question: string;
   flawed_ai_response: string;
@@ -142,6 +149,51 @@ export interface Stage2CreateResponse {
   due_at?: string | null;
   expected_error_count: number;
   generated_errors: Stage2GeneratedError[];
+}
+
+export interface Stage2SetCardFailure {
+  card_index: number;
+  failure_codes: string[];
+}
+
+export interface Stage2SetCardPreview {
+  assignment_id: number | null;
+  card_index: number;
+  title: string;
+  flawed_ai_response: string;
+  expected_error_count: number;
+  generation_error_type: string;
+  generated_errors: Stage2GeneratedError[];
+  publish_status: string;
+  generation_succeeded: boolean;
+  failure_codes: string[];
+}
+
+export interface Stage2SetCreateResponse {
+  set_id: number;
+  title: string;
+  question: string;
+  card_count: number;
+  cards: Stage2SetCardPreview[];
+  failed_cards: Stage2SetCardFailure[];
+}
+
+export interface Stage2SetDetailResponse {
+  set_id: number;
+  title: string;
+  question: string;
+  persona: string;
+  hallucination_type_hints: string[];
+  cards: Stage2SetCardPreview[];
+}
+
+export interface Stage2SetPublishRequest {
+  assignment_ids: number[];
+}
+
+export interface Stage2SetPublishResponse {
+  set_id: number;
+  published_assignment_ids: number[];
 }
 
 export interface Step2HighlightSubmission {
@@ -337,6 +389,82 @@ export interface Stage3SubmitResponse {
   advice: string;
   rows: Stage3GradeRow[];
   attempts: Stage3AttemptsDetail;
+}
+
+export type Stage4Difficulty = 'EASY' | 'NORMAL' | 'HARD';
+
+export interface Stage4AttemptsInfo {
+  used_attempts: number;
+  remaining_attempts: number;
+  max_attempts: number;
+}
+
+export interface Stage4CreateRequest {
+  class_id: number;
+  mission: string;
+  secret_key: string;
+  difficulty: Stage4Difficulty;
+  max_attempts: number;
+  guideline: string;
+}
+
+export interface Stage4CreateResponse {
+  assignment_id: number;
+  title: string;
+  mission: string;
+  difficulty: Stage4Difficulty;
+  max_attempts: number;
+}
+
+export interface Stage4AttackLogItem {
+  attempt_no: number;
+  attack_prompt: string;
+  ai_response: string;
+  attack_success: boolean;
+  created_at?: string | null;
+}
+
+export interface Stage4AssignmentDetailResponse {
+  assignment_id: number;
+  title: string;
+  mission: string;
+  guideline: string;
+  difficulty: Stage4Difficulty;
+  status: ProgressStatus | string;
+  is_cleared: boolean;
+  can_submit_report: boolean;
+  attempts: Stage4AttemptsInfo;
+  attack_logs: Stage4AttackLogItem[];
+}
+
+export interface Stage4ChatResponse {
+  ai_response: string;
+  attack_success: boolean;
+  is_cleared: boolean;
+  hint_level: number;
+  hint?: string | null;
+  attempts: Stage4AttemptsInfo;
+}
+
+export interface Stage4ReportPayload {
+  successful_attacks: string;
+  failed_attacks: string;
+  why_breached: string;
+  defense_ideas: string;
+}
+
+export interface Stage4EvaluationReport {
+  clear_score: number;
+  efficiency_score: number;
+  analysis_score: number;
+  feedback: string;
+}
+
+export interface Stage4SubmitResponse {
+  current_score: number;
+  is_passed: boolean;
+  evaluation_report: Stage4EvaluationReport;
+  attempts: Stage4AttemptsInfo;
 }
 
 /* ── Auth ── */

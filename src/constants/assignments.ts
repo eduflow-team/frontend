@@ -27,13 +27,3 @@ export const SUBJECT_OPTIONS = [
   { value: 'sci', label: '과학' },
   { value: 'soc', label: '사회' },
 ] as const;
-
-/** Stage1 학생 채팅 고정 질문 (백엔드 STAGE1_FIXED_GUIDELINE과 동일) */
-export const STAGE1_FIXED_CHAT_PROMPT = '오늘 학습 주제의 내용을 전체적으로 알려줘';
-
-/** guideline 문구에서 따옴표 안 질문을 뽑는다. 없으면 고정 질문. */
-export function resolveStage1ChatPrompt(guideline?: string | null): string {
-  const matched = guideline?.match(/"([^"]+)"/);
-  const fromGuideline = matched?.[1]?.trim();
-  return fromGuideline || STAGE1_FIXED_CHAT_PROMPT;
-}

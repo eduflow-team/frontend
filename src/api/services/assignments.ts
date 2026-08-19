@@ -1,4 +1,4 @@
-import { api, apiRequest } from '../client';
+import { api, apiRequest, apiRequestBlob } from '../client';
 import { API_ENDPOINTS } from '../endpoints';
 import type {
   Stage1AssignmentDetailResponse,
@@ -9,6 +9,9 @@ import type {
   Stage1SubmitResponse,
   Stage2AssignmentDetailResponse,
   Stage2CreateResponse,
+  Stage2SetCreateResponse,
+  Stage2SetDetailResponse,
+  Stage2SetPublishResponse,
   Stage3AssignmentDetailResponse,
   Stage3CreateRequest,
   Stage3CreateResponse,
@@ -17,6 +20,12 @@ import type {
   Stage3FactcheckResponse,
   Stage3SubmitRequest,
   Stage3SubmitResponse,
+  Stage4AssignmentDetailResponse,
+  Stage4ChatResponse,
+  Stage4CreateRequest,
+  Stage4CreateResponse,
+  Stage4ReportPayload,
+  Stage4SubmitResponse,
   Step2CorrectionRequest,
   Step2CorrectionResponse,
   Step2HighlightRequest,
@@ -27,6 +36,12 @@ export async function getStudentStep1Api(
   assignmentId: number | string,
 ): Promise<Stage1AssignmentDetailResponse> {
   return api.get(API_ENDPOINTS.student.assignmentStep1(assignmentId));
+}
+
+export async function getStudentStep1DocumentBlobApi(
+  assignmentId: number | string,
+): Promise<Blob> {
+  return apiRequestBlob(API_ENDPOINTS.student.assignmentStep1Document(assignmentId));
 }
 
 export async function postStudentStep1ChatApi(
@@ -63,19 +78,19 @@ export async function postStudentStep2CorrectionApi(
   return api.post(API_ENDPOINTS.student.assignmentStep2Correction(assignmentId), body);
 }
 
-/** 백엔드 Form 필수 — 학생 채팅에 고정으로 쓰는 가이드라인 */
-export const STAGE1_FIXED_GUIDELINE = '오늘 학습 주제의 내용을 전체적으로 알려줘';
+export async function fetchStudentStep2DocumentBlobApi(
+  assignmentId: number | string,
+): Promise<Blob> {
+  return apiRequestBlob(API_ENDPOINTS.student.assignmentStep2Document(assignmentId));
+}
 
 export interface TeacherStep1CreateForm {
   class_id: number;
   subject: string;
   question: string;
-  guideline?: string;
+  answer: string;
   /** ISO 8601 (UTC 권장) */
   due_at: string;
-  default_chunk_size?: number;
-  default_top_k?: number;
-  default_temperature?: number;
   file: File;
 }
 
@@ -86,11 +101,8 @@ export async function createTeacherAssignmentStep1Api(
   body.append('class_id', String(form.class_id));
   body.append('subject', form.subject);
   body.append('question', form.question);
-  body.append('guideline', form.guideline?.trim() || STAGE1_FIXED_GUIDELINE);
+  body.append('answer', form.answer);
   body.append('due_at', form.due_at);
-  body.append('default_chunk_size', String(form.default_chunk_size ?? 50));
-  body.append('default_top_k', String(form.default_top_k ?? 2));
-  body.append('default_temperature', String(form.default_temperature ?? 1.0));
   body.append('file', form.file);
 
   return apiRequest<Stage1CreateResponse>(API_ENDPOINTS.teacher.createAssignmentStep1, {
@@ -119,13 +131,63 @@ export async function createTeacherAssignmentStep2Api(
   body.append('subject', form.subject);
   body.append('question', form.question);
   body.append('persona', form.persona);
+  body.append('due_at', form.due_at);
   body.append('hallucination_types', JSON.stringify(form.hallucination_types));
-  body.append('expected_error_count', String(form.expected_error_count));
+  body.append('expected_error_count', '1');
   body.append('file', form.file);
 
   return apiRequest<Stage2CreateResponse>(API_ENDPOINTS.teacher.createAssignmentStep2, {
     method: 'POST',
     body,
+  });
+}
+
+export interface TeacherStep2SetCreateForm {
+  title: string;
+  subject: string;
+  question: string;
+  persona: string;
+  /** ISO 8601 (UTC 권장) */
+  due_at: string;
+  hallucination_types: string[];
+  card_count: number;
+  file: File;
+}
+
+function buildTeacherStep2SetForm(form: TeacherStep2SetCreateForm): FormData {
+  const body = new FormData();
+  body.append('title', form.title);
+  body.append('subject', form.subject);
+  body.append('question', form.question);
+  body.append('persona', form.persona);
+  body.append('due_at', form.due_at);
+  body.append('hallucination_types', JSON.stringify(form.hallucination_types));
+  body.append('card_count', String(form.card_count));
+  body.append('file', form.file);
+  return body;
+}
+
+export async function createTeacherAssignmentStep2SetApi(
+  form: TeacherStep2SetCreateForm,
+): Promise<Stage2SetCreateResponse> {
+  return apiRequest<Stage2SetCreateResponse>(API_ENDPOINTS.teacher.createAssignmentStep2Set, {
+    method: 'POST',
+    body: buildTeacherStep2SetForm(form),
+  });
+}
+
+export async function fetchTeacherAssignmentStep2SetApi(
+  setId: number | string,
+): Promise<Stage2SetDetailResponse> {
+  return api.get(API_ENDPOINTS.teacher.assignmentStep2Set(setId));
+}
+
+export async function publishTeacherAssignmentStep2SetApi(
+  setId: number | string,
+  assignmentIds: number[],
+): Promise<Stage2SetPublishResponse> {
+  return api.patch(API_ENDPOINTS.teacher.assignmentStep2Set(setId), {
+    assignment_ids: assignmentIds,
   });
 }
 
@@ -145,7 +207,6 @@ export async function postStudentStep3DebateApi(
   assignmentId: number | string,
   body: { question?: string } = {},
 ): Promise<Stage3DebateResponse> {
-  // v2 토론은 Langflow에서 약 15초+ 소요. 짧은 타임아웃을 두면 샘플로 떨어진다.
   return apiRequest<Stage3DebateResponse>(
     API_ENDPOINTS.student.assignmentStep3Debate(assignmentId),
     {
@@ -168,4 +229,30 @@ export async function postStudentStep3SubmitApi(
   body: Stage3SubmitRequest = {},
 ): Promise<Stage3SubmitResponse> {
   return api.post(API_ENDPOINTS.student.assignmentStep3Submit(assignmentId), body);
+}
+
+export async function createTeacherAssignmentStep4Api(
+  payload: Stage4CreateRequest,
+): Promise<Stage4CreateResponse> {
+  return api.post(API_ENDPOINTS.teacher.createAssignmentStep4, payload);
+}
+
+export async function getStudentStep4Api(
+  assignmentId: number | string,
+): Promise<Stage4AssignmentDetailResponse> {
+  return api.get(API_ENDPOINTS.student.assignmentStep4(assignmentId));
+}
+
+export async function postStudentStep4ChatApi(
+  assignmentId: number | string,
+  attack_prompt: string,
+): Promise<Stage4ChatResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep4Chat(assignmentId), { attack_prompt });
+}
+
+export async function postStudentStep4SubmitApi(
+  assignmentId: number | string,
+  report: Stage4ReportPayload,
+): Promise<Stage4SubmitResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep4Submit(assignmentId), { report });
 }

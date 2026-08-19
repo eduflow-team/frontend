@@ -138,6 +138,48 @@ export async function apiRequest<T>(
   return JSON.parse(text) as T;
 }
 
+/** 인증 포함 바이너리 응답 (PDF 등). object URL은 호출측에서 revoke. */
+export async function apiRequestBlob(
+  path: string,
+  options: RequestInit = {},
+  opts?: { skipAuth?: boolean; _retried?: boolean },
+): Promise<Blob> {
+  const headers = new Headers(options.headers);
+
+  if (!opts?.skipAuth) {
+    const token = getAccessToken();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (response.status === 401 && !opts?.skipAuth && !opts?._retried) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      return apiRequestBlob(path, options, { ...opts, _retried: true });
+    }
+  }
+
+  if (!response.ok) {
+    let body: ApiErrorBody | undefined;
+    try {
+      body = (await response.json()) as ApiErrorBody;
+    } catch {
+      body = undefined;
+    }
+    const message =
+      formatErrorDetail(body) || `요청에 실패했습니다. (${response.status})`;
+    throw new ApiError(message, response.status, body);
+  }
+
+  return response.blob();
+}
+
 export const api = {
   get: <T>(path: string, opts?: { skipAuth?: boolean }) =>
     apiRequest<T>(path, {}, opts),
