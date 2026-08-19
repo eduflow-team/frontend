@@ -496,7 +496,7 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                         </div>
                         {showFindForm && selectedText && (
                           <div className="selected-segment-box">
-                            <strong>선택한 구간</strong>
+                            <strong>선택한 오류</strong>
                             <span>{selectedText}</span>
                           </div>
                         )}
