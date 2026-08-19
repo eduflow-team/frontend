@@ -9,6 +9,9 @@ import type {
   Stage1SubmitResponse,
   Stage2AssignmentDetailResponse,
   Stage2CreateResponse,
+  Stage2SetCreateResponse,
+  Stage2SetDetailResponse,
+  Stage2SetPublishResponse,
   Step2CorrectionRequest,
   Step2CorrectionResponse,
   Step2HighlightRequest,
@@ -61,6 +64,12 @@ export async function postStudentStep2CorrectionApi(
   return api.post(API_ENDPOINTS.student.assignmentStep2Correction(assignmentId), body);
 }
 
+export async function fetchStudentStep2DocumentBlobApi(
+  assignmentId: number | string,
+): Promise<Blob> {
+  return apiRequestBlob(API_ENDPOINTS.student.assignmentStep2Document(assignmentId));
+}
+
 export interface TeacherStep1CreateForm {
   class_id: number;
   subject: string;
@@ -110,11 +119,60 @@ export async function createTeacherAssignmentStep2Api(
   body.append('persona', form.persona);
   body.append('due_at', form.due_at);
   body.append('hallucination_types', JSON.stringify(form.hallucination_types));
-  body.append('expected_error_count', String(form.expected_error_count));
+  body.append('expected_error_count', '1');
   body.append('file', form.file);
 
   return apiRequest<Stage2CreateResponse>(API_ENDPOINTS.teacher.createAssignmentStep2, {
     method: 'POST',
     body,
+  });
+}
+
+export interface TeacherStep2SetCreateForm {
+  title: string;
+  subject: string;
+  question: string;
+  persona: string;
+  /** ISO 8601 (UTC 권장) */
+  due_at: string;
+  hallucination_types: string[];
+  card_count: number;
+  file: File;
+}
+
+function buildTeacherStep2SetForm(form: TeacherStep2SetCreateForm): FormData {
+  const body = new FormData();
+  body.append('title', form.title);
+  body.append('subject', form.subject);
+  body.append('question', form.question);
+  body.append('persona', form.persona);
+  body.append('due_at', form.due_at);
+  body.append('hallucination_types', JSON.stringify(form.hallucination_types));
+  body.append('card_count', String(form.card_count));
+  body.append('file', form.file);
+  return body;
+}
+
+export async function createTeacherAssignmentStep2SetApi(
+  form: TeacherStep2SetCreateForm,
+): Promise<Stage2SetCreateResponse> {
+  return apiRequest<Stage2SetCreateResponse>(API_ENDPOINTS.teacher.createAssignmentStep2Set, {
+    method: 'POST',
+    body: buildTeacherStep2SetForm(form),
+  });
+}
+
+export async function fetchTeacherAssignmentStep2SetApi(
+  setId: number | string,
+): Promise<Stage2SetDetailResponse> {
+  return api.get(API_ENDPOINTS.teacher.assignmentStep2Set(setId));
+}
+
+export async function publishTeacherAssignmentStep2SetApi(
+  setId: number | string,
+  assignmentIds: number[],
+): Promise<Stage2SetPublishResponse> {
+  return api.patch(API_ENDPOINTS.teacher.assignmentStep2Set(setId), {
+    assignment_ids: assignmentIds,
   });
 }

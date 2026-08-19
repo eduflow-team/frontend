@@ -110,6 +110,8 @@ export interface HallucinationTypeOption {
 export interface Stage2AssignmentDetailResponse {
   assignment_id: number;
   title: string;
+  reference_document_filename: string;
+  reference_document_url: string;
   reference_document_text: string;
   question: string;
   flawed_ai_response: string;
@@ -147,6 +149,51 @@ export interface Stage2CreateResponse {
   due_at?: string | null;
   expected_error_count: number;
   generated_errors: Stage2GeneratedError[];
+}
+
+export interface Stage2SetCardFailure {
+  card_index: number;
+  failure_codes: string[];
+}
+
+export interface Stage2SetCardPreview {
+  assignment_id: number | null;
+  card_index: number;
+  title: string;
+  flawed_ai_response: string;
+  expected_error_count: number;
+  generation_error_type: string;
+  generated_errors: Stage2GeneratedError[];
+  publish_status: string;
+  generation_succeeded: boolean;
+  failure_codes: string[];
+}
+
+export interface Stage2SetCreateResponse {
+  set_id: number;
+  title: string;
+  question: string;
+  card_count: number;
+  cards: Stage2SetCardPreview[];
+  failed_cards: Stage2SetCardFailure[];
+}
+
+export interface Stage2SetDetailResponse {
+  set_id: number;
+  title: string;
+  question: string;
+  persona: string;
+  hallucination_type_hints: string[];
+  cards: Stage2SetCardPreview[];
+}
+
+export interface Stage2SetPublishRequest {
+  assignment_ids: number[];
+}
+
+export interface Stage2SetPublishResponse {
+  set_id: number;
+  published_assignment_ids: number[];
 }
 
 export interface Step2HighlightSubmission {

@@ -23,6 +23,8 @@ export const API_ENDPOINTS = {
     assignmentStep1Chat: (id: number | string) => `/student/assignments/${id}/step1/chat`,
     assignmentStep1Submit: (id: number | string) => `/student/assignments/${id}/step1/submit`,
     assignmentStep2: (id: number | string) => `/student/assignments/${id}/step2`,
+    assignmentStep2Document: (id: number | string) =>
+      `/student/assignments/${id}/step2/document`,
     assignmentStep2Highlight: (id: number | string) =>
       `/student/assignments/${id}/step2/highlight`,
     assignmentStep2Correction: (id: number | string) =>
@@ -40,6 +42,8 @@ export const API_ENDPOINTS = {
     recordsStudents: '/teacher/records/students',
     createAssignmentStep1: '/teacher/assignments/step1',
     createAssignmentStep2: '/teacher/assignments/step2',
+    createAssignmentStep2Set: '/teacher/assignments/step2/set',
+    assignmentStep2Set: (id: number | string) => `/teacher/assignments/step2/set/${id}`,
   },
   search: '/search',
 } as const;
