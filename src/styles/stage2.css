@@ -1,5 +1,12 @@
 /* Stage2 — stage2-ui layout + stage1_ui (black/white) tokens. Scoped under .s2 */
-.page-content:has(> .s2) { background: #ffffff; }
+.page-content:has(> .s2) {
+  background: #ffffff;
+  /* EduFlow 사이드바(main) 안에서 Stage2만 가로 폭 확장 */
+  max-width: none;
+  width: 100%;
+  padding-left: 20px;
+  padding-right: 20px;
+}
 
 .s2 *, .s2 *::before, .s2 *::after { box-sizing: border-box; }
 
@@ -25,11 +32,11 @@
   --shadow-sm: none;
   --shadow: none;
   --transition: all 0.15s ease-in-out;
-  --layout-max-width: 1200px;
-  --layout-practice-max-width: min(1080px, calc(100% - 48px));
-  --layout-gutter: 40px;
-  --sidebar-width: 300px;
-  --work-column-width: 45rem;
+  --layout-max-width: min(1120px, 100%);
+  --layout-practice-max-width: min(1420px, 100%);
+  --layout-gutter: 24px;
+  --sidebar-width: 320px;
+  --work-column-width: 52rem;
 
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--text);
@@ -37,7 +44,7 @@
   line-height: 1.55;
   font-size: 15px;
   letter-spacing: -0.01em;
-  margin: -24px -28px;
+  margin: -24px -20px;
   padding: 8px 0 48px;
   min-height: calc(100% + 48px);
   box-sizing: border-box;
@@ -264,7 +271,7 @@
 
 .s2 .practice-layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   gap: 0;
   flex: 1;
   min-height: 0;
@@ -593,7 +600,7 @@
   flex-direction: column;
 }
 
-.s2 .work-.work-intro-muted {
+.s2 .work-intro-muted {
   font-size: 0.85rem;
   color: var(--text-muted);
   margin: 0 0 10px;
@@ -1248,7 +1255,7 @@
 /* --- Teacher assignment wizard (v2) — 1단계 shell 비율에 맞춤 --- */
 .s2 .shell.teacher-shell,
 .s2 .teacher-shell {
-  width: min(880px, calc(100% - 48px));
+  width: min(var(--layout-max-width), 100%);
   margin: 0 auto;
   padding: 32px 0 72px;
 }
