@@ -18,6 +18,7 @@ import type {
   Stage3DebateResponse,
   Stage3FactcheckRequest,
   Stage3FactcheckResponse,
+  Stage3SourcesResponse,
   Stage3SubmitRequest,
   Stage3SubmitResponse,
   Stage4AssignmentDetailResponse,
@@ -212,7 +213,7 @@ export async function postStudentStep3DebateApi(
     {
       method: 'POST',
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.timeout(300_000),
     },
   );
 }
@@ -222,6 +223,13 @@ export async function postStudentStep3FactcheckApi(
   body: Stage3FactcheckRequest,
 ): Promise<Stage3FactcheckResponse> {
   return api.post(API_ENDPOINTS.student.assignmentStep3Factcheck(assignmentId), body);
+}
+
+export async function postStudentStep3SourcesApi(
+  assignmentId: number | string,
+  body: { claim?: string; text?: string; turn_id?: string } = {},
+): Promise<Stage3SourcesResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep3Sources(assignmentId), body);
 }
 
 export async function postStudentStep3SubmitApi(

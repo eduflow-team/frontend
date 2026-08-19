@@ -200,18 +200,28 @@ export function TeacherStage3Form() {
             </div>
           </div>
 
-          <div className="field-group" style={{ maxWidth: 320 }}>
-            <label className="label" htmlFor="dueInput">
-              마감
-            </label>
-            <input
-              id="dueInput"
-              className="field"
-              type="datetime-local"
-              value={dueAt}
-              onChange={(e) => setDueAt(e.target.value)}
-              disabled={submitting}
-            />
+          <div className="row-2">
+            <div className="field-group">
+              <label className="label">토론 구조</label>
+              <div className="info-card" style={{ padding: '12px 14px' }}>
+                <p className="mission-text" style={{ fontSize: 14 }}>
+                  입론 → 반론 → 최종 변론 · Langflow
+                </p>
+              </div>
+            </div>
+            <div className="field-group">
+              <label className="label" htmlFor="dueInput">
+                마감
+              </label>
+              <input
+                id="dueInput"
+                className="field"
+                type="datetime-local"
+                value={dueAt}
+                onChange={(e) => setDueAt(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
           </div>
 
           <section className="info-card">

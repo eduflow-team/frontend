@@ -355,6 +355,20 @@ export interface Stage3FactcheckResponse {
   claims: Stage3Claim[];
 }
 
+export interface Stage3SourceItem {
+  title: string;
+  url: string;
+  source?: string;
+  published?: string;
+  kind?: string;
+}
+
+export interface Stage3SourcesResponse {
+  query: string;
+  articles: Stage3SourceItem[];
+  searches: Stage3SourceItem[];
+}
+
 export interface Stage3DecisionItem {
   turn_id: string;
   checked: boolean;

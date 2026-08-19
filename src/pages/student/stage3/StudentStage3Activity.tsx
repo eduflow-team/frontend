@@ -1,15 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import {
   ApiError,
   getStudentStep3Api,
   postStudentStep3DebateApi,
   postStudentStep3FactcheckApi,
+  postStudentStep3SourcesApi,
   postStudentStep3SubmitApi,
 } from '../../../api';
 import type {
   Stage3AssignmentDetailResponse,
   Stage3DebatePublicPayload,
   Stage3GradeRow as Stage3ApiGradeRow,
+  Stage3SourceItem,
   Stage3SubmitResponse,
   Stage3TurnPublic,
 } from '../../../api/types';
@@ -62,6 +64,8 @@ interface Stage3GradeResult {
   score: number;
   headline: string;
   advice: string;
+  judgment?: string;
+  corrections?: Record<string, { highlight: string; why: string; ground: string }>;
 }
 
 const VERDICT_LABEL: Record<Stage3Verdict, string> = {
@@ -211,33 +215,121 @@ const AVATAR = (
 
 type FloorItem =
   | { kind: 'turn'; turn: Stage3Turn; checked: boolean | null }
-  | { kind: 'verdict'; claim: string; verdict: Stage3Verdict; reason: string };
+  | { kind: 'verdict'; tag: string; label: string; picked: string };
 
-type Phase = 'guide' | 'decide' | 'next' | 'done';
+type Phase = 'guide' | 'decide' | 'fill' | 'next' | 'judge' | 'done';
 
 function Toast({ message }: { message: string }) {
   return <div className={`toast${message ? ' show' : ''}`}>{message}</div>;
 }
 
-function Grounds({ turn }: { turn: Stage3Turn }) {
+function Grounds({ turn, interactive }: { turn: Stage3Turn; interactive?: boolean }) {
   const items = (turn.grounds || []).filter(Boolean);
+  const toggle = (e: MouseEvent<HTMLElement>) => {
+    if (!interactive) return;
+    e.stopPropagation();
+    e.currentTarget.classList.toggle('hl-user');
+  };
   if (items.length > 1) {
     return (
       <span className="claim">
         <b>핵심 근거</b>
         <ol className="claim-list">
           {items.map((g) => (
-            <li key={g}>{g}</li>
+            <li key={g} onClick={toggle}>
+              {g}
+            </li>
           ))}
         </ol>
       </span>
     );
   }
   return (
-    <span className="claim">
+    <span className="claim" onClick={toggle}>
       <b>핵심 근거</b>
       {turn.claim || items[0] || ''}
     </span>
+  );
+}
+
+function HighlightBubble({
+  children,
+  enabled,
+}: {
+  children: React.ReactNode;
+  enabled: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const bubble = ref.current;
+    if (!bubble || !enabled) return;
+
+    const unwrap = (mark: HTMLElement) => {
+      const parent = mark.parentNode;
+      if (!parent) return;
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+      parent.removeChild(mark);
+      parent.normalize();
+    };
+    const markFromNode = (node: Node | null) => {
+      let current: Node | null = node;
+      if (current && current.nodeType === 3) current = current.parentElement;
+      return current instanceof Element ? current.closest('mark.hl-user') : null;
+    };
+    const wrapSelection = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
+      const range = sel.getRangeAt(0);
+      if (!bubble.contains(range.commonAncestorContainer)) return false;
+      if (!sel.toString().trim()) return false;
+      const startMark = markFromNode(range.startContainer);
+      const endMark = markFromNode(range.endContainer);
+      if (startMark && startMark === endMark && bubble.contains(startMark)) {
+        unwrap(startMark as HTMLElement);
+        sel.removeAllRanges();
+        return true;
+      }
+      const mark = document.createElement('mark');
+      mark.className = 'hl-user';
+      try {
+        range.surroundContents(mark);
+      } catch {
+        mark.appendChild(range.extractContents());
+        range.insertNode(mark);
+      }
+      sel.removeAllRanges();
+      return true;
+    };
+
+    let justWrapped = false;
+    const onMouseUp = () => {
+      justWrapped = wrapSelection();
+    };
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const mark = target?.closest('mark.hl-user');
+      if (!mark || !bubble.contains(mark)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (justWrapped) {
+        justWrapped = false;
+        return;
+      }
+      unwrap(mark as HTMLElement);
+    };
+    bubble.addEventListener('mouseup', onMouseUp);
+    bubble.addEventListener('click', onClick);
+    return () => {
+      bubble.removeEventListener('mouseup', onMouseUp);
+      bubble.removeEventListener('click', onClick);
+    };
+  }, [enabled]);
+
+  return (
+    <div className={`bubble${enabled ? ' selectable' : ''}`} ref={ref}>
+      {children}
+    </div>
   );
 }
 
@@ -256,6 +348,17 @@ export function StudentStage3Activity({
   const [phase, setPhase] = useState<Phase>('guide');
   const [guideOpen, setGuideOpen] = useState(!skipIntroGuide);
   const [orderOpen, setOrderOpen] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [sourceLoading, setSourceLoading] = useState(false);
+  const [sourceArticles, setSourceArticles] = useState<Stage3SourceItem[]>([]);
+  const [sourceSearches, setSourceSearches] = useState<Stage3SourceItem[]>([]);
+  const [sourceQuote, setSourceQuote] = useState('');
+  const [whyText, setWhyText] = useState('');
+  const [groundText, setGroundText] = useState('');
+  const [judgeText, setJudgeText] = useState('');
+  const [corrections, setCorrections] = useState<
+    Record<string, { highlight: string; why: string; ground: string }>
+  >({});
   const [starting, setStarting] = useState(false);
   const [deciding, setDeciding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -330,7 +433,8 @@ export function StudentStage3Activity({
 
   const currentTurn = idx >= 0 ? debate.turns[idx] : null;
   const doneCount = Object.keys(decisions).length;
-  const speakingSide = phase === 'decide' && currentTurn ? currentTurn.side : null;
+  const speakingSide =
+    (phase === 'decide' || phase === 'fill') && currentTurn ? currentTurn.side : null;
 
   const pushTurn = (turn: Stage3Turn) => {
     setFloor((prev) => {
@@ -403,10 +507,51 @@ export function StudentStage3Activity({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skipIntroGuide, assignmentId]);
 
+  const collectHighlights = (turnId: string) => {
+    const root = document.getElementById(`say-${turnId}`);
+    if (!root) return '';
+    const bits = [
+      ...[...root.querySelectorAll('mark.hl-user')].map((n) => n.textContent?.trim() || ''),
+      ...[...root.querySelectorAll('.claim.hl-user, .claim-list li.hl-user')].map((n) =>
+        (n.textContent || '').replace(/^핵심 근거/, '').trim(),
+      ),
+    ].filter(Boolean);
+    return [...new Set(bits)].join(' / ');
+  };
+
+  const hasHighlight = (turnId: string) => {
+    const root = document.getElementById(`say-${turnId}`);
+    return Boolean(root?.querySelector('mark.hl-user, .hl-user'));
+  };
+
+  const openSource = async (turn: Stage3Turn) => {
+    const claim = turn.claim || turn.grounds?.[0] || turn.text || '';
+    setSourceQuote(claim);
+    setSourceOpen(true);
+    setSourceLoading(true);
+    setSourceArticles([]);
+    setSourceSearches([]);
+    try {
+      const data = await postStudentStep3SourcesApi(assignmentId, {
+        turn_id: turn.id,
+        claim,
+        text: turn.text,
+      });
+      setSourceArticles(data.articles || []);
+      setSourceSearches(data.searches || []);
+    } catch (err) {
+      setToast(apiErrorMessage(err, '출처를 찾지 못했습니다.'));
+    } finally {
+      setSourceLoading(false);
+    }
+  };
+
   const applyDecision = (turn: Stage3Turn, checked: boolean, revealed: Stage3Turn) => {
     const nextDecisions = { ...decisionsRef.current, [turn.id]: checked };
     decisionsRef.current = nextDecisions;
     setDecisions(nextDecisions);
+    const picked = collectHighlights(turn.id);
+    const isLast = idx >= debateRef.current.turns.length - 1;
     setFloor((prev) => {
       const next = prev.map((item) =>
         item.kind === 'turn' && item.turn.id === turn.id
@@ -414,23 +559,33 @@ export function StudentStage3Activity({
           : item,
       );
       if (checked) {
-        const claims =
-          revealed.claims?.length > 0
-            ? revealed.claims
-            : [{ claim: revealed.claim, verdict: revealed.verdict, reason: revealed.why }];
-        for (const c of claims) {
-          next.push({ kind: 'verdict', claim: c.claim, verdict: c.verdict, reason: c.reason });
-        }
+        const suspicious =
+          (revealed.claims || []).some((c) =>
+            ['exaggerated', 'unsupported', 'false'].includes(c.verdict),
+          ) || ['exaggerated', 'unsupported', 'false'].includes(revealed.verdict);
+        const tag = suspicious ? revealed.verdict || 'exaggerated' : 'misscheck';
+        const label = suspicious ? VERDICT_LABEL[revealed.verdict] || '과장됨' : '잘못 체크함';
+        next.push({ kind: 'verdict', tag, label, picked });
       }
       return next;
     });
-    if (!checked) setToast('검증 없이 넘어갔습니다.');
-    setPhase('next');
+    if (checked) {
+      setWhyText('');
+      setGroundText('');
+      setPhase('fill');
+    } else {
+      setToast('검증 없이 넘어갔습니다.');
+      setPhase(isLast ? 'judge' : 'next');
+    }
   };
 
   const decide = async (checked: boolean) => {
     if (!currentTurn || phase !== 'decide' || deciding || starting) return;
     const turn = currentTurn;
+    if (checked && !hasHighlight(turn.id)) {
+      setToast('의심되는 부분을 먼저 하이라이트해 주세요.');
+      return;
+    }
     setDeciding(true);
     try {
       if (checked) {
@@ -474,7 +629,7 @@ export function StudentStage3Activity({
           checked,
         })),
       });
-      setResult(resultFromSubmit(res, debateRef.current));
+      setResult({ ...resultFromSubmit(res, debateRef.current), judgment: judgeText, corrections });
       setAlreadySubmitted(true);
       setPhase('done');
     } catch (err) {
@@ -486,7 +641,7 @@ export function StudentStage3Activity({
 
   const advance = () => {
     if (idx >= debate.turns.length - 1) {
-      void goResult(decisions);
+      setPhase('judge');
       return;
     }
     const nextIdx = idx + 1;
@@ -495,7 +650,30 @@ export function StudentStage3Activity({
     setPhase('decide');
   };
 
-  const finish = () => {
+  const finishFill = () => {
+    if (!currentTurn) return;
+    if (whyText.trim().length < 8 || groundText.trim().length < 8) {
+      setToast('두 칸을 모두 채워 주세요.');
+      return;
+    }
+    setCorrections((prev) => ({
+      ...prev,
+      [currentTurn.id]: {
+        highlight: collectHighlights(currentTurn.id),
+        why: whyText.trim(),
+        ground: groundText.trim(),
+      },
+    }));
+    setToast('작성을 저장했습니다.');
+    if (idx >= debate.turns.length - 1) setPhase('judge');
+    else advance();
+  };
+
+  const finishJudge = () => {
+    if (judgeText.trim().length < 12) {
+      setToast('결론을 조금 더 구체적으로 적어 주세요.');
+      return;
+    }
     void goResult(decisions);
   };
 
@@ -562,7 +740,9 @@ export function StudentStage3Activity({
           </div>
           <div className="progress-wrap">
             <span className="pill">
-              발언 {Math.min(Math.max(idx + 1, 0), debate.turns.length)} / {debate.turns.length}
+              {phase === 'judge'
+                ? '결론'
+                : `발언 ${Math.min(Math.max(idx + 1, 0), debate.turns.length)} / ${debate.turns.length || 6}`}
             </span>
             <div className="progress-bar">
               <span style={{ width: debate.turns.length ? `${(doneCount / debate.turns.length) * 100}%` : '0%' }} />
@@ -588,16 +768,17 @@ export function StudentStage3Activity({
               item.kind === 'turn' ? (
                 <div
                   key={item.turn.id}
+                  id={`say-${item.turn.id}`}
                   className={`say ${item.turn.side}${item.checked === null ? ' pending' : ''}`}
                 >
                   <div className="say-meta">
                     <span className="name">{debate[item.turn.side].name}</span>
                     <span>{item.turn.round}</span>
                   </div>
-                  <div className="bubble">
+                  <HighlightBubble enabled={item.checked === null && phase === 'decide'}>
                     {item.turn.text}
-                    <Grounds turn={item.turn} />
-                  </div>
+                    <Grounds turn={item.turn} interactive={item.checked === null && phase === 'decide'} />
+                  </HighlightBubble>
                   {item.checked !== null && (
                     <span className={`decision${item.checked ? ' checked' : ''}`}>
                       {item.checked ? '팩트체커에게 검증 요청함' : '검증 없이 넘어감'}
@@ -609,12 +790,9 @@ export function StudentStage3Activity({
                   <div className="verdict">
                     <div className="verdict-head">
                       <span className="name">팩트체커 AI</span>
-                      <span className={`verdict-tag ${item.verdict}`}>
-                        {VERDICT_LABEL[item.verdict] || item.verdict}
-                      </span>
+                      <span className={`verdict-tag ${item.tag}`}>{item.label}</span>
                     </div>
-                    <p>"{item.claim}"</p>
-                    <p className="why">{item.reason}</p>
+                    {item.picked ? <p className="why">표시한 부분 · {item.picked}</p> : null}
                   </div>
                 </div>
               ),
@@ -649,11 +827,16 @@ export function StudentStage3Activity({
               )}
             </>
           )}
-          {phase === 'decide' && (
+          {phase === 'decide' && currentTurn && (
             <>
-              <p className="decide-q">이 근거, 팩트체커에게 맡길까요?</p>
-              <p className="decide-sub">평가자는 발언마다 검증 여부를 직접 정합니다. 검증도 판단의 일부입니다.</p>
+              <p className="decide-q">의심되는 부분을 칠한 뒤 팩트체커를 누르세요</p>
+              <p className="decide-sub">
+                문장을 드래그하거나 핵심 근거를 누르면 표시됩니다. 같은 부분을 다시 칠하면 취소됩니다.
+              </p>
               <div className="decide-actions">
+                <button className="btn btn-ghost" type="button" disabled={deciding} onClick={() => void openSource(currentTurn)}>
+                  출처 확인
+                </button>
                 <button className="btn btn-check" type="button" disabled={deciding} onClick={() => void decide(true)}>
                   {deciding ? '검증 요청 중…' : '팩트체커에게 검증 요청'}
                 </button>
@@ -669,28 +852,79 @@ export function StudentStage3Activity({
               </div>
             </>
           )}
+          {phase === 'fill' && currentTurn && (
+            <>
+              <p className="decide-q">틀린 이유와 맞은 근거를 채워 주세요</p>
+              <p className="decide-sub">팩트체커는 판정만 알려 줍니다. 왜 문제인지, 바른 근거는 무엇인지 직접 적어야 다음으로 갈 수 있습니다.</p>
+              <div className="fix-box">
+                <label className="label" htmlFor="whyInput">틀린 이유</label>
+                <textarea
+                  className="field"
+                  id="whyInput"
+                  rows={2}
+                  placeholder="이 부분이 왜 과장·오류인지 적어 보세요."
+                  value={whyText}
+                  onChange={(e) => setWhyText(e.target.value)}
+                />
+                <label className="label" htmlFor="groundInput">맞은 근거</label>
+                <textarea
+                  className="field"
+                  id="groundInput"
+                  rows={2}
+                  placeholder="바르게 고친 근거를 적어 보세요."
+                  value={groundText}
+                  onChange={(e) => setGroundText(e.target.value)}
+                />
+              </div>
+              <div className="decide-actions">
+                <button className="btn btn-ghost" type="button" onClick={() => void openSource(currentTurn)}>
+                  출처 확인
+                </button>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  disabled={whyText.trim().length < 8 || groundText.trim().length < 8}
+                  onClick={finishFill}
+                >
+                  작성하고 다음으로
+                </button>
+              </div>
+            </>
+          )}
           {phase === 'next' && (
             <>
-              <p className="decide-q">
-                {idx >= debate.turns.length - 1 ? '토론이 끝났습니다' : '다음 발언을 들어 보세요'}
-              </p>
-              <p className="decide-sub">
-                {idx >= debate.turns.length - 1
-                  ? '팩트체커를 얼마나 적절히 썼는지 확인할 차례입니다.'
-                  : '상대 측이 이어서 발언합니다.'}
-              </p>
+              <p className="decide-q">다음 발언을 들어 보세요</p>
+              <p className="decide-sub">상대 측이 이어서 발언합니다.</p>
+              <div className="decide-actions">
+                <button className="btn btn-primary" type="button" onClick={advance}>
+                  다음 발언 듣기
+                </button>
+              </div>
+            </>
+          )}
+          {phase === 'judge' && (
+            <>
+              <p className="decide-q">사회자로서 결론을 내려 주세요</p>
+              <p className="decide-sub">어느 쪽 근거가 더 믿을 만했는지, 왜 그렇게 보는지 적어 주세요. 이 결론은 팩트체커 점수와 별개입니다.</p>
+              <div className="fix-box">
+                <label className="label" htmlFor="judgeInput">내 판정</label>
+                <textarea
+                  className="field"
+                  id="judgeInput"
+                  rows={4}
+                  placeholder="예: 반대 측의 개인정보 지적이 더 구체적이었습니다."
+                  value={judgeText}
+                  onChange={(e) => setJudgeText(e.target.value)}
+                />
+              </div>
               <div className="decide-actions">
                 <button
                   className="btn btn-primary"
                   type="button"
-                  disabled={submitting}
-                  onClick={idx >= debate.turns.length - 1 ? finish : advance}
+                  disabled={submitting || judgeText.trim().length < 12}
+                  onClick={finishJudge}
                 >
-                  {idx >= debate.turns.length - 1
-                    ? submitting
-                      ? '채점 중…'
-                      : '평가 결과 보기'
-                    : '다음 발언 듣기'}
+                  {submitting ? '채점 중…' : '평가 결과 보기'}
                 </button>
               </div>
             </>
@@ -712,8 +946,8 @@ export function StudentStage3Activity({
                 <li>
                   <span className="guide-num">1</span>
                   <div>
-                    <strong>두 AI가 번갈아 발언합니다</strong>
-                    <p>찬성 측과 반대 측이 한 번씩 주고받으며 근거를 제시합니다.</p>
+                    <strong>두 AI가 입론·반론·최종 변론을 주고받습니다</strong>
+                    <p>찬성 입론 → 반대 입론 → 반대 반론 → 찬성 반론 → 반대 최종 변론 → 찬성 최종 변론 순서로 진행된 뒤, 여러분이 결론을 내립니다.</p>
                   </div>
                 </li>
                 <li>
@@ -721,8 +955,8 @@ export function StudentStage3Activity({
                   <div>
                     <strong>발언마다 검증할지 정합니다</strong>
                     <p>
-                      근거가 과장됐거나 사실과 달라 보이면 <b>팩트체커에게 검증을 요청</b>하고, 믿을
-                      만하면 그냥 넘어갑니다.
+                      의심되는 문장을 <b>직접 하이라이트</b>한 뒤 팩트체커를 누릅니다.
+                      틀린 이유와 맞은 근거는 빈칸에 직접 채웁니다.
                     </p>
                   </div>
                 </li>
@@ -744,7 +978,7 @@ export function StudentStage3Activity({
                 때. 검증에도 비용이 든다는 점을 기억하세요.
               </div>
               <p className="hint hint-sm" style={{ marginTop: 14 }}>
-                시작을 누르면 찬성·반대·팩트체커 AI가 토론을 준비합니다. 약 15초 걸립니다.
+                시작을 누르면 Langflow가 입론·반론·최종 변론을 준비합니다. 약 50초 걸릴 수 있습니다.
               </p>
             </div>
             <div className="modal-foot">
@@ -774,40 +1008,97 @@ export function StudentStage3Activity({
             </header>
             <div className="modal-body">
               <div className="order-flow">
-                <span className="order-chip pro">찬성 주장</span>
+                <span className="order-chip pro">찬성 입론</span>
                 <span className="order-arrow">→</span>
-                <span className="order-chip con">반대 반박</span>
+                <span className="order-chip con">반대 입론</span>
                 <span className="order-arrow">→</span>
-                <span className="order-chip pro">찬성 재반박</span>
+                <span className="order-chip con">반대 반론</span>
                 <span className="order-arrow">→</span>
-                <span className="order-chip check">팩트체커</span>
+                <span className="order-chip pro">찬성 반론</span>
+                <span className="order-arrow">→</span>
+                <span className="order-chip con">반대 최종</span>
+                <span className="order-arrow">→</span>
+                <span className="order-chip pro">찬성 최종</span>
+                <span className="order-arrow">→</span>
+                <span className="order-chip check">결론 · 사용자 판정</span>
               </div>
               <ol className="guide-list">
                 <li>
                   <span className="guide-num">1</span>
                   <div>
-                    <strong>세 번의 발언이 오갑니다</strong>
-                    <p>찬성이 먼저 말하고, 반대가 반박한 뒤, 찬성이 다시 답합니다.</p>
+                    <strong>입론 · 주장을 펼칩니다</strong>
+                    <p>찬성 측이 논제·배경·근거를 제시하고, 반대 측이 반대 주장과 근거를 제시합니다.</p>
                   </div>
                 </li>
                 <li>
                   <span className="guide-num">2</span>
                   <div>
-                    <strong>발언 하나가 끝날 때마다 멈춥니다</strong>
-                    <p>다음 발언으로 넘어가기 전에 검증 여부를 반드시 정해야 합니다.</p>
+                    <strong>반론 · 허점을 지적합니다</strong>
+                    <p>반대 측이 찬성 주장의 타당성을 찌른 뒤, 찬성 측이 그 반박을 재반박하고 주장을 강화합니다.</p>
                   </div>
                 </li>
                 <li>
                   <span className="guide-num">3</span>
                   <div>
-                    <strong>팩트체커는 언제든 부를 수 있습니다</strong>
-                    <p>그 발언의 핵심 근거만 검증해 판정과 이유를 알려줍니다.</p>
+                    <strong>최종 변론 · 핵심을 정리합니다</strong>
+                    <p>반대 측이 먼저 마무리하고, 찬성 측이 마지막 발언을 합니다. 마지막에 여러분이 결론을 내립니다.</p>
                   </div>
                 </li>
               </ol>
             </div>
             <div className="modal-foot">
               <button className="btn btn-primary" type="button" onClick={() => setOrderOpen(false)}>
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sourceOpen && (
+        <div
+          className="modal open"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSourceOpen(false);
+          }}
+        >
+          <div className="modal-card">
+            <header>
+              <h2>근거 출처 확인</h2>
+              <button className="btn btn-ghost btn-small" type="button" onClick={() => setSourceOpen(false)}>
+                닫기
+              </button>
+            </header>
+            <div className="modal-body">
+              {sourceQuote ? <p className="source-quote">“{sourceQuote}”</p> : null}
+              {sourceLoading ? <p className="hint">관련 뉴스·기사·인터뷰를 찾는 중…</p> : null}
+              {!sourceLoading && (
+                <>
+                  <p className="hint">이 근거와 관련된 뉴스·인터뷰입니다. 제목을 누르면 원문이 열립니다.</p>
+                  <div className="source-list">
+                    {(sourceArticles.length ? sourceArticles : sourceSearches).map((item) => (
+                      <a
+                        key={item.url}
+                        className="source-item"
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <span className="src">
+                          {item.kind || '뉴스'}
+                          {item.source ? ` · ${item.source}` : ''}
+                        </span>
+                        <span className="title">{item.title}</span>
+                      </a>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="modal-foot">
+              <button className="btn btn-primary" type="button" onClick={() => setSourceOpen(false)}>
                 확인
               </button>
             </div>
@@ -865,6 +1156,18 @@ function StudentStage3Done({
           </div>
         </section>
 
+        {result.judgment ? (
+          <section className="info-card" style={{ marginBottom: 22 }}>
+            <div className="info-card-head">
+              <span className="info-icon" aria-hidden="true">
+                ◇
+              </span>
+              <p className="side-title">내 결론</p>
+            </div>
+            <p className="mission-text">{result.judgment}</p>
+          </section>
+        ) : null}
+
         <div className="tally">
           <div className="tally-item good">
             <strong>{result.caught}</strong>
@@ -914,8 +1217,17 @@ function StudentStage3Done({
                 <div className="claim-text">
                   {row.claim}
                   <em>
-                    팩트체커 판정 · {VERDICT_LABEL[row.verdict] || row.verdict} — {row.why}
+                    팩트체커 판정 · {VERDICT_LABEL[row.verdict] || row.verdict}
                   </em>
+                  {result.corrections?.[row.id]?.highlight ? (
+                    <em>표시한 부분 — {result.corrections[row.id].highlight}</em>
+                  ) : null}
+                  {result.corrections?.[row.id]?.why ? (
+                    <em>틀린 이유 — {result.corrections[row.id].why}</em>
+                  ) : null}
+                  {result.corrections?.[row.id]?.ground ? (
+                    <em>맞은 근거 — {result.corrections[row.id].ground}</em>
+                  ) : null}
                 </div>
                 <span className={`mark ${mark.cls}`}>{mark.label}</span>
               </div>
