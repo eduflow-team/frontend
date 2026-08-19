@@ -403,12 +403,6 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
             <span className="verify-set-meta">과제 #{detail.assignment_id}</span>
           </div>
 
-          <div className="type-pills">
-            <button type="button" className="type-pill active">
-              Hallucination 탐지
-            </button>
-          </div>
-
           <div className="practice-layout">
             <aside className="side-panel">
               <div className="side-block side-block-excerpt">
