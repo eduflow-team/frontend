@@ -11,10 +11,17 @@ import type {
   Step2CorrectionResponse,
   Step2HighlightResponse,
 } from '../../../api/types';
+import { PdfViewerModal } from '../../../components/student/stage2/PdfViewerModal';
 import { modeBadge, verifyIntro, type VerifyPhase } from '../../../mocks/verifyPrototype';
 import { STAGE2_DEMO, STAGE2_HALLUC_OPTIONS, getStage2ErrorMarks } from '../../../mocks/stage2Demo';
 
 type Rubric = { evidence: string; errorId: string; rewrite: string };
+
+const HALLUCINATION_LABELS: Record<string, string> = {
+  PERSONA_BIAS: '페르소나 편향',
+  INFORMATION_FABRICATION: '정보 날조',
+  RETRIEVAL_ERROR: '잘못된 문서 검색',
+};
 
 export const STAGE2_DEMO_ASSIGNMENT_ID = 'demo';
 
@@ -364,6 +371,19 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
   const parts = buildAiResponseParts(detail.flawed_ai_response, detail.cleared_highlights);
   const maxAttempts = detail.attempts.max_attempts ?? 5;
   const usedAttempts = detail.attempts.used_attempts ?? 0;
+  const canOpenPdf = Boolean(
+    assignmentId &&
+      (detail.reference_document_url ||
+        detail.reference_document_filename ||
+        detail.reference_document_text),
+  );
+  const pdfFilename = detail.reference_document_filename || '교과 자료.pdf';
+  const hintText =
+    (detail.hallucination_type_hints?.length ?? 0) > 0
+      ? detail.hallucination_type_hints
+          .map((h) => HALLUCINATION_LABELS[h] ?? typeOptions.find((o) => String(o.value) === h)?.label ?? h)
+          .join(' · ')
+      : null;
 
   return (
     <div className="s2">
@@ -392,22 +412,16 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
             <aside className="side-panel">
               <div className="side-block side-block-excerpt">
                 <h4>교과 자료 · 발췌</h4>
-                <p className="doc-caption">질문과 관련된 발췌문입니다.</p>
+                <p className="doc-caption">
+                  질문과 관련된 발췌문입니다. 전체 교과 내용은 PDF에서 확인하세요.
+                </p>
                 <div className="doc-text">{detail.reference_document_text || '—'}</div>
-                {(detail.hallucination_type_hints?.length ?? 0) > 0 && (
-                  <p className="doc-hint">
-                    힌트:{' '}
-                    {detail.hallucination_type_hints
-                      .map(
-                        (h) =>
-                          typeOptions.find((o) => String(o.value) === h)?.label ?? h,
-                      )
-                      .join(' · ')}
-                  </p>
+                {hintText && <p className="doc-hint">힌트: {hintText}</p>}
+                {canOpenPdf && (
+                  <button type="button" className="btn btn-sm pdf-open-btn" onClick={() => setDocOpen(true)}>
+                    PDF 원문 보기
+                  </button>
                 )}
-                <button type="button" className="btn btn-sm pdf-open-btn" onClick={() => setDocOpen(true)}>
-                  교과 자료 전체 보기
-                </button>
               </div>
               <div className="side-block side-block-rubric">
                 <h4>루브릭</h4>
@@ -671,23 +685,15 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
         </div>
       )}
 
-      {docOpen && (
-        <div className="confirm-modal-backdrop" onClick={() => setDocOpen(false)}>
-          <div
-            className="confirm-modal"
-            style={{ width: 'min(720px, 92vw)', maxHeight: '70vh', overflow: 'auto' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3>교과 자료</h3>
-            <p style={{ whiteSpace: 'pre-wrap' }}>{detail.reference_document_text}</p>
-            <div className="confirm-modal-actions">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDocOpen(false)}>
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PdfViewerModal
+        assignmentId={assignmentId}
+        filename={pdfFilename}
+        open={docOpen}
+        onClose={() => setDocOpen(false)}
+        fallbackText={
+          assignmentId === STAGE2_DEMO_ASSIGNMENT_ID ? detail.reference_document_text : undefined
+        }
+      />
     </div>
   );
 }
