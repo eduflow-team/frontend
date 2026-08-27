@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   ApiError,
   createTeacherAssignmentStep2Api,
@@ -84,6 +85,7 @@ function singleCreateToCard(preview: Stage2CreateResponse): Stage2SetCardPreview
 
 /** stage2-ui 출제 위자드 + 카드 세트 생성/선택 게시 */
 export function TeacherStage2Form() {
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState(1);
   const [subject, setSubject] = useState('hist');
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
@@ -113,6 +115,43 @@ export function TeacherStage2Form() {
     }
     setPreviewIndex((prev) => (prev < previewCards.length ? prev : 0));
   }, [previewCards]);
+
+  useEffect(() => {
+    const raw = searchParams.get('setId');
+    if (!raw) return;
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) return;
+
+    let cancelled = false;
+    (async () => {
+      setError('');
+      try {
+        const res = await fetchTeacherAssignmentStep2SetApi(id);
+        if (cancelled) return;
+        setSetId(res.set_id);
+        setPreviewCards(res.cards);
+        setSelectedIds(selectSuccessfulCards(res.cards));
+        setPublishedIds(
+          res.cards
+            .filter((c) => c.publish_status === 'PUBLISHED' && c.assignment_id != null)
+            .map((c) => c.assignment_id as number),
+        );
+        setPreviewing(true);
+        setAccepted(false);
+        if (selectSuccessfulCards(res.cards).length === 0) {
+          setError('생성에 성공한 후보가 없습니다. 다시 시도해 주세요.');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : '미리보기를 불러오지 못했습니다.');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   const hallucinationTypes = HALLUCINATION_OPTIONS.filter((_, i) => hallucFlags[i]).map(
     (o) => o.value,
