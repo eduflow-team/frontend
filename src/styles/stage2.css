@@ -1665,6 +1665,21 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 24px;
+}
+
+.s2 .teacher-preview-box.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.s2 .teacher-preview-box.is-failed {
+  opacity: 0.65;
+}
+
+.s2 .teacher-preview-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 16px;
 }
 
@@ -1675,60 +1690,38 @@
   margin-bottom: 12px;
 }
 
+.s2 .teacher-preview-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+}
+
+.s2 .teacher-preview-label-row input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.s2 .teacher-preview-response {
+  font-size: 0.95rem;
+  line-height: 1.75;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.s2 .teacher-preview-response .verify-error-span.is-hit {
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
 .s2 .teacher-preview-box p {
   font-size: 0.95rem;
   line-height: 1.75;
   margin: 0;
-}
-
-.s2 .teacher-candidate-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.s2 .teacher-candidate-card {
-  padding: 20px 22px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: #fff;
-  cursor: pointer;
-  text-align: left;
-  transition: var(--transition);
-}
-
-.s2 .teacher-candidate-card.picked {
-  background: var(--primary-light);
-  border: 2px solid var(--primary);
-}
-
-.s2 .teacher-candidate-check {
-  display: inline-flex;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.65rem;
-  font-weight: 800;
-  margin-bottom: 8px;
-  background: #fff;
-  border: 1.5px solid var(--border-dark);
-  color: transparent;
-}
-
-.s2 .teacher-candidate-card.picked .teacher-candidate-check {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-
-.s2 .teacher-candidate-card p {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin: 8px 0 0;
-  line-height: 1.5;
 }
 
 .s2 .teacher-success {

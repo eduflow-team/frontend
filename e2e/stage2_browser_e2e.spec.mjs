@@ -96,7 +96,7 @@ async function runTeacherWizardDemoThenPreview(page, apiCreatePromise) {
   console.log(`[teacher] set_id=${setBody.set_id} cards=${setBody.cards?.length}`);
 
   await page.goto(`/teacher/stage/2?setId=${setBody.set_id}`);
-  await expect(page.locator('.teacher-preview')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.teacher-preview-stack')).toBeVisible({ timeout: 20_000 });
   await teacherDemoPause(page);
   return setBody;
 }
@@ -125,19 +125,19 @@ async function createSingleCandidateViaTeacherWizard(page) {
 }
 
 async function ensureCandidatesPicked(page, expectedCount) {
-  // 로컬 feature UI: 후보 그리드 카드 클릭으로 선택
-  const cards = page.locator('.teacher-candidate-grid .teacher-candidate-card:not([disabled])');
-  await expect(cards).toHaveCount(expectedCount, { timeout: 10_000 });
+  const boxes = page.locator('.teacher-preview-stack .teacher-preview-box');
+  await expect(boxes).toHaveCount(expectedCount, { timeout: 10_000 });
 
   for (let i = 0; i < expectedCount; i += 1) {
-    const card = cards.nth(i);
-    if (!(await card.evaluate((el) => el.classList.contains('picked')))) {
-      await card.click();
+    const box = boxes.nth(i);
+    const checkbox = box.locator('input[type="checkbox"]');
+    await expect(checkbox).toBeVisible();
+    if (!(await checkbox.isChecked())) {
+      await checkbox.check();
     }
-    await expect(card).toHaveClass(/picked/);
+    await expect(box).toHaveClass(/selected/);
   }
 
-  await expect(page.locator('.teacher-preview-box')).toBeVisible();
   await expect(page.getByRole('button', { name: `선택한 ${expectedCount}개 게시` })).toBeEnabled();
 }
 
@@ -160,20 +160,19 @@ async function createTwoCandidateSetViaTeacherWizard(page) {
   const setBody = await createRes.json();
   console.log(`[teacher] UI: set_id=${setBody.set_id} cards=${setBody.cards?.length}`);
 
-  await expect(page.locator('.teacher-preview')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.teacher-preview-stack')).toBeVisible({ timeout: 15_000 });
   return publishTwoCandidatesInTeacherUI(page, setBody);
 }
 
 async function openTeacherSetPreview(page, setId) {
   await page.goto(`/teacher/stage/2?setId=${setId}`);
-  await expect(page.locator('.teacher-preview')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.teacher-preview-stack')).toBeVisible({ timeout: 20_000 });
 }
 
 async function publishTwoCandidatesInTeacherUI(page, setBody) {
-  await expect(page.locator('.teacher-candidate-grid .teacher-candidate-card')).toHaveCount(2, {
+  await expect(page.locator('.teacher-preview-stack .teacher-preview-box')).toHaveCount(2, {
     timeout: 10_000,
   });
-  await expect(page.locator('.teacher-preview-box')).toBeVisible();
 
   await ensureCandidatesPicked(page, 2);
   await teacherDemoPause(page);

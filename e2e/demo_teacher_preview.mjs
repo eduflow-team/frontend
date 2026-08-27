@@ -36,7 +36,7 @@ async function runWizardToPreview(page) {
   const createRes = await createResPromise;
   if (!createRes.ok()) throw new Error(await createRes.text());
   await page.locator('.teacher-preview').waitFor({ timeout: 120_000 });
-  await page.locator('.verify-error-span.is-hit').first().waitFor({ timeout: 10_000 });
+  await page.locator('.teacher-preview-stack').waitFor({ timeout: 10_000 });
 }
 
 const ctx = await bootstrapAccounts();
