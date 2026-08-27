@@ -628,6 +628,11 @@
   border-left: 3px solid var(--accent);
 }
 
+.s2 .ai-block-readonly {
+  cursor: default;
+  user-select: text;
+}
+
 .s2 .ai-block-v2.ai-block-selectable {
   user-select: text;
   cursor: text;

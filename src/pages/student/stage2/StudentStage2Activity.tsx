@@ -464,9 +464,7 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                 <div className="work-body">
                   <p className="work-intro-muted">{verifyIntro(phase)}</p>
 
-                  {phase !== 'correct' && (
-                    <>
-                      {phase === 'find' && (
+                  {phase === 'find' && (
                         <p className="stage2-legend">
                           지문에서 틀린 부분을 <strong>드래그해 선택</strong>하세요.
                           {detail.remaining_errors_to_find > 0 && (
@@ -474,12 +472,16 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                           )}
                         </p>
                       )}
+                  {(phase === 'find' || phase === 'correct') && (
+                    <>
                       <div className="ai-response-wrap">
                         <div
                           ref={aiRef}
-                          className={`ai-block-v2${showFindForm ? ' ai-block-selectable' : ''}`}
-                          onMouseUp={onSelectMouseUp}
-                          role={showFindForm ? 'textbox' : undefined}
+                          className={`ai-block-v2${
+                            phase === 'find' && showFindForm ? ' ai-block-selectable' : ''
+                          }${phase === 'correct' ? ' ai-block-readonly' : ''}`}
+                          onMouseUp={phase === 'find' ? onSelectMouseUp : undefined}
+                          role={phase === 'find' && showFindForm ? 'textbox' : undefined}
                           aria-label="AI 답변"
                         >
                           <div className="ai-response-text">
@@ -494,7 +496,7 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                             )}
                           </div>
                         </div>
-                        {showFindForm && selectedText && (
+                        {phase === 'find' && showFindForm && selectedText && (
                           <div className="selected-segment-box">
                             <strong>선택한 오류</strong>
                             <span>{selectedText}</span>
@@ -504,7 +506,7 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                     </>
                   )}
 
-                  {showFeedback && lastResult && (
+                  {showFeedback && lastResult && phase !== 'correct' && (
                     <div className={`feedback-panel${lastResult.is_correct ? ' success' : ' error'}`}>
                       <strong>{lastResult.is_correct ? '맞았습니다' : '다시 시도'}</strong>
                       <p>{report?.ai_feedback || '피드백을 확인해 주세요.'}</p>
@@ -706,6 +708,9 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
         onClose={() => setDocOpen(false)}
         fallbackText={
           assignmentId === STAGE2_DEMO_ASSIGNMENT_ID ? detail.reference_document_text : undefined
+        }
+        excerptFallback={
+          assignmentId !== STAGE2_DEMO_ASSIGNMENT_ID ? detail.reference_document_text : undefined
         }
       />
     </div>

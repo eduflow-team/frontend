@@ -8,6 +8,8 @@ type PdfViewerModalProps = {
   onClose: () => void;
   /** demo 등 PDF API 없이 발췌문만 보여줄 때 */
   fallbackText?: string;
+  /** PDF 로드 실패 시 발췌문 대체 */
+  excerptFallback?: string;
 };
 
 export function PdfViewerModal({
@@ -16,6 +18,7 @@ export function PdfViewerModal({
   open,
   onClose,
   fallbackText,
+  excerptFallback,
 }: PdfViewerModalProps) {
   const [blobUrl, setBlobUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -58,6 +61,10 @@ export function PdfViewerModal({
       })
       .catch((err) => {
         if (cancelled) return;
+        if (excerptFallback?.trim()) {
+          setError('');
+          return;
+        }
         setError(err instanceof ApiError ? err.message : 'PDF를 불러오지 못했습니다.');
       })
       .finally(() => {
@@ -70,7 +77,7 @@ export function PdfViewerModal({
       cancelled = true;
       cleanup();
     };
-  }, [assignmentId, cleanup, fallbackText, open]);
+  }, [assignmentId, cleanup, excerptFallback, fallbackText, open]);
 
   if (!open) {
     return null;
@@ -102,6 +109,13 @@ export function PdfViewerModal({
             <p className="pdf-modal-state error">{error}</p>
           ) : blobUrl ? (
             <iframe title={filename || '교과 PDF 원문'} src={blobUrl} className="pdf-frame" />
+          ) : excerptFallback?.trim() ? (
+            <div className="pdf-modal-placeholder">
+              <p className="pdf-modal-state" style={{ marginBottom: 12 }}>
+                PDF를 불러오지 못해 발췌문을 표시합니다.
+              </p>
+              <p style={{ whiteSpace: 'pre-wrap', textAlign: 'left', width: '100%' }}>{excerptFallback}</p>
+            </div>
           ) : (
             <p className="pdf-modal-state">원문을 불러올 수 없습니다.</p>
           )}
