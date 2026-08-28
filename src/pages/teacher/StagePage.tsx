@@ -154,7 +154,35 @@ function formatStage1CreateError(err: unknown): { message: string; canRetry: boo
 }
 
 const STAGE1_STEP_LABELS = ['학습 문서', '문제·정답'] as const;
-const REFERENCE_ACCEPT = '.pdf,.txt,.md,.markdown';
+const STAGE1_DOC_ACCEPT = '.pdf,.txt,.md,.markdown';
+const STAGE1_DOC_ACCEPT_SET = new Set(['pdf', 'txt', 'md', 'markdown']);
+
+function stage1DocExt(name: string): string {
+  const i = name.lastIndexOf('.');
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : '';
+}
+
+function isStage1DocFile(file: File): boolean {
+  return STAGE1_DOC_ACCEPT_SET.has(stage1DocExt(file.name));
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const STAGE1_CREATE_STEPS = [
+  { id: 'upload', label: '문서 업로드', until: 12 },
+  { id: 'extract', label: '텍스트 추출', until: 30 },
+  { id: 'embed', label: '청크 분할 · 임베딩', until: 94 },
+  { id: 'save', label: '과제 저장', until: 100 },
+] as const;
+
+function createStepIndex(percent: number): number {
+  const idx = STAGE1_CREATE_STEPS.findIndex((s) => percent < s.until);
+  return idx === -1 ? STAGE1_CREATE_STEPS.length - 1 : idx;
+}
 
 function Stage1StepIndicator({ currentStep }: { currentStep: number }) {
   return (
@@ -192,10 +220,31 @@ function TeacherStage1Form() {
   const [dueAt, setDueAt] = useState(defaultDueAtLocal);
   const [file, setFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [createProgress, setCreateProgress] = useState(0);
+  const [createDone, setCreateDone] = useState(false);
   const [error, setError] = useState('');
   const [canRetry, setCanRetry] = useState(false);
   const [tourOpen, setTourOpen] = useState(true);
+
+  const pickDocFile = (next: File | null) => {
+    if (next && !isStage1DocFile(next)) {
+      setError('PDF, TXT, MD 파일만 업로드할 수 있습니다.');
+      setCanRetry(false);
+      return;
+    }
+    setFile(next);
+    setError('');
+    setCanRetry(false);
+  };
+
+  const clearDocFile = () => {
+    setFile(null);
+    setFileInputKey((k) => k + 1);
+    setError('');
+    setCanRetry(false);
+  };
 
   useEffect(() => {
     fetchClassesApi()
@@ -205,6 +254,19 @@ function TeacherStage1Form() {
       })
       .catch(() => setClasses([]));
   }, []);
+
+  useEffect(() => {
+    if (!submitting || createDone) return;
+    const timer = window.setInterval(() => {
+      setCreateProgress((prev) => {
+        if (prev >= 92) return prev;
+        const remaining = 92 - prev;
+        const delta = prev < 28 ? 2.4 : prev < 55 ? 1.1 : Math.max(0.25, remaining * 0.035);
+        return Math.min(92, prev + delta);
+      });
+    }, 450);
+    return () => window.clearInterval(timer);
+  }, [submitting, createDone]);
 
   const validateStep = () => {
     if (step === 1 && !file) return '학습 문서를 업로드해 주세요.';
@@ -242,6 +304,8 @@ function TeacherStage1Form() {
       return;
     }
     setSubmitting(true);
+    setCreateDone(false);
+    setCreateProgress(4);
     try {
       await createTeacherAssignmentStep1Api({
         class_id: Number(classId),
@@ -251,6 +315,9 @@ function TeacherStage1Form() {
         due_at: localDateTimeToIso(dueAt),
         file,
       });
+      setCreateDone(true);
+      setCreateProgress(100);
+      await new Promise((r) => window.setTimeout(r, 550));
       navigate('/teacher', {
         replace: true,
         state: { flashSuccess: '과제 출제 완료' },
@@ -259,8 +326,9 @@ function TeacherStage1Form() {
       const formatted = formatStage1CreateError(err);
       setError(formatted.message);
       setCanRetry(formatted.canRetry);
-    } finally {
       setSubmitting(false);
+      setCreateDone(false);
+      setCreateProgress(0);
     }
   };
 
@@ -272,6 +340,11 @@ function TeacherStage1Form() {
     }
     await uploadAssignment();
   };
+
+  const activeStep = createStepIndex(createProgress);
+  const progressLabel = createDone
+    ? '과제 출제 완료'
+    : STAGE1_CREATE_STEPS[activeStep]?.label ?? '처리 중';
 
   return (
     <div className="s1">
@@ -349,45 +422,79 @@ function TeacherStage1Form() {
           <div className="teacher-grid">
             <div className="teacher-card">
               <span className="teacher-step-badge">STEP 1 · 2</span>
-              <label htmlFor="s1-doc-file">학습 문서</label>
-              <div className="teacher-file-upload" data-tour="t1-tour-file">
+              <div className="field-group" data-tour="t1-tour-file">
+                <span className="label" id="s1-file-label">
+                  학습 문서
+                </span>
                 <input
-                  id="s1-doc-file"
+                  id="s1-file"
                   key={fileInputKey}
+                  className="dropzone-input"
                   type="file"
-                  accept={REFERENCE_ACCEPT}
-                  className="teacher-file-input"
+                  accept={STAGE1_DOC_ACCEPT}
                   disabled={submitting}
-                  onChange={(e) => {
-                    setFile(e.target.files?.[0] ?? null);
-                    setError('');
-                    setCanRetry(false);
-                  }}
+                  onChange={(e) => pickDocFile(e.target.files?.[0] ?? null)}
                 />
-                <div className="teacher-file-drop">
-                  <p className="teacher-file-title">PDF 교과 자료를 업로드하세요</p>
-                  <p className="teacher-file-hint">PDF 권장 · TXT·MD도 가능</p>
-                  <label htmlFor="s1-doc-file" className="btn btn-ghost btn-sm teacher-file-btn">
-                    파일 선택
-                  </label>
-                </div>
-                {file && (
-                  <div className="teacher-file-selected">
-                    <strong>{file.name}</strong>
-                    <span>{(file.size / 1024).toFixed(0)} KB</span>
-                    <button
-                      type="button"
-                      className="teacher-file-remove"
-                      disabled={submitting}
-                      onClick={() => {
-                        setFile(null);
-                        setFileInputKey((k) => k + 1);
-                      }}
-                    >
-                      제거
-                    </button>
-                  </div>
-                )}
+                <label
+                  htmlFor="s1-file"
+                  className={`dropzone${file ? ' has-file' : ''}${dragOver ? ' is-dragover' : ''}${submitting ? ' is-disabled' : ''}`}
+                  aria-labelledby="s1-file-label"
+                  onDragEnter={(e) => {
+                    if (submitting) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOver(true);
+                  }}
+                  onDragOver={(e) => {
+                    if (submitting) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                    setDragOver(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOver(false);
+                    if (submitting) return;
+                    pickDocFile(e.dataTransfer.files?.[0] ?? null);
+                  }}
+                >
+                  {file ? (
+                    <div className="dropzone-selected">
+                      <span className="dropzone-ext" aria-hidden="true">
+                        {stage1DocExt(file.name).toUpperCase() || 'FILE'}
+                      </span>
+                      <div className="dropzone-meta">
+                        <strong>{file.name}</strong>
+                        <span>{formatFileSize(file.size)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="dropzone-remove"
+                        disabled={submitting}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          clearDocFile();
+                        }}
+                      >
+                        제거
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <strong>파일을 여기에 끌어다 놓으세요</strong>
+                      <span>PDF 권장 · TXT · MD</span>
+                      <span className="dropzone-browse">또는 클릭해서 선택</span>
+                    </>
+                  )}
+                </label>
               </div>
             </div>
             <aside className="teacher-aside">
@@ -410,6 +517,7 @@ function TeacherStage1Form() {
               </label>
               <textarea
                 id="s1-question"
+                className="field"
                 rows={4}
                 required
                 placeholder="퀴즈 문제 1개"
@@ -422,18 +530,22 @@ function TeacherStage1Form() {
               </label>
               <input
                 id="s1-answer"
+                className="field"
                 required
-                placeholder="채점용 정답 1개"
+                placeholder="예: 토지 조사 사업"
                 value={answer}
                 disabled={submitting}
                 onChange={(e) => setAnswer(e.target.value)}
               />
+              <p className="field-note">
+                객관식·단답형으로만 적어 주세요. 서술형 정답은 채점이 정확하지 않을 수 있습니다.
+              </p>
             </div>
             <aside className="teacher-aside">
               <strong>문제·정답 작성 가이드</strong>
               <ul>
                 <li>학습 문서 범위에서 답을 찾을 수 있는 문제로 작성하세요</li>
-                <li>정답은 채점용으로 교과서 표현을 사용하세요</li>
+                <li>정답은 객관식·단답형으로 교과서 표현을 사용하세요</li>
                 <li>마감 전까지 학생에게 정답은 보이지 않습니다</li>
               </ul>
             </aside>
@@ -480,13 +592,43 @@ function TeacherStage1Form() {
               disabled={submitting}
               onClick={() => void handleSubmit()}
             >
-              {submitting ? '업로드 중…' : '과제 만들기'}
+              {submitting ? '생성 중…' : '과제 만들기'}
             </button>
           )}
         </div>
       </div>
 
-      <TeacherStage1Tour open={tourOpen} onFinish={() => setTourOpen(false)} />
+      {submitting && (
+        <div className="create-progress" role="status" aria-live="polite" aria-busy={!createDone}>
+          <div className="create-progress-card">
+            <p className="create-progress-kicker">{createDone ? '완료' : '과제 생성 중'}</p>
+            <p className="create-progress-title">{progressLabel}</p>
+            <div className="create-progress-bar" aria-hidden="true">
+              <span style={{ width: `${Math.round(createProgress)}%` }} />
+            </div>
+            <p className="create-progress-pct">{Math.round(createProgress)}%</p>
+            <ol className="create-progress-steps">
+              {STAGE1_CREATE_STEPS.map((createStep, index) => {
+                const state =
+                  createDone || index < activeStep ? 'done' : index === activeStep ? 'active' : 'pending';
+                return (
+                  <li key={createStep.id} className={`create-progress-step is-${state}`}>
+                    <span className="create-progress-dot" aria-hidden="true">
+                      {state === 'done' ? '✓' : index + 1}
+                    </span>
+                    <span>{createStep.label}</span>
+                  </li>
+                );
+              })}
+            </ol>
+            <p className="create-progress-hint">
+              문서가 길거나 이미지 PDF면 임베딩에 1~2분 걸릴 수 있어요. 창을 닫지 마세요.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <TeacherStage1Tour open={tourOpen && !submitting} onFinish={() => setTourOpen(false)} />
     </div>
   );
 }

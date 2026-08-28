@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ApiError,
   getStudentStep2Api,
@@ -11,10 +12,17 @@ import type {
   Step2CorrectionResponse,
   Step2HighlightResponse,
 } from '../../../api/types';
+import { PdfViewerModal } from '../../../components/student/stage2/PdfViewerModal';
 import { modeBadge, verifyIntro, type VerifyPhase } from '../../../mocks/verifyPrototype';
 import { STAGE2_DEMO, STAGE2_HALLUC_OPTIONS, getStage2ErrorMarks } from '../../../mocks/stage2Demo';
 
 type Rubric = { evidence: string; errorId: string; rewrite: string };
+
+const HALLUCINATION_LABELS: Record<string, string> = {
+  PERSONA_BIAS: '페르소나 편향',
+  INFORMATION_FABRICATION: '정보 날조',
+  RETRIEVAL_ERROR: '잘못된 문서 검색',
+};
 
 export const STAGE2_DEMO_ASSIGNMENT_ID = 'demo';
 
@@ -364,6 +372,19 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
   const parts = buildAiResponseParts(detail.flawed_ai_response, detail.cleared_highlights);
   const maxAttempts = detail.attempts.max_attempts ?? 5;
   const usedAttempts = detail.attempts.used_attempts ?? 0;
+  const canOpenPdf = Boolean(
+    assignmentId &&
+      (detail.reference_document_url ||
+        detail.reference_document_filename ||
+        detail.reference_document_text),
+  );
+  const pdfFilename = detail.reference_document_filename || '교과 자료.pdf';
+  const hintText =
+    (detail.hallucination_type_hints?.length ?? 0) > 0
+      ? detail.hallucination_type_hints
+          .map((h) => HALLUCINATION_LABELS[h] ?? typeOptions.find((o) => String(o.value) === h)?.label ?? h)
+          .join(' · ')
+      : null;
 
   return (
     <div className="s2">
@@ -382,32 +403,20 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
             <span className="verify-set-meta">과제 #{detail.assignment_id}</span>
           </div>
 
-          <div className="type-pills">
-            <button type="button" className="type-pill active">
-              Hallucination 탐지
-            </button>
-          </div>
-
           <div className="practice-layout">
             <aside className="side-panel">
               <div className="side-block side-block-excerpt">
                 <h4>교과 자료 · 발췌</h4>
-                <p className="doc-caption">질문과 관련된 발췌문입니다.</p>
+                <p className="doc-caption">
+                  질문과 관련된 발췌문입니다. 전체 교과 내용은 PDF에서 확인하세요.
+                </p>
                 <div className="doc-text">{detail.reference_document_text || '—'}</div>
-                {(detail.hallucination_type_hints?.length ?? 0) > 0 && (
-                  <p className="doc-hint">
-                    힌트:{' '}
-                    {detail.hallucination_type_hints
-                      .map(
-                        (h) =>
-                          typeOptions.find((o) => String(o.value) === h)?.label ?? h,
-                      )
-                      .join(' · ')}
-                  </p>
+                {hintText && <p className="doc-hint">힌트: {hintText}</p>}
+                {canOpenPdf && (
+                  <button type="button" className="btn btn-sm pdf-open-btn" onClick={() => setDocOpen(true)}>
+                    PDF 원문 보기
+                  </button>
                 )}
-                <button type="button" className="btn btn-sm pdf-open-btn" onClick={() => setDocOpen(true)}>
-                  교과 자료 전체 보기
-                </button>
               </div>
               <div className="side-block side-block-rubric">
                 <h4>루브릭</h4>
@@ -455,9 +464,7 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                 <div className="work-body">
                   <p className="work-intro-muted">{verifyIntro(phase)}</p>
 
-                  {phase !== 'correct' && (
-                    <>
-                      {phase === 'find' && (
+                  {phase === 'find' && (
                         <p className="stage2-legend">
                           지문에서 틀린 부분을 <strong>드래그해 선택</strong>하세요.
                           {detail.remaining_errors_to_find > 0 && (
@@ -465,12 +472,16 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                           )}
                         </p>
                       )}
+                  {(phase === 'find' || phase === 'correct') && (
+                    <>
                       <div className="ai-response-wrap">
                         <div
                           ref={aiRef}
-                          className={`ai-block-v2${showFindForm ? ' ai-block-selectable' : ''}`}
-                          onMouseUp={onSelectMouseUp}
-                          role={showFindForm ? 'textbox' : undefined}
+                          className={`ai-block-v2${
+                            phase === 'find' && showFindForm ? ' ai-block-selectable' : ''
+                          }${phase === 'correct' ? ' ai-block-readonly' : ''}`}
+                          onMouseUp={phase === 'find' ? onSelectMouseUp : undefined}
+                          role={phase === 'find' && showFindForm ? 'textbox' : undefined}
                           aria-label="AI 답변"
                         >
                           <div className="ai-response-text">
@@ -485,9 +496,9 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                             )}
                           </div>
                         </div>
-                        {showFindForm && selectedText && (
+                        {phase === 'find' && showFindForm && selectedText && (
                           <div className="selected-segment-box">
-                            <strong>선택한 구간</strong>
+                            <strong>선택한 오류</strong>
                             <span>{selectedText}</span>
                           </div>
                         )}
@@ -495,7 +506,7 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                     </>
                   )}
 
-                  {showFeedback && lastResult && (
+                  {showFeedback && lastResult && phase !== 'correct' && (
                     <div className={`feedback-panel${lastResult.is_correct ? ' success' : ' error'}`}>
                       <strong>{lastResult.is_correct ? '맞았습니다' : '다시 시도'}</strong>
                       <p>{report?.ai_feedback || '피드백을 확인해 주세요.'}</p>
@@ -527,6 +538,22 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                         {lastResult?.evaluation_report?.ai_feedback ||
                           '환각 구간을 찾지 못했습니다. 교사에게 도움을 요청해 보세요.'}
                       </p>
+                    </div>
+                  )}
+
+                  {attemptsBlocked && phase === 'find' && highlightDone && (
+                    <div className="feedback-panel blocked">
+                      <strong>시도 횟수를 모두 사용했습니다</strong>
+                      <p>환각 구간은 찾았습니다. 교정 단계로 이동해 마무리해 주세요.</p>
+                      <div className="input-actions feedback-actions">
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-pill btn-sm"
+                          onClick={() => setPhase('correct')}
+                        >
+                          교정 단계로 이동
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -641,6 +668,9 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
                 {phase === 'done' && (
                   <div className="done-card-bar">
                     <p>이 카드의 검증과 교정이 완료되었습니다.</p>
+                    <Link to="/student" className="btn btn-primary btn-sm">
+                      학습 화면으로
+                    </Link>
                   </div>
                 )}
               </div>
@@ -671,23 +701,18 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
         </div>
       )}
 
-      {docOpen && (
-        <div className="confirm-modal-backdrop" onClick={() => setDocOpen(false)}>
-          <div
-            className="confirm-modal"
-            style={{ width: 'min(720px, 92vw)', maxHeight: '70vh', overflow: 'auto' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3>교과 자료</h3>
-            <p style={{ whiteSpace: 'pre-wrap' }}>{detail.reference_document_text}</p>
-            <div className="confirm-modal-actions">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDocOpen(false)}>
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PdfViewerModal
+        assignmentId={assignmentId}
+        filename={pdfFilename}
+        open={docOpen}
+        onClose={() => setDocOpen(false)}
+        fallbackText={
+          assignmentId === STAGE2_DEMO_ASSIGNMENT_ID ? detail.reference_document_text : undefined
+        }
+        excerptFallback={
+          assignmentId !== STAGE2_DEMO_ASSIGNMENT_ID ? detail.reference_document_text : undefined
+        }
+      />
     </div>
   );
 }

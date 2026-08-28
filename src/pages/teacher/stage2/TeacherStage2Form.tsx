@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   ApiError,
   createTeacherAssignmentStep2Api,
@@ -83,7 +84,7 @@ function singleCreateToCard(preview: Stage2CreateResponse): Stage2SetCardPreview
 export function TeacherStage2Form() {
   const { user } = useAuth();
   const useApi = Boolean(user && !user.isDemo);
-
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState(1);
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [classId, setClassId] = useState<number | ''>('');
@@ -117,6 +118,43 @@ export function TeacherStage2Form() {
       })
       .catch(() => setClasses([]));
   }, [useApi]);
+
+  useEffect(() => {
+    const raw = searchParams.get('setId');
+    if (!raw) return;
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) return;
+
+    let cancelled = false;
+    (async () => {
+      setError('');
+      try {
+        const res = await fetchTeacherAssignmentStep2SetApi(id);
+        if (cancelled) return;
+        setSetId(res.set_id);
+        setPreviewCards(res.cards);
+        setSelectedIds(selectSuccessfulCards(res.cards));
+        setPublishedIds(
+          res.cards
+            .filter((c) => c.publish_status === 'PUBLISHED' && c.assignment_id != null)
+            .map((c) => c.assignment_id as number),
+        );
+        setPreviewing(true);
+        setAccepted(false);
+        if (selectSuccessfulCards(res.cards).length === 0) {
+          setError('생성에 성공한 후보가 없습니다. 다시 시도해 주세요.');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : '미리보기를 불러오지 못했습니다.');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   const hallucinationTypes = HALLUCINATION_OPTIONS.filter((_, i) => hallucFlags[i]).map(
     (o) => o.value,
@@ -365,54 +403,63 @@ export function TeacherStage2Form() {
           </div>
         ) : previewing && previewCards.length > 0 ? (
           <div className="teacher-preview">
-            {previewCards.map((card) => {
-              const assignmentId = card.assignment_id;
-              const selected = assignmentId != null && selectedIds.includes(assignmentId);
-              const disabled = !card.generation_succeeded || assignmentId == null;
-              return (
-                <div
-                  key={`card-${card.card_index}`}
-                  className="teacher-preview-box"
-                  style={{
-                    marginBottom: 12,
-                    borderColor: selected ? 'var(--primary)' : undefined,
-                    opacity: disabled ? 0.65 : 1,
-                  }}
-                >
-                  <label className="teacher-preview-label" style={{ display: 'flex', gap: 8 }}>
-                    {setId != null && (
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        disabled={disabled || card.publish_status === 'PUBLISHED'}
-                        onChange={() => assignmentId != null && toggleCandidate(assignmentId)}
-                      />
-                    )}
-                    <span>
-                      카드 {card.card_index + 1}
-                      {assignmentId != null ? ` · 과제 #${assignmentId}` : ''}
-                      {card.publish_status === 'PUBLISHED' ? ' · 게시됨' : ''}
-                    </span>
-                  </label>
-                  {card.generation_succeeded ? (
-                    <>
-                      <p>{card.flawed_ai_response}</p>
-                      {card.generated_errors.map((generatedError) => (
-                        <p key={generatedError.answer_id} className="field-hint" style={{ marginTop: 8 }}>
-                          {HALLUCINATION_LABELS[generatedError.error_type] ?? generatedError.error_type}
-                          {' · '}
-                          {generatedError.error_sentence}
+            <div className="teacher-preview-stack">
+              {previewCards.map((card) => {
+                const assignmentId = card.assignment_id;
+                const selected = assignmentId != null && selectedIds.includes(assignmentId);
+                const disabled = !card.generation_succeeded || assignmentId == null;
+                const errorSentence = card.generated_errors[0]?.error_sentence?.trim() ?? '';
+                return (
+                  <div
+                    key={`card-${card.card_index}`}
+                    className={`teacher-preview-box${selected ? ' selected' : ''}${disabled ? ' is-failed' : ''}`}
+                  >
+                    <label className="teacher-preview-label teacher-preview-label-row">
+                      {setId != null && (
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          disabled={disabled || card.publish_status === 'PUBLISHED'}
+                          onChange={() => assignmentId != null && toggleCandidate(assignmentId)}
+                          aria-label={`카드 ${card.card_index + 1} 선택`}
+                        />
+                      )}
+                      <span>
+                        카드 {card.card_index + 1}
+                        {assignmentId != null ? ` · 과제 #${assignmentId}` : ''}
+                        {card.publish_status === 'PUBLISHED' ? ' · 게시됨' : ''}
+                      </span>
+                    </label>
+                    {card.generation_succeeded ? (
+                      <>
+                        <p className="teacher-preview-response">
+                          {errorSentence && card.flawed_ai_response.includes(errorSentence) ? (
+                            <>
+                              {card.flawed_ai_response.split(errorSentence)[0]}
+                              <span className="verify-error-span is-hit">{errorSentence}</span>
+                              {card.flawed_ai_response.split(errorSentence).slice(1).join(errorSentence)}
+                            </>
+                          ) : (
+                            card.flawed_ai_response
+                          )}
                         </p>
-                      ))}
-                    </>
-                  ) : (
-                    <p className="form-error">
-                      생성 실패: {card.failure_codes.join(', ') || '알 수 없는 오류'}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+                        {card.generated_errors.map((generatedError) => (
+                          <p key={generatedError.answer_id} className="field-hint" style={{ marginTop: 8 }}>
+                            {HALLUCINATION_LABELS[generatedError.error_type] ?? generatedError.error_type}
+                            {' · '}
+                            {generatedError.error_sentence}
+                          </p>
+                        ))}
+                      </>
+                    ) : (
+                      <p className="form-error">
+                        생성 실패: {card.failure_codes.join(', ') || '알 수 없는 오류'}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
             {error && <p className="form-error">{error}</p>}
             <div className="teacher-actions">
               <button type="button" className="btn btn-ghost" onClick={resetWizard}>

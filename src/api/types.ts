@@ -34,6 +34,18 @@ export interface Stage1AttemptsInfo {
   remaining_attempts: number;
 }
 
+export interface Stage1AttemptSummary {
+  attempt_number: number;
+  score: number;
+  is_correct: boolean;
+  correct_score: number;
+  resource_penalty: number;
+  feedback: string;
+  student_answer: string;
+  parameters: Stage1Parameters;
+  is_final?: boolean;
+}
+
 export interface Stage1AssignmentDetailResponse {
   assignment_id: number;
   question: string;
@@ -45,6 +57,9 @@ export interface Stage1AssignmentDetailResponse {
   };
   default_parameters: Stage1Parameters;
   attempts: Stage1AttemptsInfo;
+  attempt_summaries?: Stage1AttemptSummary[];
+  is_finalized?: boolean;
+  final_attempt_number?: number | null;
   highest_score: number | null;
   best_parameters: Stage1Parameters | null;
   document_filename?: string | null;
@@ -91,6 +106,32 @@ export interface Stage1SubmitResponse {
     used_attempts: number;
     remaining_attempts: number;
   };
+  attempt_summaries?: Stage1AttemptSummary[];
+  is_finalized?: boolean;
+  correct_answer?: string | null;
+}
+
+export interface Stage1FinalizeRequest {
+  attempt_number: number;
+}
+
+export interface Stage1FinalizeResponse {
+  attempt_number: number;
+  current_score: number;
+  highest_score: number;
+  is_correct: boolean;
+  evaluation_report: {
+    is_correct: boolean;
+    correct_score: number;
+    resource_penalty: number;
+    feedback: string;
+  };
+  attempts: {
+    used_attempts: number;
+    remaining_attempts: number;
+  };
+  attempt_summaries?: Stage1AttemptSummary[];
+  is_finalized: boolean;
   correct_answer?: string | null;
 }
 

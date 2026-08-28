@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ApiError,
@@ -13,6 +13,8 @@ import {
 } from '../../api';
 import type {
   Stage1AssignmentDetailResponse,
+  Stage1AttemptSummary,
+  Stage1FinalizeResponse,
   Stage1Parameters,
   Stage1SubmitResponse,
 } from '../../api/types';
@@ -25,7 +27,7 @@ import {
 } from '../../components/student/AssignmentSelectPanel';
 import { HexLiteracyRadar } from '../../components/student/HexLiteracyRadar';
 import { StageGuideModal } from '../../components/student/StageGuideModal';
-import { Stage1Tour } from '../../components/student/Stage1Tour';
+import { STAGE1_HELP_INTRO, STAGE1_HELP_SECTIONS, Stage1Tour } from '../../components/student/Stage1Tour';
 import {
   LITERACY_AXES,
   STAGE_SCENARIO_LABELS,
@@ -209,6 +211,8 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
   const [chatBusy, setChatBusy] = useState(false);
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitResult, setSubmitResult] = useState<Stage1SubmitResponse | null>(null);
+  const [attemptSummaries, setAttemptSummaries] = useState<Stage1AttemptSummary[]>([]);
+  const [finalResult, setFinalResult] = useState<Stage1FinalizeResponse | null>(null);
   const [fileOpen, setFileOpen] = useState(false);
   const [docObjectUrl, setDocObjectUrl] = useState<string | null>(null);
   const [docLoading, setDocLoading] = useState(false);
@@ -216,6 +220,8 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
   const [toast, setToast] = useState('');
   const [done, setDone] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const chatLogRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -229,6 +235,8 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     setStudentAnswer('');
     setChatInput('');
     setSubmitResult(null);
+    setAttemptSummaries([]);
+    setFinalResult(null);
     setDone(false);
     setTourOpen(false);
     getStudentStep1Api(assignmentId)
@@ -236,7 +244,40 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
         if (cancelled) return;
         setDetail(res);
         setParams({ ...res.default_parameters });
-        setTourOpen(true);
+        const summaries = res.attempt_summaries ?? [];
+        setAttemptSummaries(summaries);
+        if (res.is_finalized) {
+          const finalAttempt =
+            summaries.find((a) => a.is_final) ??
+            summaries.find((a) => a.attempt_number === res.final_attempt_number) ??
+            summaries[summaries.length - 1];
+          if (finalAttempt) {
+            setFinalResult({
+              attempt_number: finalAttempt.attempt_number,
+              current_score: finalAttempt.score,
+              highest_score: finalAttempt.score,
+              is_correct: finalAttempt.is_correct,
+              evaluation_report: {
+                is_correct: finalAttempt.is_correct,
+                correct_score: finalAttempt.correct_score,
+                resource_penalty: finalAttempt.resource_penalty,
+                feedback: finalAttempt.feedback,
+              },
+              attempts: {
+                used_attempts: res.attempts.used_attempts,
+                remaining_attempts: res.attempts.remaining_attempts,
+              },
+              attempt_summaries: summaries,
+              is_finalized: true,
+              correct_answer: res.correct_answer,
+            });
+            setDone(true);
+          }
+        } else if (summaries.length > 0) {
+          setTourOpen(true);
+        } else {
+          setTourOpen(true);
+        }
       })
       .catch((err) => {
         if (!cancelled) {
@@ -290,6 +331,12 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     };
   }, [fileOpen, assignmentId]);
 
+  useEffect(() => {
+    const el = chatLogRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages, chatBusy]);
+
   const maxAttempts = detail?.attempts.max_attempts;
   const usedAttempts = detail?.attempts.used_attempts ?? 0;
   const remaining = detail?.attempts.remaining_attempts ?? 0;
@@ -333,7 +380,11 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
       return;
     }
     if (remaining <= 0) {
-      setDone(true);
+      setToast('제출 기회를 모두 사용했습니다.');
+      return;
+    }
+    if (detail?.is_finalized) {
+      setToast('이미 최종 제출이 확정되었습니다.');
       return;
     }
     setSubmitBusy(true);
@@ -343,7 +394,9 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
         student_answer: studentAnswer.trim(),
       });
       setSubmitResult(res);
-      setToast(res.is_correct ? '정답으로 제출했습니다.' : '오답으로 제출했습니다.');
+      const summaries = res.attempt_summaries ?? [];
+      setAttemptSummaries(summaries);
+      const chosen = summaries.find((a) => a.is_final) ?? summaries[summaries.length - 1];
       if (detail) {
         setDetail({
           ...detail,
@@ -352,28 +405,60 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             used_attempts: res.attempts.used_attempts,
             remaining_attempts: res.attempts.remaining_attempts,
           },
+          attempt_summaries: summaries,
           highest_score: res.highest_score,
-          best_parameters: params,
+          is_finalized: Boolean(res.is_finalized),
+          final_attempt_number: res.is_finalized ? res.attempts.used_attempts : detail.final_attempt_number,
+          best_parameters: res.is_finalized ? chosen?.parameters ?? params : detail.best_parameters,
           is_answer_revealed: Boolean(res.correct_answer) || detail.is_answer_revealed,
           correct_answer: res.correct_answer ?? detail.correct_answer,
         });
       }
-      if (res.attempts.remaining_attempts <= 0) {
-        window.setTimeout(() => setDone(true), 700);
+      setStudentAnswer('');
+
+      if (res.is_finalized) {
+        const winner =
+          summaries.find((a) => a.is_final) ??
+          summaries.reduce<Stage1AttemptSummary | null>((best, cur) => {
+            if (!best || cur.score > best.score) return cur;
+            return best;
+          }, null);
+        if (winner) {
+          setFinalResult({
+            attempt_number: winner.attempt_number,
+            current_score: winner.score,
+            highest_score: winner.score,
+            is_correct: winner.is_correct,
+            evaluation_report: {
+              is_correct: winner.is_correct,
+              correct_score: winner.correct_score,
+              resource_penalty: winner.resource_penalty,
+              feedback: winner.feedback,
+            },
+            attempts: res.attempts,
+            attempt_summaries: summaries,
+            is_finalized: true,
+            correct_answer: res.correct_answer,
+          });
+        }
+        setDone(true);
+        if (res.is_correct && winner?.attempt_number === res.attempts.used_attempts) {
+          setToast('정답입니다! 최종 제출이 확정되었어요.');
+        } else if (summaries.length > 1 && winner) {
+          setToast(
+            `제출이 끝났어요. ${winner.attempt_number}번째 제출(${winner.score}점)이 더 높아 최종 점수로 확정됐어요.`,
+          );
+        } else {
+          setToast('최종 제출이 확정되었어요.');
+        }
+      } else {
+        setToast('오답이에요. 파라미터를 조정해 한 번 더 도전할 수 있어요.');
       }
     } catch (err) {
       setToast(err instanceof ApiError ? err.message : '제출에 실패했습니다.');
     } finally {
       setSubmitBusy(false);
     }
-  };
-
-  const finish = () => {
-    if (usedAttempts === 0) {
-      setToast('한 번 이상 제출한 뒤 과제를 마칠 수 있습니다.');
-      return;
-    }
-    setDone(true);
   };
 
   if (loading) {
@@ -383,148 +468,118 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
     return <p className="hint">{loadError || '과제 정보가 없습니다.'}</p>;
   }
 
-  if (done && submitResult) {
+  if (done && finalResult) {
+    const chosen =
+      attemptSummaries.find((a) => a.attempt_number === finalResult.attempt_number) ??
+      attemptSummaries.find((a) => a.is_final);
+    const shownParams = chosen?.parameters ?? detail.best_parameters ?? params;
+    const answerText = finalResult.correct_answer || detail.correct_answer;
     return (
       <section className="done-layout">
-        <div className="done-hero">
-          <p className="done-eyebrow">RAG 체험 · 완료</p>
-          <h1 className="page-title">과제 끝</h1>
-          <p className="page-desc">
-            {remaining <= 0 ? '제출 기회를 모두 사용했습니다.' : '과제를 제출했습니다.'}
-          </p>
-          <div className="done-score-box">
-            <span className="side-title">최종 점수</span>
-            <div className="score-row">
-              <strong>{submitResult.highest_score}</strong>
+        <article className="done-sheet">
+          <header className="done-sheet-score">
+            <p className="done-sheet-label">최종 점수</p>
+            <p className="done-sheet-points">
+              <strong>{finalResult.highest_score}</strong>
               <span>점</span>
-            </div>
-            <p className="hint">
-              {submitResult.is_correct ? '정답' : '오답'} · 제출 {detail.attempts.used_attempts}회 ·
-              리소스 감점 {submitResult.evaluation_report.resource_penalty}
             </p>
+            <div className="done-sheet-meta">
+              <span className={finalResult.is_correct ? 'is-ok' : 'is-bad'}>
+                {finalResult.is_correct ? '정답' : '오답'}
+              </span>
+              <span>최종 {finalResult.attempt_number}회차</span>
+              <span>리소스 감점 {finalResult.evaluation_report.resource_penalty}</span>
+            </div>
+          </header>
+
+          <div className="done-sheet-body">
+            <div className="done-sheet-block">
+              <p className="done-sheet-kicker">제출 답안</p>
+              <p className="done-feedback">{chosen?.student_answer || '—'}</p>
+            </div>
+            <div className="done-sheet-block">
+              <p className="done-sheet-kicker">제출 파라미터</p>
+              <div className="done-params">
+                <div>
+                  <span>chunk_size</span>
+                  <strong>{shownParams.chunk_size}</strong>
+                </div>
+                <div>
+                  <span>top_k</span>
+                  <strong>{shownParams.top_k}</strong>
+                </div>
+                <div>
+                  <span>temperature</span>
+                  <strong>{shownParams.temperature}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="done-sheet-block">
+              <p className="done-sheet-kicker">피드백</p>
+              <p className="done-feedback">{finalResult.evaluation_report.feedback}</p>
+              {answerText ? (
+                <p className="done-answer">
+                  정답 <strong>{answerText}</strong>
+                </p>
+              ) : (
+                <p className="done-answer is-muted">정답 문구는 마감 후에 공개됩니다.</p>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="done-grid">
-          <section className="info-card">
-            <div className="info-card-head">
-              <span className="info-icon" aria-hidden="true">
-                ◎
-              </span>
-              <p className="side-title">문제</p>
-            </div>
-            <p className="mission-text">{detail.question}</p>
-          </section>
-          <section className="info-card">
-            <div className="info-card-head">
-              <span className="info-icon" aria-hidden="true">
-                ▦
-              </span>
-              <p className="side-title">학습 자료</p>
-            </div>
-            <p className="mission-text">{detail.document_filename || '학습 자료'}</p>
-          </section>
-          <section className="info-card">
-            <div className="info-card-head">
-              <span className="info-icon" aria-hidden="true">
-                ▤
-              </span>
-              <p className="side-title">제출 파라미터</p>
-            </div>
-            <div className="done-params">
-              <div>
-                <span>chunk_size</span>
-                <strong>{(detail.best_parameters ?? params).chunk_size}</strong>
-              </div>
-              <div>
-                <span>top_k</span>
-                <strong>{(detail.best_parameters ?? params).top_k}</strong>
-              </div>
-              <div>
-                <span>temperature</span>
-                <strong>{(detail.best_parameters ?? params).temperature}</strong>
-              </div>
-            </div>
-          </section>
-          <section className="info-card done-span-2">
-            <div className="info-card-head">
-              <span className="info-icon" aria-hidden="true">
-                ◇
-              </span>
-              <p className="side-title">피드백</p>
-            </div>
-            <p className="mission-text">{submitResult.evaluation_report.feedback}</p>
-            {submitResult.correct_answer || detail.correct_answer ? (
-              <p className="hint" style={{ marginTop: 8 }}>
-                정답: {submitResult.correct_answer || detail.correct_answer}
-              </p>
-            ) : (
-              <p className="hint" style={{ marginTop: 8 }}>
-                정답 문구는 마감 후에 공개됩니다.
-              </p>
-            )}
-          </section>
-        </div>
-        <div className="actions">
-          <button type="button" className="btn btn-ghost" onClick={() => setDone(false)}>
-            다시 실험해보기
-          </button>
-        </div>
+        </article>
       </section>
     );
   }
 
   return (
     <>
-      <div className="layout-split">
-        <aside className="side">
-          <section className="info-card info-card-mission" data-tour="s1-tour-mission">
-            <div className="info-card-head">
-              <span className="info-icon" aria-hidden="true">
-                ◎
+      <section className="mission-banner" data-tour="s1-tour-mission">
+        <div className="mission-banner-row">
+          <div className="mission-banner-body">
+            <div className="mission-label-row">
+              <span className="mission-q" aria-hidden="true">
+                Q
               </span>
               <p className="side-title">문제</p>
             </div>
             <p className="mission-text">{detail.question}</p>
-            <p className="hint" style={{ marginTop: 10 }}>
-              파라미터를 조절하며 올바른 AI 답변을 찾고, 그걸 참고해서 정답을 찾으면 됩니다.
-            </p>
-          </section>
+            <p className="mission-due">마감 · {formatDueLabel(detail.due_at)}</p>
+          </div>
+          <button
+            className="btn btn-ghost mission-doc-btn"
+            type="button"
+            data-tour="s1-tour-doc"
+            onClick={() => setFileOpen(true)}
+            disabled={!detail.document_url && !detail.document_filename}
+            title={detail.document_filename || '학습 자료'}
+          >
+            <span className="mission-doc-badge" aria-hidden="true">
+              {fileExtBadge(detail.document_filename)}
+            </span>
+            학습 자료
+          </button>
+        </div>
+      </section>
 
-          <section className="info-card info-card-due">
-            <div className="info-card-head">
-              <span className="info-icon" aria-hidden="true">
-                ◷
-              </span>
-              <p className="side-title">마감</p>
-            </div>
-            <p className="due-value">{formatDueLabel(detail.due_at)}</p>
-          </section>
+      <div className="main-head">
+        <div className="main-head-title-row">
+          <h1>AI와 대화로 힌트 받기</h1>
+          <button
+            type="button"
+            className="help-circle-btn"
+            aria-label="시나리오 1 도움말"
+            title="시나리오 1 도움말"
+            onClick={() => setHelpOpen(true)}
+          >
+            ?
+          </button>
+        </div>
+      </div>
 
-          <section className="info-card" data-tour="s1-tour-doc">
-            <div className="info-card-head">
-              <span className="info-icon" aria-hidden="true">
-                ▦
-              </span>
-              <p className="side-title">학습 자료</p>
-            </div>
-            <div className="file-card">
-              <div className="file-badge">{fileExtBadge(detail.document_filename)}</div>
-              <div className="file-meta">
-                <strong>{detail.document_filename || '학습 자료'}</strong>
-                <span>선생님이 올린 PDF</span>
-              </div>
-              <button
-                className="btn btn-ghost btn-small"
-                type="button"
-                onClick={() => setFileOpen(true)}
-                disabled={!detail.document_url && !detail.document_filename}
-              >
-                보기
-              </button>
-            </div>
-          </section>
-
-          <section className="info-card" data-tour="s1-tour-params">
+      <div className="layout-split">
+        <aside className="side">
+          <section className="info-card info-card-params" data-tour="s1-tour-params">
             <div className="info-card-head">
               <span className="info-icon" aria-hidden="true">
                 ▤
@@ -598,21 +653,13 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
                 />
               </div>
             </div>
-            <p className="hint" style={{ marginTop: 8 }}>
-              기본값보다 top_k·chunk를 과하게 키우면 맞더라도 감점됩니다.
-            </p>
           </section>
         </aside>
 
         <section className="s1-main">
-          <div className="main-head">
-            <h1>AI와 대화로 힌트 받기</h1>
-            <p>자유 질문으로 자료를 찾은 뒤, 본인 답을 제출하세요. (제출 {maxAttempts}회)</p>
-          </div>
-
           <div className="chat" data-tour="s1-tour-chat">
-            <div className="chat-log" aria-live="polite">
-              {messages.length === 0 && (
+            <div className="chat-log" aria-live="polite" ref={chatLogRef}>
+              {messages.length === 0 && !chatBusy && (
                 <p className="hint">학습 자료와 문제를 바탕으로 AI에게 자유롭게 질문해 보세요.</p>
               )}
               {messages.map((m, i) => (
@@ -624,13 +671,27 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
                   <div>{m.text}</div>
                 </article>
               ))}
+              {chatBusy && (
+                <article className="bubble ai bubble-loading" aria-busy="true" aria-label="AI 답변 로딩 중">
+                  <div className="meta">
+                    <span>AI</span>
+                  </div>
+                  <div className="loading-line">
+                    <span className="loading-dots" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  </div>
+                </article>
+              )}
             </div>
             <div className="chat-compose">
               <input
                 className="field"
                 type="text"
                 value={chatInput}
-                placeholder="AI에게 질문 입력"
+                placeholder={chatBusy ? 'AI 답변을 기다리는 중…' : 'AI에게 질문 입력'}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -646,62 +707,106 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
                 onClick={() => void sendChat()}
                 disabled={chatBusy}
               >
-                {chatBusy ? '…' : '전송'}
+                {chatBusy ? '답변 중' : '전송'}
               </button>
             </div>
           </div>
-
-          <div className="submit-bar" data-tour="s1-tour-submit">
-            <div className="submit-meta" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-              <span className="pill">
-                제출 {usedAttempts}/{maxAttempts}
-              </span>
-              <div className="field-group" style={{ margin: 0 }}>
-                <label className="label" htmlFor="s1-student-answer">
-                  내 답안
-                </label>
-                <input
-                  id="s1-student-answer"
-                  className="field"
-                  placeholder="교과서 표현으로 입력"
-                  value={studentAnswer}
-                  onChange={(e) => setStudentAnswer(e.target.value)}
-                  disabled={remaining <= 0}
-                />
-              </div>
-            </div>
-            <div className="actions" style={{ paddingTop: 0 }}>
-              <button className="btn btn-ghost" type="button" onClick={finish}>
-                결과 보기
-              </button>
-              <button
-                className="btn btn-primary"
-                type="button"
-                disabled={!studentAnswer.trim() || submitBusy || remaining <= 0}
-                onClick={() => void submit()}
-              >
-                {submitBusy ? '제출 중…' : '답안 제출'}
-              </button>
-            </div>
-          </div>
-
-          {submitResult && (
-            <div className="result show">
-              <div className="score-row">
-                <strong>{submitResult.current_score}</strong>
-                <span>점 · {submitResult.is_correct ? '정답' : '오답'}</span>
-              </div>
-              <p className="hint">
-                정답점수 {submitResult.evaluation_report.correct_score} · 리소스 감점{' '}
-                {submitResult.evaluation_report.resource_penalty}
-              </p>
-              <p className="hint">{submitResult.evaluation_report.feedback}</p>
-            </div>
-          )}
         </section>
       </div>
 
+      <div className="submit-bar" data-tour="s1-tour-submit">
+        <div className="submit-bar-head">
+          <p className="side-title">내 답안 제출</p>
+          <span className="pill">
+            {usedAttempts}/{maxAttempts}회
+          </span>
+        </div>
+        <div className="submit-bar-row">
+          <input
+            id="s1-student-answer"
+            className="field"
+            placeholder="교과서 표현으로 정답 입력"
+            value={studentAnswer}
+            onChange={(e) => setStudentAnswer(e.target.value)}
+            disabled={remaining <= 0 || Boolean(detail.is_finalized)}
+            aria-label="내 답안"
+          />
+          <button
+            className="btn btn-primary"
+            type="button"
+            disabled={
+              !studentAnswer.trim() || submitBusy || remaining <= 0 || Boolean(detail.is_finalized)
+            }
+            onClick={() => void submit()}
+          >
+            {submitBusy ? '채점 중…' : remaining <= 0 ? '기회 소진' : '제출'}
+          </button>
+        </div>
+        {attemptSummaries.length > 0 && !detail.is_finalized ? (
+          <p className="submit-bar-note">
+            오답이에요. 파라미터를 바꿔 한 번 더 제출할 수 있어요. ({usedAttempts}/{maxAttempts}회 사용)
+          </p>
+        ) : null}
+      </div>
+
+      {submitResult && !detail.is_finalized && (
+        <div className="result show">
+          <div className="score-row">
+            <strong>{submitResult.current_score}</strong>
+            <span>점 · {submitResult.is_correct ? '정답' : '오답'}</span>
+          </div>
+          <p className="hint">
+            정답점수 {submitResult.evaluation_report.correct_score} · 리소스 감점{' '}
+            {submitResult.evaluation_report.resource_penalty}
+          </p>
+          <p className="hint">{submitResult.evaluation_report.feedback}</p>
+          {remaining > 0 ? (
+            <p className="hint">
+              정답을 맞히면 바로 최종 제출됩니다. 두 번 모두 쓰면 점수가 더 높은 제출이 최종이 돼요.
+            </p>
+          ) : null}
+        </div>
+      )}
+
       <Stage1Tour open={tourOpen} onFinish={() => setTourOpen(false)} />
+
+      <div
+        className={`modal${helpOpen ? ' open' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="시나리오 1 도움말"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setHelpOpen(false);
+        }}
+      >
+        <div className="modal-card modal-card-help">
+          <header>
+            <h2>시나리오 1 도움말</h2>
+            <button className="btn btn-ghost" type="button" onClick={() => setHelpOpen(false)}>
+              닫기
+            </button>
+          </header>
+          <div className="help-body">
+            <p className="help-intro">{STAGE1_HELP_INTRO}</p>
+            <div className="help-sections">
+              {STAGE1_HELP_SECTIONS.map((section) => (
+                <article key={section.title} className="help-section">
+                  <div className="help-section-head">
+                    <span className="help-where">{section.where}</span>
+                    <h3>{section.title}</h3>
+                  </div>
+                  <ul className="help-bullets">
+                    {section.bullets.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  {section.tip ? <p className="help-tip">{section.tip}</p> : null}
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div
         className={`modal${fileOpen ? ' open' : ''}`}
