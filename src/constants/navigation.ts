@@ -1,3 +1,4 @@
+import { SUBJECT_OPTIONS } from './assignments';
 import type { LearningMode, NavSection, StudentSubject } from '../types';
 
 export const TEACHER_NAV: NavSection[] = [
@@ -6,13 +7,11 @@ export const TEACHER_NAV: NavSection[] = [
     items: [{ label: '홈', path: '/teacher' }],
   },
   {
-    label: '과제 출제',
-    items: [
-      { label: 'RAG 체험', path: '/teacher/stage/1' },
-      { label: 'Hallucination 탐지', path: '/teacher/stage/2' },
-      { label: 'AI 토론', path: '/teacher/stage/3' },
-      { label: '보안 강화', path: '/teacher/stage/4' },
-    ],
+    label: '과목',
+    items: SUBJECT_OPTIONS.map((subject) => ({
+      label: subject.label,
+      path: `/teacher/subject/${subject.value}`,
+    })),
   },
   {
     label: '학급',
@@ -87,22 +86,23 @@ export const STUDENT_LEARNING_MODES: LearningMode[] = [
   },
 ];
 
-/** 기존 과목 경로 호환 — 학습모드로 연결 */
-export const STUDENT_SUBJECTS: StudentSubject[] = [
-  {
-    key: 'hist',
-    name: '학습',
-    activities: STUDENT_LEARNING_MODES.map((m) => ({
-      id: `s-stage${m.stage}`,
-      stage: m.stage,
-      title: m.module,
-      path: m.path,
-    })),
-  },
-];
+/** 학생 사이드바 — 과목별 학습 모드 */
+export const STUDENT_SUBJECTS: StudentSubject[] = SUBJECT_OPTIONS.map((subject) => ({
+  key: subject.value,
+  name: subject.label,
+  activities: STUDENT_LEARNING_MODES.map((mode) => ({
+    id: `${subject.value}-stage${mode.stage}`,
+    stage: mode.stage,
+    title: mode.module,
+    path: `/student/${subject.value}/stage/${mode.stage}`,
+  })),
+}));
 
 export const PAGE_TITLES: Record<string, string> = {
   '/teacher': '홈',
+  '/teacher/subject/hist': '한국사',
+  '/teacher/subject/sci': '과학',
+  '/teacher/subject/soc': '사회',
   '/teacher/stage/1': 'RAG 체험',
   '/teacher/stage/2': 'Hallucination 탐지',
   '/teacher/stage/3': 'AI 토론',
@@ -117,11 +117,18 @@ export const PAGE_TITLES: Record<string, string> = {
   '/student/results': '점수',
   '/student/attendance': '출석',
   '/student/notices': '공지사항',
+  '/student/subject/hist': '한국사',
+  '/student/subject/sci': '과학',
+  '/student/subject/soc': '사회',
   '/student/stage/1': 'RAG 체험',
   '/student/stage/2': 'Hallucination 탐지',
   '/student/stage/3': 'AI 토론',
   '/student/stage/4': '보안 강화',
 };
+
+export function subjectPageTitle(subjectKey: string): string {
+  return SUBJECT_OPTIONS.find((s) => s.value === subjectKey)?.label ?? '과목';
+}
 
 export const STAGE_TITLES: Record<number, string> = {
   1: '퀴즈 탐색 · RAG 파라미터 체험',

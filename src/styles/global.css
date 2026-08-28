@@ -1829,3 +1829,53 @@ a.search-item:hover {
     flex-direction: column;
   }
 }
+
+.subject-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+
+.subject-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: #fff;
+  color: var(--gray-700);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: var(--t);
+}
+
+.subject-tab:hover {
+  background: var(--gray-50);
+  color: var(--gray-900);
+}
+
+.subject-tab.active {
+  background: var(--gray-900);
+  border-color: var(--gray-900);
+  color: #fff;
+}
+
+.subject-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.subject-section-card + .subject-section-card {
+  margin-top: 0;
+}
+
+.nav-subject-head {
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+}

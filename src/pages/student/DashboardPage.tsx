@@ -1,16 +1,26 @@
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   fetchStudentDashboardAssignmentsApi,
   fetchStudentDashboardSummaryApi,
   fetchStudentNoticesApi,
 } from '../../api';
 import type { ProgressStatus, StudentAssignmentItem, StageSummaryItem } from '../../api/types';
+import { SubjectTabs } from '../../components/common/SubjectTabs';
+import {
+  SUBJECT_OPTIONS,
+  normalizeSubjectKey,
+  subjectLabel,
+} from '../../constants/assignments';
 import {
   STAGE_SCENARIO_LABELS,
   averageLiteracyScore,
   deriveLiteracyScores,
 } from '../../constants/literacyAxes';
-import { STUDENT_LEARNING_MODES, learningModeByStage } from '../../constants/navigation';
+import {
+  STUDENT_LEARNING_MODES,
+  learningModeByStage,
+  subjectPageTitle,
+} from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import {
@@ -63,7 +73,8 @@ function noticeDateLabel(iso?: string | null) {
 function pathForAssignment(item: StudentAssignmentItem) {
   const stage = Number(item.stage ?? 1);
   const safe = stage >= 1 && stage <= 4 ? stage : 1;
-  return `/student/stage/${safe}?assignmentId=${item.assignment_id}`;
+  const subject = normalizeSubjectKey(item.subject);
+  return `/student/${subject}/stage/${safe}?assignmentId=${item.assignment_id}`;
 }
 
 function buildHeroCopy(remaining: DashboardTask[]) {
@@ -99,7 +110,9 @@ function buildFromApi(
       return {
         id: item.assignment_id,
         title: item.title ?? `과제 #${item.assignment_id}`,
-        subject: mode?.module ?? STAGE_SCENARIO_LABELS[stage] ?? '학습',
+        subjectKey: normalizeSubjectKey(item.subject),
+        subjectLabel: subjectLabel(item.subject),
+        modeLabel: mode?.module ?? STAGE_SCENARIO_LABELS[stage] ?? '학습',
         stage,
         status: item.status,
         dueLabel: dueLabel(item.due_date),
@@ -110,7 +123,12 @@ function buildFromApi(
         score: item.score,
       };
     })
-    .sort((a, b) => a.stage - b.stage || String(a.id).localeCompare(String(b.id)));
+    .sort(
+      (a, b) =>
+        a.subjectKey.localeCompare(b.subjectKey) ||
+        a.stage - b.stage ||
+        String(a.id).localeCompare(String(b.id)),
+    );
 
   return {
     studentName: name,
@@ -122,7 +140,61 @@ function buildFromApi(
   };
 }
 
+function AssignmentTaskList({ tasks }: { tasks: DashboardTask[] }) {
+  if (!tasks.length) {
+    return (
+      <div style={{ textAlign: 'center', padding: '24px 8px' }}>
+        <p className="hint">배정된 과제가 없습니다.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="assignment-list">
+      {tasks.map((task) => {
+        const mode = learningModeByStage(task.stage);
+        const cta =
+          task.status === 'COMPLETED'
+            ? '결과 보기'
+            : task.status === 'IN_PROGRESS'
+              ? '이어하기'
+              : '시작하기';
+        const btnClass =
+          task.status === 'IN_PROGRESS'
+            ? 'btn btn-primary task-go'
+            : task.status === 'COMPLETED'
+              ? 'btn btn-ghost task-go'
+              : 'btn btn-ghost task-go';
+        return (
+          <li key={task.id} className={`assignment-item${task.dueSoon ? ' is-urgent' : ''}`}>
+            <span className="assignment-icon" aria-hidden="true">
+              {mode?.icon ?? '◇'}
+            </span>
+            <div className="assignment-main">
+              <div className="assignment-top">
+                <p className="assignment-title">{task.title}</p>
+                <span className={`status-pill ${statusPillClass(task.status)}`}>
+                  {PROGRESS_LABELS[task.status]}
+                </span>
+              </div>
+              <span className="assignment-meta">
+                {task.subjectLabel} · {task.modeLabel} · 마감 {task.dueLabel}
+                {task.score != null ? ` · ${task.score}점` : ''}
+              </span>
+            </div>
+            <Link className={btnClass} to={task.href}>
+              {cta}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function StudentDashboardPage() {
+  const { subject: subjectParam } = useParams<{ subject?: string }>();
+  const activeSubject = subjectParam ? normalizeSubjectKey(subjectParam) : null;
   const { user } = useAuth();
   const useApi = Boolean(user && !user.isDemo);
 
@@ -152,11 +224,17 @@ export function StudentDashboardPage() {
     );
   }
 
-  const remaining = model.tasks.filter((t) => t.status !== 'COMPLETED');
-  const completedCount = model.tasks.length - remaining.length;
-  const dueToday = remaining.filter((t) => t.dueToday).length;
+  const visibleTasks = activeSubject
+    ? model.tasks.filter((task) => task.subjectKey === activeSubject)
+    : model.tasks;
+  const remainingVisible = visibleTasks.filter((t) => t.status !== 'COMPLETED');
+  const completedCount = visibleTasks.length - remainingVisible.length;
+  const dueToday = remainingVisible.filter((t) => t.dueToday).length;
   const total = averageLiteracyScore(model.axes) || (useApi ? summary.data?.total_score ?? 0 : 0);
-  const heroDesc = buildHeroCopy(remaining);
+  const heroDesc = buildHeroCopy(remainingVisible);
+  const sectionTitle = activeSubject
+    ? `${subjectPageTitle(activeSubject)} 과제`
+    : '남은 과제';
 
   const stageProgress = STUDENT_LEARNING_MODES.map((mode) => {
     const stageTasks = model.tasks.filter((t) => t.stage === mode.stage);
@@ -194,7 +272,7 @@ export function StudentDashboardPage() {
                   <p className="page-desc dash-intro-desc">{heroDesc}</p>
                   <div className="dash-chips">
                     <span className="dash-chip">
-                      남은 과제 <strong>{remaining.length}</strong>
+                      남은 과제 <strong>{remainingVisible.length}</strong>
                     </span>
                     <span className="dash-chip">
                       출석 <strong>{Math.round(model.attendanceRate)}%</strong>
@@ -251,63 +329,41 @@ export function StudentDashboardPage() {
               </div>
             </section>
 
+            <SubjectTabs basePath="/student" activeSubject={activeSubject} />
+
             <section className="mode-section">
               <div className="mode-section-head">
                 <div className="info-card-head mode-section-head-main">
                   <span className="info-icon" aria-hidden="true">
                     ◎
                   </span>
-                  <h2 className="mode-section-title">남은 과제</h2>
+                  <h2 className="mode-section-title">{sectionTitle}</h2>
                 </div>
                 <p className="hint">과제를 클릭하여 바로 시작하세요.</p>
               </div>
-              {model.tasks.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px 8px' }}>
-                  <p className="hint">배정된 과제가 없습니다.</p>
-                </div>
+              {activeSubject ? (
+                <AssignmentTaskList tasks={visibleTasks} />
               ) : (
-                <ul className="assignment-list">
-                  {model.tasks.map((task) => {
-                    const mode = learningModeByStage(task.stage);
-                    const cta =
-                      task.status === 'COMPLETED'
-                        ? '결과 보기'
-                        : task.status === 'IN_PROGRESS'
-                          ? '이어하기'
-                          : '시작하기';
-                    const btnClass =
-                      task.status === 'IN_PROGRESS'
-                        ? 'btn btn-primary task-go'
-                        : task.status === 'COMPLETED'
-                          ? 'btn btn-ghost task-go'
-                          : 'btn btn-ghost task-go';
+                <div className="subject-sections">
+                  {SUBJECT_OPTIONS.map((subject) => {
+                    const subjectTasks = model.tasks.filter(
+                      (task) => task.subjectKey === subject.value,
+                    );
+                    if (!subjectTasks.length) return null;
                     return (
-                      <li
-                        key={task.id}
-                        className={`assignment-item${task.dueSoon ? ' is-urgent' : ''}`}
-                      >
-                        <span className="assignment-icon" aria-hidden="true">
-                          {mode?.icon ?? '◇'}
-                        </span>
-                        <div className="assignment-main">
-                          <div className="assignment-top">
-                            <p className="assignment-title">{task.title}</p>
-                            <span className={`status-pill ${statusPillClass(task.status)}`}>
-                              {PROGRESS_LABELS[task.status]}
-                            </span>
-                          </div>
-                          <span className="assignment-meta">
-                            {task.subject} · 마감 {task.dueLabel}
-                            {task.score != null ? ` · ${task.score}점` : ''}
-                          </span>
+                      <section key={subject.value} className="subject-assignment-group">
+                        <div className="subject-assignment-head">
+                          <h3 className="subject-assignment-title">{subject.label}</h3>
+                          <Link to={`/student/subject/${subject.value}`} className="dash-link">
+                            과목만 보기
+                          </Link>
                         </div>
-                        <Link className={btnClass} to={task.href}>
-                          {cta}
-                        </Link>
-                      </li>
+                        <AssignmentTaskList tasks={subjectTasks} />
+                      </section>
                     );
                   })}
-                </ul>
+                  {!model.tasks.length ? <AssignmentTaskList tasks={[]} /> : null}
+                </div>
               )}
             </section>
 

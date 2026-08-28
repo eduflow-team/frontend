@@ -626,6 +626,7 @@ export interface StudentAssignmentItem {
   max_attempts?: number | null;
   score?: number | null;
   stage?: number | null;
+  subject?: string | null;
   due_date?: string | null;
   status: ProgressStatus;
 }
@@ -661,6 +662,7 @@ export interface TeacherUnsubmittedResponse {
 export interface TeacherAssignmentItem {
   assignment_id: number;
   stage?: number | null;
+  subject?: string | null;
   title?: string | null;
   created_at?: string | null;
 }
