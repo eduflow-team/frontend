@@ -311,6 +311,13 @@ export interface Stage3CreateResponse {
   created_at?: string | null;
 }
 
+export interface Stage3TeacherPreviewResponse {
+  assignment_id: number;
+  reused: boolean;
+  debate: Stage3DebatePublicPayload;
+  elapsed?: number | null;
+}
+
 export interface Stage3AttemptsDetail {
   max_attempts: number;
   used_attempts: number;

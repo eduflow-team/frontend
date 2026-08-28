@@ -911,6 +911,26 @@
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 12px;
+  cursor: pointer;
+  background: #fff;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.s3 .tally-item:hover {
+  border-color: #94a3b8;
+}
+
+.s3 .tally-item.is-active {
+  border-color: var(--accent, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.s3 .tally-hint {
+  margin: 4px 0 8px;
+  text-align: center;
 }
 
 .s3 .tally-item strong {
@@ -1233,4 +1253,407 @@
   min-height: calc(100% + 48px);
   word-break: keep-all;
   overflow-wrap: break-word;
+}
+
+/* --- Teacher assignment wizard (stage3) --- */
+.s3 .shell.teacher-shell,
+.s3 .teacher-shell {
+  width: min(880px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 32px 0 72px;
+}
+
+.s3 .teacher-flow-steps {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 36px;
+  font-size: 13px;
+  color: var(--muted, #6e6e80);
+}
+
+.s3 .teacher-flow-steps .step {
+  position: relative;
+}
+
+.s3 .teacher-flow-steps .step[aria-current='step'] {
+  color: var(--ink, #0d0d0d);
+  font-weight: 600;
+}
+
+.s3 .teacher-flow-steps .step[aria-current='step']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10px;
+  height: 1.5px;
+  background: var(--ink, #0d0d0d);
+}
+
+.s3 .teacher-shell .page-title {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.s3 .teacher-shell .page-desc {
+  margin: 0 0 32px;
+  color: var(--muted, #6e6e80);
+  font-size: 15px;
+  max-width: 42rem;
+  line-height: 1.55;
+}
+
+.s3 .teacher-meta-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.s3 .teacher-meta-field {
+  min-width: 0;
+}
+
+.s3 .teacher-meta-field .label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink, #0d0d0d);
+}
+
+.s3 .teacher-meta-field .field {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong, #e5e5e5);
+  border-radius: var(--radius, 10px);
+  background: #fff;
+  font-size: 14px;
+  color: var(--ink, #0d0d0d);
+  box-sizing: border-box;
+}
+
+.s3 .teacher-steps {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  gap: 0;
+}
+
+.s3 .teacher-step-row {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.s3 .teacher-step-row:last-child {
+  flex: 0;
+}
+
+.s3 .teacher-step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.s3 .teacher-step-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  background: #fff;
+  border: 2px solid var(--line, #e5e5e5);
+  color: #9ca192;
+}
+
+.s3 .teacher-step-circle.done,
+.s3 .teacher-step-circle.active {
+  background: var(--primary, #2563eb);
+  border-color: var(--primary, #2563eb);
+  color: #fff;
+}
+
+.s3 .teacher-step-circle.active {
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.s3 .teacher-step-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted, #6e6e80);
+  white-space: nowrap;
+}
+
+.s3 .teacher-step-label.active {
+  font-weight: 800;
+  color: var(--primary, #2563eb);
+}
+
+.s3 .teacher-step-line {
+  flex: 1;
+  height: 2px;
+  margin: 15px 6px 0;
+  background: var(--line, #e5e5e5);
+}
+
+.s3 .teacher-step-line.done {
+  background: var(--primary, #2563eb);
+}
+
+.s3 .teacher-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.s3 .teacher-card {
+  background: #fff;
+  border: 1px solid var(--line, #e5e5e5);
+  border-radius: var(--radius, 10px);
+  padding: 20px;
+}
+
+.s3 .teacher-step-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--muted, #6e6e80);
+  background: var(--bg, #fafafa);
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+
+.s3 .teacher-card label,
+.s3 .teacher-card .field-label {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.s3 .teacher-card input,
+.s3 .teacher-card textarea,
+.s3 .teacher-card select {
+  width: 100%;
+  border: 1px solid var(--line-strong, #d1d5db);
+  border-radius: 9px;
+  padding: 13px 16px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.s3 .teacher-card textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.s3 .teacher-card .field-hint {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: var(--muted, #6e6e80);
+  line-height: 1.5;
+}
+
+.s3 .teacher-aside {
+  background: var(--bg, #fafafa);
+  border: 1px solid var(--line, #e5e5e5);
+  border-radius: 16px;
+  padding: 24px;
+  font-size: 0.8rem;
+  color: var(--muted, #6e6e80);
+}
+
+.s3 .teacher-aside strong {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--primary, #2563eb);
+  margin-bottom: 12px;
+}
+
+.s3 .teacher-aside ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.9;
+}
+
+.s3 .teacher-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.s3 .teacher-preview-box {
+  background: var(--bg, #fafafa);
+  border: 1px solid var(--line, #e5e5e5);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.s3 .teacher-preview-label {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink, #0d0d0d);
+}
+
+.s3 .teacher-preview-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.s3 .teacher-preview-summary div {
+  margin: 0;
+}
+
+.s3 .teacher-preview-summary div.full {
+  grid-column: 1 / -1;
+}
+
+.s3 .teacher-preview-summary dt {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted, #6e6e80);
+  margin-bottom: 2px;
+}
+
+.s3 .teacher-preview-summary dd {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--ink, #0d0d0d);
+}
+
+.s3 .teacher-success {
+  padding: 28px;
+  border: 1px solid var(--line, #e5e5e5);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.s3 .teacher-success-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.s3 .teacher-success p {
+  margin: 0 0 8px;
+  color: var(--muted, #6e6e80);
+  font-size: 0.9rem;
+}
+
+.s3 .teacher-published-ids {
+  font-size: 0.85rem;
+  color: var(--ink, #0d0d0d);
+}
+
+.s3 .form-error {
+  color: #b91c1c;
+  font-size: 13px;
+  margin: 0;
+}
+
+.s3 .teacher-flaw-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.s3 .teacher-flaw-item {
+  padding: 14px 16px;
+  border: 1px solid #f0d5d5;
+  border-radius: 12px;
+  background: #fffafa;
+}
+
+.s3 .teacher-flaw-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.s3 .teacher-flaw-side {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.s3 .teacher-flaw-side.pro {
+  background: #eaf6ee;
+  color: #15803d;
+}
+
+.s3 .teacher-flaw-side.con {
+  background: #fdecec;
+  color: #b91c1c;
+}
+
+.s3 .teacher-flaw-round {
+  font-size: 12px;
+  color: var(--muted, #6e6e80);
+}
+
+.s3 .teacher-flaw-verdict {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #fdf3e6;
+  color: #b45309;
+}
+
+.s3 .teacher-flaw-verdict.false,
+.s3 .teacher-flaw-verdict.unsupported {
+  background: #fdecec;
+  color: #b91c1c;
+}
+
+.s3 .teacher-flaw-claim {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--ink, #0d0d0d);
+}
+
+.s3 .teacher-flaw-reason {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted, #6e6e80);
+}
+
+@media (max-width: 768px) {
+  .s3 .teacher-meta-row,
+  .s3 .teacher-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .s3 .teacher-step-label {
+    white-space: normal;
+    text-align: center;
+    max-width: 72px;
+  }
 }

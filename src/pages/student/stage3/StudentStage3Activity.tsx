@@ -550,68 +550,98 @@ export function StudentStage3Activity({
     const nextDecisions = { ...decisionsRef.current, [turn.id]: checked };
     decisionsRef.current = nextDecisions;
     setDecisions(nextDecisions);
-    const picked = collectHighlights(turn.id);
     const isLast = idx >= debateRef.current.turns.length - 1;
-    setFloor((prev) => {
-      const next = prev.map((item) =>
+    setFloor((prev) =>
+      prev.map((item) =>
         item.kind === 'turn' && item.turn.id === turn.id
           ? { ...item, turn: revealed, checked }
           : item,
-      );
-      if (checked) {
-        const suspicious =
-          (revealed.claims || []).some((c) =>
-            ['exaggerated', 'unsupported', 'false'].includes(c.verdict),
-          ) || ['exaggerated', 'unsupported', 'false'].includes(revealed.verdict);
-        const tag = suspicious ? revealed.verdict || 'exaggerated' : 'misscheck';
-        const label = suspicious ? VERDICT_LABEL[revealed.verdict] || '과장됨' : '잘못 체크함';
-        next.push({ kind: 'verdict', tag, label, picked });
-      }
-      return next;
-    });
-    if (checked) {
-      setWhyText('');
-      setGroundText('');
-      setPhase('fill');
-    } else {
+      ),
+    );
+    if (!checked) {
       setToast('검증 없이 넘어갔습니다.');
       setPhase(isLast ? 'judge' : 'next');
     }
   };
 
-  const decide = async (checked: boolean) => {
+  const applyFactcheckResult = (turn: Stage3Turn, revealed: Stage3Turn) => {
+    const picked = collectHighlights(turn.id);
+    const nextDecisions = { ...decisionsRef.current, [turn.id]: true };
+    decisionsRef.current = nextDecisions;
+    setDecisions(nextDecisions);
+    setFloor((prev) => {
+      const next = prev.map((item) =>
+        item.kind === 'turn' && item.turn.id === turn.id
+          ? { ...item, turn: revealed, checked: true }
+          : item,
+      );
+      const suspicious =
+        (revealed.claims || []).some((c) =>
+          ['exaggerated', 'unsupported', 'false'].includes(c.verdict),
+        ) || ['exaggerated', 'unsupported', 'false'].includes(revealed.verdict);
+      const tag = suspicious ? revealed.verdict || 'exaggerated' : 'misscheck';
+      const label = suspicious ? VERDICT_LABEL[revealed.verdict] || '과장됨' : '잘못 체크함';
+      next.push({ kind: 'verdict', tag, label, picked });
+      return next;
+    });
+    setDebate((prev) => ({
+      ...prev,
+      turns: prev.turns.map((t) => (t.id === turn.id ? revealed : t)),
+    }));
+  };
+
+  const proceedToFill = () => {
     if (!currentTurn || phase !== 'decide' || deciding || starting) return;
-    const turn = currentTurn;
-    if (checked && !hasHighlight(turn.id)) {
+    if (!hasHighlight(currentTurn.id)) {
       setToast('의심되는 부분을 먼저 하이라이트해 주세요.');
       return;
     }
+    setPhase('fill');
+  };
+
+  const skipVerify = () => {
+    if (!currentTurn || phase !== 'decide' || deciding || starting) return;
+    applyDecision(currentTurn, false, currentTurn);
+  };
+
+  const submitFillAndFactcheck = async () => {
+    if (!currentTurn || phase !== 'fill' || deciding || starting) return;
+    const turn = currentTurn;
+    if (whyText.trim().length < 8 || groundText.trim().length < 8) {
+      setToast('두 칸을 모두 채워 주세요.');
+      return;
+    }
+    setCorrections((prev) => ({
+      ...prev,
+      [turn.id]: {
+        highlight: collectHighlights(turn.id),
+        why: whyText.trim(),
+        ground: groundText.trim(),
+      },
+    }));
     setDeciding(true);
     try {
-      if (checked) {
-        const fc = await postStudentStep3FactcheckApi(assignmentId, { turn_id: turn.id });
-        const claims =
-          fc.claims?.length > 0
-            ? fc.claims.map((c) => ({
-                claim: c.claim,
-                verdict: toUiVerdict(c.verdict),
-                reason: c.reason || fc.why,
-              }))
-            : [{ claim: turn.claim, verdict: toUiVerdict(fc.verdict), reason: fc.why }];
-        const revealed: Stage3Turn = {
-          ...turn,
-          verdict: toUiVerdict(fc.verdict),
-          why: fc.why,
-          claims,
-        };
-        setDebate((prev) => ({
-          ...prev,
-          turns: prev.turns.map((t) => (t.id === turn.id ? revealed : t)),
-        }));
-        applyDecision(turn, true, revealed);
-      } else {
-        applyDecision(turn, checked, turn);
-      }
+      const fc = await postStudentStep3FactcheckApi(assignmentId, { turn_id: turn.id });
+      const claims =
+        fc.claims?.length > 0
+          ? fc.claims.map((c) => ({
+              claim: c.claim,
+              verdict: toUiVerdict(c.verdict),
+              reason: c.reason || fc.why,
+            }))
+          : [{ claim: turn.claim, verdict: toUiVerdict(fc.verdict), reason: fc.why }];
+      const revealed: Stage3Turn = {
+        ...turn,
+        verdict: toUiVerdict(fc.verdict),
+        why: fc.why,
+        claims,
+      };
+      applyFactcheckResult(turn, revealed);
+      setWhyText('');
+      setGroundText('');
+      const isLast = idx >= debateRef.current.turns.length - 1;
+      if (isLast) setPhase('judge');
+      else advance();
     } catch (err) {
       setToast(apiErrorMessage(err, '팩트체크 요청에 실패했습니다.'));
     } finally {
@@ -651,22 +681,7 @@ export function StudentStage3Activity({
   };
 
   const finishFill = () => {
-    if (!currentTurn) return;
-    if (whyText.trim().length < 8 || groundText.trim().length < 8) {
-      setToast('두 칸을 모두 채워 주세요.');
-      return;
-    }
-    setCorrections((prev) => ({
-      ...prev,
-      [currentTurn.id]: {
-        highlight: collectHighlights(currentTurn.id),
-        why: whyText.trim(),
-        ground: groundText.trim(),
-      },
-    }));
-    setToast('작성을 저장했습니다.');
-    if (idx >= debate.turns.length - 1) setPhase('judge');
-    else advance();
+    void submitFillAndFactcheck();
   };
 
   const finishJudge = () => {
@@ -829,7 +844,7 @@ export function StudentStage3Activity({
           )}
           {phase === 'decide' && currentTurn && (
             <>
-              <p className="decide-q">의심되는 부분을 칠한 뒤 팩트체커를 누르세요</p>
+              <p className="decide-q">의심되는 부분을 칠한 뒤 틀린 이유를 작성하세요</p>
               <p className="decide-sub">
                 문장을 드래그하거나 핵심 근거를 누르면 표시됩니다. 같은 부분을 다시 칠하면 취소됩니다.
               </p>
@@ -837,10 +852,10 @@ export function StudentStage3Activity({
                 <button className="btn btn-ghost" type="button" disabled={deciding} onClick={() => void openSource(currentTurn)}>
                   출처 확인
                 </button>
-                <button className="btn btn-check" type="button" disabled={deciding} onClick={() => void decide(true)}>
-                  {deciding ? '검증 요청 중…' : '팩트체커에게 검증 요청'}
+                <button className="btn btn-check" type="button" disabled={deciding} onClick={proceedToFill}>
+                  틀린 이유 작성하기
                 </button>
-                <button className="btn btn-ghost" type="button" disabled={deciding} onClick={() => void decide(false)}>
+                <button className="btn btn-ghost" type="button" disabled={deciding} onClick={skipVerify}>
                   검증 없이 넘어가기
                 </button>
               </div>
@@ -854,8 +869,8 @@ export function StudentStage3Activity({
           )}
           {phase === 'fill' && currentTurn && (
             <>
-              <p className="decide-q">틀린 이유와 맞은 근거를 채워 주세요</p>
-              <p className="decide-sub">팩트체커는 판정만 알려 줍니다. 왜 문제인지, 바른 근거는 무엇인지 직접 적어야 다음으로 갈 수 있습니다.</p>
+              <p className="decide-q">틀린 이유와 맞은 근거를 채운 뒤 팩트체커를 누르세요</p>
+              <p className="decide-sub">왜 문제인지, 바른 근거는 무엇인지 먼저 직접 적은 다음 팩트체커로 검증합니다.</p>
               <div className="fix-box">
                 <label className="label" htmlFor="whyInput">틀린 이유</label>
                 <textarea
@@ -877,16 +892,16 @@ export function StudentStage3Activity({
                 />
               </div>
               <div className="decide-actions">
-                <button className="btn btn-ghost" type="button" onClick={() => void openSource(currentTurn)}>
+                <button className="btn btn-ghost" type="button" disabled={deciding} onClick={() => void openSource(currentTurn)}>
                   출처 확인
                 </button>
                 <button
-                  className="btn btn-primary"
+                  className="btn btn-check"
                   type="button"
-                  disabled={whyText.trim().length < 8 || groundText.trim().length < 8}
+                  disabled={deciding || whyText.trim().length < 8 || groundText.trim().length < 8}
                   onClick={finishFill}
                 >
-                  작성하고 다음으로
+                  {deciding ? '검증 요청 중…' : '팩트체커에게 검증 요청'}
                 </button>
               </div>
             </>
@@ -955,8 +970,8 @@ export function StudentStage3Activity({
                   <div>
                     <strong>발언마다 검증할지 정합니다</strong>
                     <p>
-                      의심되는 문장을 <b>직접 하이라이트</b>한 뒤 팩트체커를 누릅니다.
-                      틀린 이유와 맞은 근거는 빈칸에 직접 채웁니다.
+                      의심되는 문장을 <b>직접 하이라이트</b>한 뒤 틀린 이유와 맞은 근거를 적고,
+                      마지막에 팩트체커로 검증합니다.
                     </p>
                   </div>
                 </li>
@@ -1116,12 +1131,43 @@ function StudentStage3Done({
 }: {
   result: Stage3GradeResult;
 }) {
+  const [filter, setFilter] = useState<Stage3Outcome | null>(null);
+  const reviewRef = useRef<HTMLDivElement>(null);
+
   const MARK = {
     caught: { cls: 'ok', label: '정확히 잡아냄' },
     passed: { cls: 'ok', label: '적절히 넘어감' },
     missed: { cls: 'miss', label: '놓침' },
     wasted: { cls: 'waste', label: '불필요한 검증' },
   } as const;
+
+  const TALLY_ITEMS = [
+    { outcome: 'caught' as const, tone: 'good' as const, label: '허술한 근거를 잡아냄', count: result.caught },
+    { outcome: 'passed' as const, tone: 'good' as const, label: '탄탄한 근거를 넘어감', count: result.passed },
+    { outcome: 'missed' as const, tone: 'bad' as const, label: '놓친 근거', count: result.missed },
+    { outcome: 'wasted' as const, tone: 'bad' as const, label: '불필요한 검증', count: result.wasted },
+  ];
+
+  const FILTER_HEADLINE: Record<Stage3Outcome, string> = {
+    caught: '허술한 근거를 잡아낸 발언',
+    passed: '탄탄한 근거를 넘어간 발언',
+    missed: '놓친 발언',
+    wasted: '불필요하게 검증한 발언',
+  };
+
+  const filteredRows = filter ? result.rows.filter((row) => row.outcome === filter) : [];
+
+  const selectFilter = (outcome: Stage3Outcome) => {
+    setFilter((prev) => {
+      const next = prev === outcome ? null : outcome;
+      if (next) {
+        window.requestAnimationFrame(() => {
+          reviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="s3">
@@ -1168,23 +1214,19 @@ function StudentStage3Done({
           </section>
         ) : null}
 
-        <div className="tally">
-          <div className="tally-item good">
-            <strong>{result.caught}</strong>
-            <span>허술한 근거를 잡아냄</span>
-          </div>
-          <div className="tally-item good">
-            <strong>{result.passed}</strong>
-            <span>탄탄한 근거를 넘어감</span>
-          </div>
-          <div className="tally-item bad">
-            <strong>{result.missed}</strong>
-            <span>놓친 근거</span>
-          </div>
-          <div className="tally-item bad">
-            <strong>{result.wasted}</strong>
-            <span>불필요한 검증</span>
-          </div>
+        <div className="tally" role="group" aria-label="판정 결과 요약">
+          {TALLY_ITEMS.map((item) => (
+            <button
+              key={item.outcome}
+              type="button"
+              className={`tally-item ${item.tone}${filter === item.outcome ? ' is-active' : ''}`}
+              aria-pressed={filter === item.outcome}
+              onClick={() => selectFilter(item.outcome)}
+            >
+              <strong>{item.count}</strong>
+              <span>{item.label}</span>
+            </button>
+          ))}
         </div>
 
         <section className="info-card" style={{ marginBottom: 22 }}>
@@ -1200,40 +1242,53 @@ function StudentStage3Done({
           </p>
         </section>
 
-        <div className="debate-head">
-          <div>
-            <h1>발언별 판정</h1>
-            <p className="topic">내 판단과 팩트체커의 판정을 나란히 확인해 보세요.</p>
-          </div>
-        </div>
-
-        <div className="review">
-          {result.rows.map((row) => {
-            const mark = MARK[row.outcome] ?? MARK.passed;
-            const wrong = row.outcome === 'missed' || row.outcome === 'wasted';
-            return (
-              <div key={row.id} className={`review-row${wrong ? ' is-wrong' : ''}`}>
-                <span className={`side ${row.side}`}>{row.side === 'pro' ? '찬성' : '반대'}</span>
-                <div className="claim-text">
-                  {row.claim}
-                  <em>
-                    팩트체커 판정 · {VERDICT_LABEL[row.verdict] || row.verdict}
-                  </em>
-                  {result.corrections?.[row.id]?.highlight ? (
-                    <em>표시한 부분 — {result.corrections[row.id].highlight}</em>
-                  ) : null}
-                  {result.corrections?.[row.id]?.why ? (
-                    <em>틀린 이유 — {result.corrections[row.id].why}</em>
-                  ) : null}
-                  {result.corrections?.[row.id]?.ground ? (
-                    <em>맞은 근거 — {result.corrections[row.id].ground}</em>
-                  ) : null}
-                </div>
-                <span className={`mark ${mark.cls}`}>{mark.label}</span>
+        {filter ? (
+          <>
+            <div className="debate-head" ref={reviewRef}>
+              <div>
+                <h1>{FILTER_HEADLINE[filter]}</h1>
+                <p className="topic">내 판단과 팩트체커의 판정을 나란히 확인해 보세요.</p>
               </div>
-            );
-          })}
-        </div>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setFilter(null)}>
+                닫기
+              </button>
+            </div>
+
+            <div className="review">
+              {filteredRows.length === 0 ? (
+                <p className="hint">해당하는 발언이 없습니다.</p>
+              ) : (
+                filteredRows.map((row) => {
+                  const mark = MARK[row.outcome] ?? MARK.passed;
+                  const wrong = row.outcome === 'missed' || row.outcome === 'wasted';
+                  return (
+                    <div key={row.id} className={`review-row${wrong ? ' is-wrong' : ''}`}>
+                      <span className={`side ${row.side}`}>{row.side === 'pro' ? '찬성' : '반대'}</span>
+                      <div className="claim-text">
+                        {row.claim}
+                        <em>
+                          팩트체커 판정 · {VERDICT_LABEL[row.verdict] || row.verdict}
+                        </em>
+                        {result.corrections?.[row.id]?.highlight ? (
+                          <em>표시한 부분 — {result.corrections[row.id].highlight}</em>
+                        ) : null}
+                        {result.corrections?.[row.id]?.why ? (
+                          <em>틀린 이유 — {result.corrections[row.id].why}</em>
+                        ) : null}
+                        {result.corrections?.[row.id]?.ground ? (
+                          <em>맞은 근거 — {result.corrections[row.id].ground}</em>
+                        ) : null}
+                      </div>
+                      <span className={`mark ${mark.cls}`}>{mark.label}</span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="hint tally-hint">위 카드를 누르면 판정 결과별로 발언을 확인할 수 있습니다.</p>
+        )}
 
         <div className="actions" style={{ marginTop: 24 }}>
           <p className="hint">최고 점수가 저장되어 있습니다.</p>

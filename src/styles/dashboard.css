@@ -113,22 +113,22 @@
 
 /* Student dashboard · hexagonal literacy board */
 .s-dash .dash-hero {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
   margin-bottom: 28px;
 }
 
 .s-dash .dash-hero-main {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 20px;
 }
 
 .s-dash .dash-week-card {
-  max-width: 360px;
+  flex: 0 1 300px;
+  width: 100%;
+  max-width: 300px;
   margin: 0;
+  align-self: center;
 }
 
 .s-dash .dash-week-card .skill-bar-track.thick {
@@ -271,6 +271,12 @@
 @media (max-width: 900px) {
   .s-dash .dash-hero-main {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .s-dash .dash-week-card {
+    flex: none;
+    max-width: none;
   }
 
   .s-dash .dash-total {
@@ -675,22 +681,32 @@
 
 .s-dash .mode-section {
   margin: 28px 0 24px;
+  --assignment-row-height: 72px;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .s-dash .mode-section-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
   flex-wrap: wrap;
 }
 
+.s-dash .mode-section-head-main {
+  margin-bottom: 0;
+}
+
 .s-dash .mode-section-title {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   color: var(--ink);
 }
 
@@ -787,7 +803,7 @@
   overflow: hidden;
 }
 
-.s-dash .dash-layout-home .dash-tasks-card {
+.s-dash .dash-layout-home .dash-notices-card {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -795,7 +811,7 @@
   overflow: hidden;
 }
 
-.s-dash .dash-layout-home .dash-tasks-card .dash-tasks {
+.s-dash .dash-layout-home .dash-notices-card .dash-notices {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -803,9 +819,89 @@
   padding-right: 2px;
 }
 
-.s-dash .dash-layout-home .dash-tasks-card .dash-tasks-foot {
+.s-dash .dash-layout-home .dash-notices-card .dash-notices-foot {
   flex-shrink: 0;
   margin-top: 10px;
+}
+
+.s-dash .dash-notices {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.s-dash .dash-notices li {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.s-dash .dash-notices li.is-new {
+  border-color: #0f766e;
+  background: #f0fdfa;
+}
+
+.s-dash .notice-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.s-dash .notice-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.s-dash .notice-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.s-dash .notice-badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ccfbf1;
+  color: #0f766e;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.s-dash .notice-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.s-dash .notice-preview {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #475569;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.s-dash .dash-notices-empty {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.s-dash .dash-notices-foot {
+  margin: 12px 0 0;
+  font-size: 13px;
 }
 
 .s-dash .skill-bars {
@@ -880,19 +976,26 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  background: #e2e8f0;
-  border-radius: 14px;
-  overflow: hidden;
+  gap: 8px;
+  background: transparent;
+  border-radius: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: calc(var(--assignment-row-height) * 5 + 32px);
+  scrollbar-gutter: stable;
 }
 
 .s-dash .assignment-item {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-height: var(--assignment-row-height);
+  box-sizing: border-box;
   padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
   background: #fff;
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .s-dash .assignment-item:hover {
@@ -900,7 +1003,13 @@
 }
 
 .s-dash .assignment-item.is-urgent {
-  border-left: 3px solid #ef4444;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.s-dash .assignment-item.is-urgent .assignment-title,
+.s-dash .assignment-item.is-urgent .assignment-meta {
+  color: #dc2626;
 }
 
 .s-dash .assignment-icon {

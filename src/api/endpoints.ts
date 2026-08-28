@@ -55,6 +55,8 @@ export const API_ENDPOINTS = {
     createAssignmentStep2Set: '/teacher/assignments/step2/set',
     assignmentStep2Set: (id: number | string) => `/teacher/assignments/step2/set/${id}`,
     createAssignmentStep3: '/teacher/assignments/step3',
+    previewAssignmentStep3Debate: (id: number | string) =>
+      `/teacher/assignments/${id}/step3/preview-debate`,
     createAssignmentStep4: '/teacher/assignments/step4',
   },
   search: '/search',

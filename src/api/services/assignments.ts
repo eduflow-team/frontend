@@ -15,6 +15,7 @@ import type {
   Stage3AssignmentDetailResponse,
   Stage3CreateRequest,
   Stage3CreateResponse,
+  Stage3TeacherPreviewResponse,
   Stage3DebateResponse,
   Stage3FactcheckRequest,
   Stage3FactcheckResponse,
@@ -196,6 +197,18 @@ export async function createTeacherAssignmentStep3Api(
   payload: Stage3CreateRequest,
 ): Promise<Stage3CreateResponse> {
   return api.post(API_ENDPOINTS.teacher.createAssignmentStep3, payload);
+}
+
+export async function previewTeacherAssignmentStep3DebateApi(
+  assignmentId: number | string,
+): Promise<Stage3TeacherPreviewResponse> {
+  return apiRequest<Stage3TeacherPreviewResponse>(
+    API_ENDPOINTS.teacher.previewAssignmentStep3Debate(assignmentId),
+    {
+      method: 'POST',
+      signal: AbortSignal.timeout(300_000),
+    },
+  );
 }
 
 export async function getStudentStep3Api(

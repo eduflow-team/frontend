@@ -1097,6 +1097,30 @@ h4 {
   align-items: center;
 }
 
+.t-home-assignments-card {
+  --teacher-assign-row-height: 68px;
+}
+
+.t-home-assignments-list {
+  max-height: calc(var(--teacher-assign-row-height) * 5);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.t-home-assignments-list .t-home-row-assign {
+  min-height: var(--teacher-assign-row-height);
+  box-sizing: border-box;
+}
+
+.t-home-assignments-list .t-home-row-assign .t-home-row-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.35;
+}
+
 .t-home-row-title {
   font-weight: 600;
   color: var(--gray-900);

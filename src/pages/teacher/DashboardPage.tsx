@@ -268,7 +268,7 @@ export function TeacherDashboardPage() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
+      <div className="card t-home-assignments-card" style={{ marginTop: 16 }}>
         <div className="card-header">
           <span className="card-title">등록된 과제</span>
         </div>
@@ -279,8 +279,9 @@ export function TeacherDashboardPage() {
             isEmpty={!assignments.data?.assignments.length}
             emptyMessage="등록된 과제가 없습니다."
           >
-            {assignments.data?.assignments.map((item) => (
-              <div key={item.assignment_id} className="t-home-row t-home-row-assign">
+            <div className="t-home-assignments-list">
+              {assignments.data?.assignments.map((item) => (
+                <div key={item.assignment_id} className="t-home-row t-home-row-assign">
                 <div>
                   <div className="t-home-row-title">
                     {item.title ?? `과제 #${item.assignment_id}`}
@@ -299,7 +300,8 @@ export function TeacherDashboardPage() {
                   삭제
                 </button>
               </div>
-            ))}
+              ))}
+            </div>
           </ApiStateBody>
           {actionError && <p className="inline-alert error">{actionError}</p>}
         </div>

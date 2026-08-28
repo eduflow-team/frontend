@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import {
   fetchStudentDashboardAssignmentsApi,
   fetchStudentDashboardSummaryApi,
+  fetchStudentNoticesApi,
 } from '../../api';
 import type { ProgressStatus, StudentAssignmentItem, StageSummaryItem } from '../../api/types';
 import {
@@ -38,10 +39,25 @@ function isDueToday(iso?: string | null) {
   );
 }
 
+function isDueWithin24Hours(iso?: string | null) {
+  if (!iso) return false;
+  const due = new Date(iso);
+  if (Number.isNaN(due.getTime())) return false;
+  const diff = due.getTime() - Date.now();
+  return diff > 0 && diff <= 24 * 60 * 60 * 1000;
+}
+
 function dueLabel(iso?: string | null) {
   if (!iso) return '마감 없음';
   if (isDueToday(iso)) return '오늘';
   return formatDueAt(iso);
+}
+
+function noticeDateLabel(iso?: string | null) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function pathForAssignment(item: StudentAssignmentItem) {
@@ -88,6 +104,7 @@ function buildFromApi(
         status: item.status,
         dueLabel: dueLabel(item.due_date),
         dueToday: isDueToday(item.due_date),
+        dueSoon: isDueWithin24Hours(item.due_date),
         remainingAttempts: item.max_attempts != null ? undefined : null,
         href: pathForAssignment(item),
         score: item.score,
@@ -111,6 +128,11 @@ export function StudentDashboardPage() {
 
   const summary = useFetch(fetchStudentDashboardSummaryApi, [], useApi);
   const assignments = useFetch(fetchStudentDashboardAssignmentsApi, [], useApi);
+  const notices = useFetch(
+    () => fetchStudentNoticesApi({ page: 1, size: 8 }),
+    [],
+    useApi,
+  );
 
   const loading = useApi && (summary.loading || assignments.loading);
   const error = useApi ? summary.error || assignments.error : null;
@@ -164,7 +186,6 @@ export function StudentDashboardPage() {
             <section className="dash-hero">
               <div className="dash-hero-main">
                 <div className="dash-intro">
-                  <p className="done-eyebrow">울산형 AI 리터러시</p>
                   <h1 className="page-title">
                     <span className="dash-hello">안녕하세요,</span>
                     {model.studentName}님
@@ -187,6 +208,21 @@ export function StudentDashboardPage() {
                     )}
                   </div>
                 </div>
+
+                <section className="info-card dash-week-card">
+                  <div className="info-card-head">
+                    <span className="info-icon" aria-hidden="true">
+                      ◷
+                    </span>
+                    <p className="side-title">이번 주 진도율</p>
+                  </div>
+                  <p className="progress-label">
+                    학습 모드 달성률 <strong>{weekPct}%</strong>
+                  </p>
+                  <div className="skill-bar-track thick">
+                    <span style={{ width: `${weekPct}%` }} />
+                  </div>
+                </section>
 
                 <div className="dash-total">
                   <p className="dash-total-label">전체 AI 리터러시</p>
@@ -213,30 +249,20 @@ export function StudentDashboardPage() {
                   </p>
                 </div>
               </div>
-
-              <section className="info-card dash-week-card">
-                <div className="info-card-head">
-                  <span className="info-icon" aria-hidden="true">
-                    ◷
-                  </span>
-                  <p className="side-title">이번 주 진도율</p>
-                </div>
-                <p className="progress-label">
-                  학습 모드 달성률 <strong>{weekPct}%</strong>
-                </p>
-                <div className="skill-bar-track thick">
-                  <span style={{ width: `${weekPct}%` }} />
-                </div>
-              </section>
             </section>
 
             <section className="mode-section">
               <div className="mode-section-head">
-                <h2 className="mode-section-title">선생님이 내신 과제</h2>
+                <div className="info-card-head mode-section-head-main">
+                  <span className="info-icon" aria-hidden="true">
+                    ◎
+                  </span>
+                  <h2 className="mode-section-title">남은 과제</h2>
+                </div>
                 <p className="hint">과제를 클릭하여 바로 시작하세요.</p>
               </div>
               {model.tasks.length === 0 ? (
-                <div className="info-card" style={{ textAlign: 'center', padding: '32px 16px' }}>
+                <div style={{ textAlign: 'center', padding: '24px 8px' }}>
                   <p className="hint">배정된 과제가 없습니다.</p>
                 </div>
               ) : (
@@ -256,7 +282,10 @@ export function StudentDashboardPage() {
                           ? 'btn btn-ghost task-go'
                           : 'btn btn-ghost task-go';
                     return (
-                      <li key={task.id} className={`assignment-item${task.dueToday ? ' is-urgent' : ''}`}>
+                      <li
+                        key={task.id}
+                        className={`assignment-item${task.dueSoon ? ' is-urgent' : ''}`}
+                      >
                         <span className="assignment-icon" aria-hidden="true">
                           {mode?.icon ?? '◇'}
                         </span>
@@ -306,53 +335,44 @@ export function StudentDashboardPage() {
               </section>
 
               <div className="dash-side">
-                <section className="info-card dash-tasks-card">
+                <section className="info-card dash-notices-card">
                   <div className="info-card-head">
                     <span className="info-icon" aria-hidden="true">
-                      ◎
+                      📢
                     </span>
-                    <p className="side-title">남은 과제</p>
+                    <p className="side-title">공지사항</p>
                   </div>
-                  <ul className="dash-tasks">
-                    {remaining.length === 0 ? (
-                      <li>
-                        <div className="task-main">
-                          <p className="task-title">남은 과제가 없어요</p>
-                          <span className="task-meta">모두 완료했습니다.</span>
-                        </div>
-                      </li>
-                    ) : (
-                      remaining.map((row, idx) => {
-                        const cta = row.status === 'IN_PROGRESS' ? '이어하기' : '시작하기';
-                        const btnClass =
-                          row.status === 'IN_PROGRESS'
-                            ? 'btn btn-primary task-go'
-                            : 'btn btn-ghost task-go';
-                        return (
-                          <li key={row.id} className={idx === 0 ? 'is-current' : undefined}>
-                            <div className="task-main">
-                              <div className="task-top">
-                                <p className="task-title">{row.title}</p>
-                                <span className={`status-pill ${statusPillClass(row.status)}`}>
-                                  {PROGRESS_LABELS[row.status]}
-                                </span>
-                              </div>
-                              <span className="task-meta">
-                                {row.subject} · 마감 {row.dueLabel}
-                              </span>
+                  {!useApi ? (
+                    <p className="hint dash-notices-empty">로그인하면 학급 공지를 확인할 수 있습니다.</p>
+                  ) : notices.loading ? (
+                    <p className="hint dash-notices-empty">공지를 불러오는 중…</p>
+                  ) : notices.error ? (
+                    <p className="hint dash-notices-empty">{notices.error}</p>
+                  ) : !notices.data?.notices.length ? (
+                    <p className="hint dash-notices-empty">등록된 공지가 없습니다.</p>
+                  ) : (
+                    <ul className="dash-notices">
+                      {notices.data.notices.map((notice) => (
+                        <li key={notice.notice_id} className={notice.is_new ? 'is-new' : undefined}>
+                          <div className="notice-main">
+                            <div className="notice-top">
+                              <p className="notice-title">{notice.title}</p>
+                              {notice.is_new ? <span className="notice-badge">NEW</span> : null}
                             </div>
-                            <Link className={btnClass} to={row.href}>
-                              {cta}
-                            </Link>
-                          </li>
-                        );
-                      })
-                    )}
-                  </ul>
-                  <p className="dash-tasks-foot hint">
-                    {completedCount > 0
-                      ? `완료한 과제 ${completedCount}개`
-                      : '아직 완료한 과제가 없어요'}
+                            <span className="notice-meta">
+                              {notice.author_name}
+                              {notice.created_at ? ` · ${noticeDateLabel(notice.created_at)}` : ''}
+                            </span>
+                            <p className="notice-preview">{notice.content}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="dash-notices-foot">
+                    <Link to="/student/notices" className="dash-link">
+                      전체 공지 보기
+                    </Link>
                   </p>
                 </section>
               </div>

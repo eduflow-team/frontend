@@ -9,6 +9,7 @@ export interface DashboardTask {
   status: ProgressStatus;
   dueLabel: string;
   dueToday?: boolean;
+  dueSoon?: boolean;
   remainingAttempts?: number | null;
   href: string;
   score?: number | null;
