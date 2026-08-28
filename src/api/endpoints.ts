@@ -22,6 +22,7 @@ export const API_ENDPOINTS = {
       `/student/assignments/${id}/step1/document`,
     assignmentStep1Chat: (id: number | string) => `/student/assignments/${id}/step1/chat`,
     assignmentStep1Submit: (id: number | string) => `/student/assignments/${id}/step1/submit`,
+    assignmentStep1Finalize: (id: number | string) => `/student/assignments/${id}/step1/finalize`,
     assignmentStep2: (id: number | string) => `/student/assignments/${id}/step2`,
     assignmentStep2Document: (id: number | string) =>
       `/student/assignments/${id}/step2/document`,
