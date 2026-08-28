@@ -1,17 +1,10 @@
 import { SUBJECT_OPTIONS } from './assignments';
-import type { LearningMode, NavSection, StudentSubject } from '../types';
+import type { LearningMode, NavSection } from '../types';
 
 export const TEACHER_NAV: NavSection[] = [
   {
     label: '메인',
     items: [{ label: '홈', path: '/teacher' }],
-  },
-  {
-    label: '과목',
-    items: SUBJECT_OPTIONS.map((subject) => ({
-      label: subject.label,
-      path: `/teacher/subject/${subject.value}`,
-    })),
   },
   {
     label: '학급',
@@ -86,16 +79,10 @@ export const STUDENT_LEARNING_MODES: LearningMode[] = [
   },
 ];
 
-/** 학생 사이드바 — 과목별 학습 모드 */
-export const STUDENT_SUBJECTS: StudentSubject[] = SUBJECT_OPTIONS.map((subject) => ({
-  key: subject.value,
-  name: subject.label,
-  activities: STUDENT_LEARNING_MODES.map((mode) => ({
-    id: `${subject.value}-stage${mode.stage}`,
-    stage: mode.stage,
-    title: mode.module,
-    path: `/student/${subject.value}/stage/${mode.stage}`,
-  })),
+/** 학생 사이드바 — 과목 페이지 */
+export const STUDENT_SUBJECT_NAV = SUBJECT_OPTIONS.map((subject) => ({
+  label: subject.label,
+  path: `/student/subject/${subject.value}`,
 }));
 
 export const PAGE_TITLES: Record<string, string> = {

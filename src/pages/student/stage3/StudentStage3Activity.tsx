@@ -173,6 +173,9 @@ function resultFromCompleted(detail: Stage3AssignmentDetailResponse): Stage3Grad
         proRole: detail.pro_persona,
         conRole: detail.con_persona,
       });
+  if (detail.grade_result) {
+    return resultFromSubmit(detail.grade_result, debate);
+  }
   return {
     topic: detail.topic || debate.topic,
     source: debate.source,
@@ -1126,10 +1129,18 @@ export function StudentStage3Activity({
   );
 }
 
-function StudentStage3Done({
+export function buildStage3GradeResultFromDetail(
+  detail: Stage3AssignmentDetailResponse,
+): Stage3GradeResult {
+  return resultFromCompleted(detail);
+}
+
+export function StudentStage3Done({
   result,
+  embedded = false,
 }: {
   result: Stage3GradeResult;
+  embedded?: boolean;
 }) {
   const [filter, setFilter] = useState<Stage3Outcome | null>(null);
   const reviewRef = useRef<HTMLDivElement>(null);
@@ -1169,23 +1180,8 @@ function StudentStage3Done({
     });
   };
 
-  return (
-    <div className="s3">
-      <div className="shell wide">
-        <header className="topbar">
-          <div className="brand">
-            <strong>EduFlow</strong>
-            <span>학생 · AI 토론</span>
-          </div>
-        </header>
-        <nav className="steps" aria-label="진행 단계">
-          <div className="step">과제 선택</div>
-          <div className="step">토론 평가</div>
-          <div className="step" aria-current="step">
-            결과 확인
-          </div>
-        </nav>
-
+  const body = (
+    <>
         <section className="score-hero">
           <div className="score-ring" style={{ ['--p' as string]: String(result.score) }}>
             <div className="inner">
@@ -1290,9 +1286,35 @@ function StudentStage3Done({
           <p className="hint tally-hint">위 카드를 누르면 판정 결과별로 발언을 확인할 수 있습니다.</p>
         )}
 
-        <div className="actions" style={{ marginTop: 24 }}>
-          <p className="hint">최고 점수가 저장되어 있습니다.</p>
-        </div>
+        {!embedded ? (
+          <div className="actions" style={{ marginTop: 24 }}>
+            <p className="hint">최고 점수가 저장되어 있습니다.</p>
+          </div>
+        ) : null}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="s3 s3-embedded">{body}</div>;
+  }
+
+  return (
+    <div className="s3">
+      <div className="shell wide">
+        <header className="topbar">
+          <div className="brand">
+            <strong>EduFlow</strong>
+            <span>학생 · AI 토론</span>
+          </div>
+        </header>
+        <nav className="steps" aria-label="진행 단계">
+          <div className="step">과제 선택</div>
+          <div className="step">토론 평가</div>
+          <div className="step" aria-current="step">
+            결과 확인
+          </div>
+        </nav>
+        {body}
       </div>
     </div>
   );

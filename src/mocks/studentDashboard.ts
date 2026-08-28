@@ -1,6 +1,5 @@
 import type { ProgressStatus } from '../api/types';
 import type { LiteracyScores } from '../constants/literacyAxes';
-
 import type { SubjectValue } from '../constants/assignments';
 
 export interface DashboardTask {
@@ -8,9 +7,9 @@ export interface DashboardTask {
   title: string;
   subjectKey: SubjectValue;
   subjectLabel: string;
-  modeLabel: string;
   stage: number;
   status: ProgressStatus;
+  dueAt?: string | null;
   dueLabel: string;
   dueToday?: boolean;
   dueSoon?: boolean;
@@ -48,7 +47,6 @@ export const STUDENT_DASHBOARD_DEMO: StudentDashboardViewModel = {
       title: '자료 맞는 AI 답 찾기',
       subjectKey: 'hist',
       subjectLabel: '한국사',
-      modeLabel: 'RAG 체험',
       stage: 1,
       status: 'COMPLETED',
       dueLabel: '8. 10.',
@@ -61,7 +59,6 @@ export const STUDENT_DASHBOARD_DEMO: StudentDashboardViewModel = {
       title: '틀린 AI 답 고치기',
       subjectKey: 'hist',
       subjectLabel: '한국사',
-      modeLabel: 'Hallucination 탐지',
       stage: 2,
       status: 'IN_PROGRESS',
       dueLabel: '8. 15.',
@@ -74,7 +71,6 @@ export const STUDENT_DASHBOARD_DEMO: StudentDashboardViewModel = {
       title: 'AI와 역사 해석 토론',
       subjectKey: 'hist',
       subjectLabel: '한국사',
-      modeLabel: 'AI 토론',
       stage: 3,
       status: 'IN_PROGRESS',
       dueLabel: '오늘',
@@ -88,7 +84,6 @@ export const STUDENT_DASHBOARD_DEMO: StudentDashboardViewModel = {
       title: '광합성 개념 탐색',
       subjectKey: 'sci',
       subjectLabel: '과학',
-      modeLabel: 'RAG 체험',
       stage: 1,
       status: 'NOT_STARTED',
       dueLabel: '8. 20.',
@@ -100,7 +95,6 @@ export const STUDENT_DASHBOARD_DEMO: StudentDashboardViewModel = {
       title: '역사 자료 AI 보안 체험',
       subjectKey: 'soc',
       subjectLabel: '사회',
-      modeLabel: '보안 강화',
       stage: 4,
       status: 'NOT_STARTED',
       dueLabel: '8. 24.',

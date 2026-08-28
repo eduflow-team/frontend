@@ -11,6 +11,7 @@ import {
   StudentResultsPage,
   StudentStagePage,
 } from '../pages/student/StudentPages';
+import { StudentAssignmentReportPage } from '../pages/student/StudentAssignmentReportPage';
 import { TeacherDashboardPage } from '../pages/teacher/DashboardPage';
 import {
   TeacherAttendancePage,
@@ -76,6 +77,7 @@ export const router = createBrowserRouter([
           { path: '/student/stage/:stage', element: <StudentStagePage /> },
           { path: '/student/:subject/stage/:stage', element: <StudentStagePage /> },
           { path: '/student/results', element: <StudentResultsPage /> },
+          { path: '/student/results/:assignmentId', element: <StudentAssignmentReportPage /> },
           { path: '/student/attendance', element: <StudentAttendancePage /> },
           { path: '/student/notices', element: <StudentNoticesPage /> },
         ],

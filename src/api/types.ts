@@ -381,6 +381,7 @@ export interface Stage3AssignmentDetailResponse {
   highest_score?: number | null;
   due_at?: string | null;
   debate?: Stage3DebatePublicPayload | null;
+  grade_result?: Stage3SubmitResponse | null;
 }
 
 export interface Stage3DebateResponse {

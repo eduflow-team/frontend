@@ -1,19 +1,17 @@
 import { useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   PAGE_TITLES,
   STUDENT_NAV,
-  STUDENT_SUBJECTS,
+  STUDENT_SUBJECT_NAV,
   TEACHER_NAV,
   learningModeByStage,
   subjectPageTitle,
 } from '../constants/navigation';
-import { normalizeSubjectKey } from '../constants/assignments';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError, leaveApi } from '../api';
 import { NavLinkItem } from '../components/common';
 import { TopbarSearch } from '../components/TopbarSearch';
-import type { SubjectKey } from '../types';
 
 function TopbarSearchGate() {
   const { user } = useAuth();
@@ -73,15 +71,6 @@ function TeacherSidebar() {
 }
 
 function StudentSidebar() {
-  const location = useLocation();
-  const subjectMatch = location.pathname.match(/^\/student\/subject\/([^/]+)/);
-  const activeSubject = subjectMatch?.[1] ?? null;
-  const [openSubject, setOpenSubject] = useState<SubjectKey | null>(
-    () => normalizeSubjectKey(activeSubject) as SubjectKey,
-  );
-
-  const isSubjectOpen = (key: SubjectKey) => openSubject === key;
-
   return (
     <nav className="sidebar-nav">
       {STUDENT_NAV.map((section) => (
@@ -99,49 +88,9 @@ function StudentSidebar() {
       ))}
 
       <div className="nav-section-label">과목</div>
-      {STUDENT_SUBJECTS.map((subject) => {
-        const open = isSubjectOpen(subject.key);
-        const onSubjectPage =
-          location.pathname === `/student/subject/${subject.key}` ||
-          location.pathname.startsWith(`/student/${subject.key}/`);
-        return (
-          <div key={subject.key} className="nav-subject-group">
-            <button
-              type="button"
-              className={`nav-subject-head${open || onSubjectPage ? ' open' : ''}`}
-              onClick={() => setOpenSubject((prev) => (prev === subject.key ? null : subject.key))}
-              aria-expanded={open || onSubjectPage}
-            >
-              <span>{subject.name}</span>
-              <span className="nav-chevron" aria-hidden="true">
-                ▾
-              </span>
-            </button>
-            <div className={`nav-sub-items${open || onSubjectPage ? ' show' : ''}`}>
-              <Link
-                to={`/student/subject/${subject.key}`}
-                className={`nav-sub-item${location.pathname === `/student/subject/${subject.key}` ? ' active' : ''}`}
-              >
-                과제 목록
-              </Link>
-              {subject.activities.map((activity) => (
-                <Link
-                  key={activity.id}
-                  to={activity.path}
-                  className={`nav-sub-item mode-nav-item${
-                    location.pathname === activity.path ? ' active' : ''
-                  }`}
-                >
-                  <span className="mode-nav-icon" aria-hidden="true">
-                    {learningModeByStage(activity.stage)?.icon ?? '◇'}
-                  </span>
-                  <span className="mode-nav-label">{activity.title}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+      {STUDENT_SUBJECT_NAV.map((item) => (
+        <NavLinkItem key={item.path} to={item.path} label={item.label} />
+      ))}
     </nav>
   );
 }
@@ -201,7 +150,7 @@ export function AppLayout() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isTeacher ? 'role-teacher' : 'role-student'}`}>
       <aside
         className={`sidebar${sidebarOpen ? '' : ' collapsed'}${mobileOpen ? ' open-mobile' : ''}`}
       >
