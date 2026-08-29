@@ -5,6 +5,8 @@ import type {
   Stage1ChatRequest,
   Stage1ChatResponse,
   Stage1CreateResponse,
+  Stage1FinalizeRequest,
+  Stage1FinalizeResponse,
   Stage1SubmitRequest,
   Stage1SubmitResponse,
   Stage2AssignmentDetailResponse,
@@ -42,6 +44,13 @@ export async function postStudentStep1SubmitApi(
   body: Stage1SubmitRequest,
 ): Promise<Stage1SubmitResponse> {
   return api.post(API_ENDPOINTS.student.assignmentStep1Submit(assignmentId), body);
+}
+
+export async function postStudentStep1FinalizeApi(
+  assignmentId: number | string,
+  body: Stage1FinalizeRequest,
+): Promise<Stage1FinalizeResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep1Finalize(assignmentId), body);
 }
 
 export async function getStudentStep2Api(
