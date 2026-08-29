@@ -1436,7 +1436,7 @@
 }
 
 .s2 .teacher-step-circle.active {
-  box-shadow: 0 0 0 4px var(--primary-light);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .s2 .teacher-step-label {

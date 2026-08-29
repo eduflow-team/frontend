@@ -469,6 +469,23 @@ h4 {
   --focus: var(--primary);
 }
 
+.app-shell.role-teacher .s1,
+.app-shell.role-teacher .s2,
+.app-shell.role-teacher .s3,
+.app-shell.role-teacher .s4 {
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-light: #f5f3ff;
+}
+
+.app-shell.role-student .s2,
+.app-shell.role-student .s3,
+.app-shell.role-student .s4 {
+  --primary: #059669;
+  --primary-hover: #047857;
+  --primary-light: #ecfdf5;
+}
+
 .app-shell {
   display: flex;
   min-height: 100vh;
