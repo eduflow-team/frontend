@@ -22,6 +22,7 @@ export function PdfViewerModal({
 }: PdfViewerModalProps) {
   const [blobUrl, setBlobUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [frameReady, setFrameReady] = useState(false);
   const [error, setError] = useState('');
 
   const cleanup = useCallback(() => {
@@ -38,6 +39,7 @@ export function PdfViewerModal({
       cleanup();
       setError('');
       setLoading(false);
+      setFrameReady(false);
       return undefined;
     }
 
@@ -45,11 +47,13 @@ export function PdfViewerModal({
       cleanup();
       setError('');
       setLoading(false);
+      setFrameReady(false);
       return undefined;
     }
 
     let cancelled = false;
     setLoading(true);
+    setFrameReady(false);
     setError('');
     cleanup();
 
@@ -94,27 +98,35 @@ export function PdfViewerModal({
       >
         <div className="pdf-modal-header">
           <strong>{filename || '교과 PDF 원문'}</strong>
-          <button type="button" className="btn btn-sm" onClick={onClose}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
             닫기
           </button>
         </div>
         <div className="pdf-modal-body">
           {fallbackText ? (
             <div className="pdf-modal-placeholder">
-              <p style={{ whiteSpace: 'pre-wrap', textAlign: 'left', width: '100%' }}>{fallbackText}</p>
+              <p className="pdf-modal-excerpt">{fallbackText}</p>
             </div>
           ) : loading ? (
             <p className="pdf-modal-state">PDF 불러오는 중…</p>
           ) : error ? (
             <p className="pdf-modal-state error">{error}</p>
           ) : blobUrl ? (
-            <iframe title={filename || '교과 PDF 원문'} src={blobUrl} className="pdf-frame" />
+            <>
+              {!frameReady && <p className="pdf-modal-state pdf-modal-state-overlay">PDF 불러오는 중…</p>}
+              <iframe
+                title={filename || '교과 PDF 원문'}
+                src={blobUrl}
+                className={`pdf-frame${frameReady ? ' is-ready' : ''}`}
+                onLoad={() => setFrameReady(true)}
+              />
+            </>
           ) : excerptFallback?.trim() ? (
             <div className="pdf-modal-placeholder">
-              <p className="pdf-modal-state" style={{ marginBottom: 12 }}>
+              <p className="pdf-modal-state pdf-modal-fallback-note">
                 PDF를 불러오지 못해 발췌문을 표시합니다.
               </p>
-              <p style={{ whiteSpace: 'pre-wrap', textAlign: 'left', width: '100%' }}>{excerptFallback}</p>
+              <p className="pdf-modal-excerpt">{excerptFallback}</p>
             </div>
           ) : (
             <p className="pdf-modal-state">원문을 불러올 수 없습니다.</p>

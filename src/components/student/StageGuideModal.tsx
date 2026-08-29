@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { STAGE_GUIDES } from '../../constants/stageGuides';
+import { STAGE_GUIDES, type StageGuide } from '../../constants/stageGuides';
 
 interface StageGuideModalProps {
-  stage: number;
+  stage?: number;
+  /** stage 대신 직접 가이드 전달 (활동 입장 팝업 등) */
+  guide?: StageGuide;
   onContinue: () => void;
   busy?: boolean;
   busyLabel?: string;
@@ -28,16 +30,17 @@ function IntroText({ text, highlight }: { text: string; highlight: string }) {
 
 export function StageGuideModal({
   stage,
+  guide: guideProp,
   onContinue,
   busy = false,
   busyLabel,
 }: StageGuideModalProps) {
-  const guide = STAGE_GUIDES[stage];
+  const guide = guideProp ?? (stage != null ? STAGE_GUIDES[stage] : undefined);
   const [pageIndex, setPageIndex] = useState(0);
 
   useEffect(() => {
     setPageIndex(0);
-  }, [stage]);
+  }, [stage, guideProp]);
 
   if (!guide) return null;
 

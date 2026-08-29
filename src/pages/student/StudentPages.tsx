@@ -59,16 +59,15 @@ export function StudentStagePage() {
   const assignments = useFetch(fetchStudentDashboardAssignmentsApi, [], useAssignmentsApi);
 
   useEffect(() => {
-    setPhase('guide');
-    setActiveId(null);
     setAssignmentIdInput(assignmentIdParam ?? '');
-  }, [stageNum]);
-
-  useEffect(() => {
     if (assignmentIdParam) {
-      setAssignmentIdInput(assignmentIdParam);
+      setActiveId(assignmentIdParam);
+      setPhase('learn');
+    } else {
+      setPhase('guide');
+      setActiveId(null);
     }
-  }, [assignmentIdParam]);
+  }, [stageNum, assignmentIdParam]);
 
   if (!mode || Number.isNaN(stageNum) || stageNum < 1 || stageNum > 4) {
     return <Navigate to="/student" replace />;
@@ -77,9 +76,20 @@ export function StudentStagePage() {
   const selectAssignment = (id: string) => {
     setActiveId(id);
     setAssignmentIdInput(id);
-    setSearchParams({ assignmentId: id });
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('assignmentId', id);
+      return next;
+    });
     setPhase('learn');
   };
+
+  useEffect(() => {
+    if (phase === 'select' && assignmentIdParam && !activeId) {
+      setActiveId(assignmentIdParam);
+      setPhase('learn');
+    }
+  }, [phase, assignmentIdParam, activeId]);
 
   const apiList = toSelectableAssignments(assignments.data?.assignments, stageNum);
   const selectableList: SelectableAssignment[] = (() => {
@@ -128,7 +138,12 @@ export function StudentStagePage() {
   if (phase === 'guide') {
     return (
       <div className="stage-assign-shell">
-        <StageGuideModal stage={stageNum} onContinue={() => setPhase('select')} />
+        <StageGuideModal
+          stage={stageNum}
+          onContinue={() => {
+            setPhase('select');
+          }}
+        />
       </div>
     );
   }
