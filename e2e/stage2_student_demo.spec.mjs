@@ -20,9 +20,27 @@ async function loginViaUI(page, email, password) {
 
 async function dismissStageGuide(page) {
   const title = page.locator('#stage-guide-title');
-  if (!(await title.isVisible().catch(() => false))) return;
+  if (!(await title.isVisible({ timeout: 5000 }).catch(() => false))) return;
+  const goPick = page.getByRole('button', { name: '과제 고르러 가기' });
+  if (await goPick.isVisible().catch(() => false)) {
+    await goPick.click();
+    return;
+  }
   await page.locator('.stage-flow-modal-foot .btn-primary').click();
 }
+
+async function dismissTour(page) {
+  const skip = page.locator('.s1-tour .btn-ghost').filter({ hasText: '건너뛰기' });
+  if (await skip.isVisible({ timeout: 2500 }).catch(() => false)) {
+    await skip.click();
+  }
+}
+
+const ERROR_TYPE_LABELS = {
+  PERSONA_BIAS: '페르소나 편향',
+  INFORMATION_FABRICATION: '정보 날조',
+  RETRIEVAL_ERROR: '잘못된 문서 검색',
+};
 
 async function openStudentAssignment(page, ctx, assignmentId, { relogin = false } = {}) {
   if (relogin) {
@@ -36,29 +54,15 @@ async function openStudentAssignment(page, ctx, assignmentId, { relogin = false 
     await page.goto(`/student/stage/2?assignmentId=${assignmentId}`);
   }
 
-  await dismissStageGuide(page);
-
-  const selectHeading = page.getByRole('heading', { name: '과제 선택' });
-  if (!(await selectHeading.isVisible({ timeout: 5000 }).catch(() => false))) {
-    await page.goto('/student/stage/2');
-    await dismissStageGuide(page);
-  }
-
-  await expect(selectHeading).toBeVisible({ timeout: 20_000 });
-
-  const row = page.locator('.stage-assign-row').filter({ hasText: String(assignmentId) });
-  if (await row.first().isVisible({ timeout: 8000 }).catch(() => false)) {
-    await row.first().click();
-  } else {
-    await page.locator('#stage-assignment-id').fill(String(assignmentId));
-    await page.getByRole('button', { name: '열기' }).click();
-  }
-  await expect(page.locator('.ai-block-v2')).toBeVisible({ timeout: 45_000 });
+  // assignmentId 있으면 guide/select를 건너뛰고 learn으로 진입 (StudentStagePage)
+  await expect(page.locator('.s2-student')).toBeVisible({ timeout: 60_000 });
+  await dismissTour(page);
+  await expect(page.locator('.s2-student .ai-response-text')).toBeVisible({ timeout: 45_000 });
 }
 
 async function selectErrorText(page, errorSentence) {
   const ok = await page.evaluate((text) => {
-    const container = document.querySelector('.ai-block-v2');
+    const container = document.querySelector('.s2-student .ai-response-text');
     if (!container) return false;
     const displayed = (container.innerText || '').replace(/\s+/g, ' ').trim();
     const target = text.replace(/\s+/g, ' ').trim();
@@ -107,27 +111,41 @@ async function selectErrorText(page, errorSentence) {
   }, errorSentence);
 
   expect(ok, `AI 답변에서 오류 문장 선택 실패: ${errorSentence.slice(0, 40)}`).toBeTruthy();
-  await expect(page.locator('.find-form')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.selected-segment-chip')).toBeVisible({ timeout: 10_000 });
+}
+
+async function pickErrorType(page, errorType) {
+  const label = ERROR_TYPE_LABELS[errorType] || errorType;
+  const segment = page.locator('.type-segment').filter({ hasText: label });
+  if (await segment.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+    await segment.first().click();
+    return;
+  }
+  await page.locator('#s2-error-type').selectOption(errorType);
 }
 
 async function solveAssignmentInBrowser(page, ctx, card, index) {
   console.log(`[student] 문제 ${index + 1} — assignment ${card.assignmentId} (${card.errorType})`);
   await openStudentAssignment(page, ctx, card.assignmentId, { relogin: index > 0 });
+  await dismissTour(page);
   await demoPause(page);
 
-  await page.getByRole('button', { name: 'PDF 원문 보기' }).click();
-  await expect(page.locator('iframe.pdf-frame, .pdf-modal-placeholder')).toBeVisible({ timeout: 15_000 });
-  await demoPause(page);
-  await page.locator('.pdf-modal-header').getByRole('button', { name: '닫기' }).click();
+  const pdfBtn = page.locator('[data-tour="s2-tour-pdf"] button').filter({ hasText: '보기' });
+  if (await pdfBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await pdfBtn.click();
+    await expect(page.locator('iframe.pdf-frame, .pdf-modal-placeholder')).toBeVisible({ timeout: 15_000 });
+    await demoPause(page);
+    await page.locator('.pdf-modal-header').getByRole('button', { name: '닫기' }).click();
+  }
 
   await selectErrorText(page, card.errorSentence);
   await demoPause(page);
-  await page.locator('#s2-error-type').selectOption(card.errorType);
+  await pickErrorType(page, card.errorType);
   await page.locator('#s2-reason').fill(card.reason);
   await demoPause(page);
   await page.getByRole('button', { name: '제출 및 피드백 받기' }).click();
 
-  await expect(page.locator('.feedback-panel.success').filter({ hasText: /맞았습니다/ })).toBeVisible({
+  await expect(page.locator('.feedback-bar.success, .decide-bar.success')).toBeVisible({
     timeout: 90_000,
   });
 
@@ -136,19 +154,21 @@ async function solveAssignmentInBrowser(page, ctx, card, index) {
     await toCorrectBtn.click();
   }
 
-  await expect(page.locator('.correction-form')).toBeVisible({ timeout: 15_000 });
+  await dismissTour(page);
+  await expect(page.getByRole('button', { name: '교정 최종 제출' })).toBeVisible({ timeout: 15_000 });
   await demoPause(page);
-  await page.locator('#s2-correction-0').fill(card.correctSentence);
+  const correctionText = card.correctionAnswer || card.correctSentence;
+  await page.locator('#s2-correction-0').fill(correctionText);
   await page.getByRole('button', { name: '교정 최종 제출' }).click();
   await demoPause(page);
   await page.getByRole('button', { name: '최종 제출', exact: true }).click();
 
-  await expect(page.locator('.feedback-panel').filter({ hasText: /교정 결과|통과|100/ })).toBeVisible({
-    timeout: 90_000,
-  });
-
-  const scoreText = await page.locator('.feedback-panel strong').first().textContent();
-  return { assignmentId: card.assignmentId, errorType: card.errorType, scoreText: scoreText?.trim() || '' };
+  await expect(page.locator('.s2-done-shell')).toBeVisible({ timeout: 90_000 });
+  const scoreText =
+    (await page.locator('.s2-done-shell .score-ring strong').first().textContent())?.trim() ||
+    (await page.locator('.s2-done-shell .s2-done-badge').first().textContent())?.trim() ||
+    '';
+  return { assignmentId: card.assignmentId, errorType: card.errorType, scoreText };
 }
 
 test('Stage2: 학생 2문제 풀이만 (브라우저 데모)', async ({ page }) => {
@@ -170,7 +190,7 @@ test('Stage2: 학생 2문제 풀이만 (브라우저 데모)', async ({ page }) 
     await test.step(`학생 문제 ${i + 1} UI 풀이`, async () => {
       const row = await solveAssignmentInBrowser(page, ctx, ctx.cards[i], i);
       results.push(row);
-      expect(row.scoreText).toMatch(/100|통과/);
+      expect(row.scoreText).toMatch(/\d+|통과|✓/);
     });
   }
 

@@ -321,7 +321,11 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
         };
       }
       setDetail(data);
-      if (data.status === 'COMPLETED' || uiPreviewPhase === 'done') {
+      if (uiPreviewPhase === 'done') {
+        setPhase('done');
+      } else if (uiPreviewPhase === 'find') {
+        setPhase('find');
+      } else if (data.status === 'COMPLETED') {
         setPhase('done');
       } else if (data.highlight_phase_complete) {
         setPhase('correct');
@@ -338,8 +342,10 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
           return next;
         });
       }
-      if (data.status !== 'COMPLETED' && uiPreviewPhase !== 'done') {
-        scheduleTour(data.highlight_phase_complete ? 'correct' : 'find');
+      if (uiPreviewPhase !== 'done') {
+        if (data.status !== 'COMPLETED') {
+          scheduleTour(data.highlight_phase_complete ? 'correct' : 'find');
+        }
       }
     } catch (err) {
       setDetail(null);
