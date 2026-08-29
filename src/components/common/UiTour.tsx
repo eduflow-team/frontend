@@ -17,6 +17,14 @@ interface UiTourProps {
 
 const PAD = 8;
 
+function spotlightClipPath(rect: DOMRect, pad: number): string {
+  const l = Math.max(0, rect.left - pad);
+  const t = Math.max(0, rect.top - pad);
+  const r = rect.right + pad;
+  const b = rect.bottom + pad;
+  return `polygon(evenodd, 0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${l}px ${t}px, ${l}px ${b}px, ${r}px ${b}px, ${r}px ${t}px, ${l}px ${t}px)`;
+}
+
 export function UiTour({
   open,
   steps,
@@ -29,6 +37,19 @@ export function UiTour({
 
   useEffect(() => {
     if (open) setStep(0);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const html = document.documentElement;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    html.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      html.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+    };
   }, [open]);
 
   useLayoutEffect(() => {
@@ -71,15 +92,21 @@ export function UiTour({
   return (
     <div className="s1-tour" role="dialog" aria-modal="true" aria-label={ariaLabel}>
       {rect ? (
-        <div
-          className="s1-tour-spot"
-          style={{
-            top: rect.top - PAD,
-            left: rect.left - PAD,
-            width: rect.width + PAD * 2,
-            height: rect.height + PAD * 2,
-          }}
-        />
+        <>
+          <div
+            className="s1-tour-dim s1-tour-dim-cutout"
+            style={{ clipPath: spotlightClipPath(rect, PAD) }}
+          />
+          <div
+            className="s1-tour-spot"
+            style={{
+              top: rect.top - PAD,
+              left: rect.left - PAD,
+              width: rect.width + PAD * 2,
+              height: rect.height + PAD * 2,
+            }}
+          />
+        </>
       ) : (
         <div className="s1-tour-dim" />
       )}

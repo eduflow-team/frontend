@@ -28,6 +28,26 @@ async function jsonOrThrow(res, label) {
 export function buildReason(error, style = 'good') {
   const evidence = (error.evidence_sentence || '').trim();
   const hallucinationReason = (error.hallucination_reason || '').trim();
+  const errorSentence = (error.error_sentence || '').trim();
+  if (style === 'weak') {
+    return '틀린 것 같아요. 문서랑 다른 내용인 것 같습니다.';
+  }
+  if (style === 'student') {
+    const evSnippet = evidence.length > 40 ? `${evidence.slice(0, 40)}…` : evidence;
+    const errSnippet = errorSentence.length > 30 ? `${errorSentence.slice(0, 30)}…` : errorSentence;
+    return (
+      `문서에 '${evSnippet}' 같은 내용이 있는데, ` +
+      `AI가 '${errSnippet}'라고 한 부분은 틀린 것 같아요.`
+    );
+  }
+  if (style === 'realistic') {
+    const evSnippet = evidence.length > 55 ? `${evidence.slice(0, 55)}…` : evidence;
+    return (
+      `발췌문을 보면 '${evSnippet}'라고 되어 있어요. ` +
+      `그런데 AI는 '${errorSentence.slice(0, 45)}${errorSentence.length > 45 ? '…' : ''}'처럼 말해서 ` +
+      `${hallucinationReason || '교과 내용과 맞지 않는 것 같습니다'}.`
+    );
+  }
   if (style === 'good') {
     return (
       `참고 문서 근거 문장은 '${evidence}' 입니다. ` +
@@ -36,6 +56,15 @@ export function buildReason(error, style = 'good') {
     );
   }
   return hallucinationReason || '문서와 다른 내용입니다.';
+}
+
+/** 모범답 복붙이 아닌, 학생 톤의 교정문 (의미는 유지·표현만 단순화) */
+export function buildRealisticCorrection(correctSentence) {
+  const base = (correctSentence || '').trim();
+  if (!base) return '교과 자료에 맞게 고쳐야 합니다.';
+  if (base.length <= 48) return `${base.replace(/\.$/, '')}라고 고치면 될 것 같아요.`;
+  const clause = base.split(/[,.]/)[0]?.trim() || base.slice(0, 48);
+  return `${clause}라는 식으로 고치는 게 맞는 것 같아요.`;
 }
 
 export function cardFromSingleCreate(body) {
@@ -68,7 +97,7 @@ export function pickNeedleInFlawed(flawedAiResponse, errorSentence) {
   return null;
 }
 
-export function cardsFromSetBody(setBody, limit = 2) {
+export function cardsFromSetBody(setBody, limit = 2, reasonStyle = 'good') {
   return (setBody.cards || [])
     .filter((c) => c.generation_succeeded && c.assignment_id)
     .slice(0, limit)
@@ -83,7 +112,8 @@ export function cardsFromSetBody(setBody, limit = 2) {
         errorType: error.error_type,
         errorSentence: needle,
         correctSentence: error.correct_sentence,
-        reason: buildReason(error, 'good'),
+        reason: buildReason(error, reasonStyle),
+        correctionAnswer: buildRealisticCorrection(error.correct_sentence),
       };
     });
 }
