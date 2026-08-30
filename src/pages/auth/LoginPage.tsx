@@ -1,20 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ApiError, socialLoginApi } from '../../api';
-import type { SocialProvider } from '../../api/types';
 import { useAuth } from '../../contexts/AuthContext';
-import { fromApiRole } from '../../api';
-
-const SOCIAL_PROVIDERS: SocialProvider[] = ['kakao', 'google', 'apple'];
 
 export function LoginPage() {
-  const { login, enterDemo, syncSession } = useAuth();
+  const { login, enterDemo } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [socialBusy, setSocialBusy] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,34 +22,6 @@ export function LoginPage() {
       return;
     }
     setError(result.error);
-  };
-
-  const handleSocial = async (provider: SocialProvider) => {
-    const token = window.prompt(
-      `${provider} 로그인 토큰을 입력하세요.\n(OAuth 앱 연동 전 테스트용)`,
-    );
-    if (!token?.trim()) return;
-    setSocialBusy(true);
-    setError('');
-    try {
-      const data = await socialLoginApi(provider, { social_token: token.trim() });
-      const synced = await syncSession();
-      if (!synced.ok) {
-        setError(synced.error);
-        return;
-      }
-      navigate(fromApiRole(data.role) === 'teacher' ? '/teacher' : '/student');
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 404) {
-        navigate('/signup', {
-          state: { socialProvider: provider, socialToken: token.trim() },
-        });
-        return;
-      }
-      setError(err instanceof ApiError ? err.message : '소셜 로그인에 실패했습니다.');
-    } finally {
-      setSocialBusy(false);
-    }
   };
 
   return (
@@ -115,28 +81,6 @@ export function LoginPage() {
             {submitting ? '로그인 중…' : '로그인'}
           </button>
         </form>
-
-        <div
-          style={{
-            marginTop: 14,
-            display: 'flex',
-            gap: 8,
-            justifyContent: 'center',
-            flexWrap: 'wrap',
-          }}
-        >
-          {SOCIAL_PROVIDERS.map((provider) => (
-            <button
-              key={provider}
-              type="button"
-              className="btn btn-secondary btn-sm"
-              disabled={socialBusy}
-              onClick={() => void handleSocial(provider)}
-            >
-              {provider}
-            </button>
-          ))}
-        </div>
 
         <span className="auth-link">비밀번호를 잊으셨나요?</span>
         <div className="auth-demo">

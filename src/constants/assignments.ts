@@ -27,3 +27,17 @@ export const SUBJECT_OPTIONS = [
   { value: 'sci', label: '과학' },
   { value: 'soc', label: '사회' },
 ] as const;
+
+export type SubjectValue = (typeof SUBJECT_OPTIONS)[number]['value'];
+
+export function normalizeSubjectKey(value?: string | null): SubjectValue {
+  const hit = SUBJECT_OPTIONS.find((s) => s.value === value);
+  return hit?.value ?? 'hist';
+}
+
+export function subjectLabel(value?: string | null): string {
+  const hit = SUBJECT_OPTIONS.find((s) => s.value === value);
+  if (hit) return hit.label;
+  if (value === '한국사' || value === '과학' || value === '사회') return value;
+  return '한국사';
+}

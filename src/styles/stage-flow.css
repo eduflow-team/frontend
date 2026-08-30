@@ -2,12 +2,25 @@
 
 .stage-flow-modal {
   position: fixed;
-  inset: 0;
+  top: var(--topbar-h);
+  left: var(--sidebar-w);
+  right: 0;
+  bottom: 0;
   display: none;
   place-items: center;
   padding: 20px;
   background: rgba(0, 0, 0, 0.35);
-  z-index: 50;
+  z-index: 80;
+}
+
+.main.sidebar-collapsed .stage-flow-modal {
+  left: 0;
+}
+
+@media (max-width: 760px) {
+  .stage-flow-modal {
+    left: 0;
+  }
 }
 
 .stage-flow-modal.open {

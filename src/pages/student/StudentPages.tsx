@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ApiError,
   fetchStudentAttendanceApi,
@@ -31,12 +31,11 @@ import { StageGuideModal } from '../../components/student/StageGuideModal';
 import { STAGE1_HELP_INTRO, STAGE1_HELP_SECTIONS, Stage1Tour } from '../../components/student/Stage1Tour';
 import {
   LITERACY_AXES,
-  STAGE_SCENARIO_LABELS,
   averageLiteracyScore,
-  axisLabelsForStage,
   deriveLiteracyScores,
 } from '../../constants/literacyAxes';
-import { STAGE_TITLES, learningModeByStage } from '../../constants/navigation';
+import { normalizeSubjectKey } from '../../constants/assignments';
+import { STAGE_TITLES, learningModeByStage, subjectPageTitle } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import { STUDENT_DASHBOARD_DEMO } from '../../mocks/studentDashboard';
@@ -74,15 +73,16 @@ export function StudentStagePage() {
   const assignments = useFetch(fetchStudentDashboardAssignmentsApi, [], useAssignmentsApi);
 
   useEffect(() => {
+    setPhase('guide');
+    setActiveId(null);
     setAssignmentIdInput(assignmentIdParam ?? '');
+  }, [stageNum]);
+
+  useEffect(() => {
     if (assignmentIdParam) {
-      setActiveId(assignmentIdParam);
-      setPhase('learn');
-    } else {
-      setPhase('guide');
-      setActiveId(null);
+      setAssignmentIdInput(assignmentIdParam);
     }
-  }, [stageNum, assignmentIdParam]);
+  }, [assignmentIdParam]);
 
   if (!mode || Number.isNaN(stageNum) || stageNum < 1 || stageNum > 4) {
     return <Navigate to="/student" replace />;
@@ -91,20 +91,9 @@ export function StudentStagePage() {
   const selectAssignment = (id: string) => {
     setActiveId(id);
     setAssignmentIdInput(id);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('assignmentId', id);
-      return next;
-    });
+    setSearchParams({ assignmentId: id });
     setPhase('learn');
   };
-
-  useEffect(() => {
-    if (phase === 'select' && assignmentIdParam && !activeId) {
-      setActiveId(assignmentIdParam);
-      setPhase('learn');
-    }
-  }, [phase, assignmentIdParam, activeId]);
 
   const apiList = toSelectableAssignments(assignments.data?.assignments, stageNum);
   const selectableList: SelectableAssignment[] = (() => {
@@ -119,35 +108,26 @@ export function StudentStagePage() {
         ...apiList,
       ];
     }
-    if (stageNum === 3) {
-      return [
-        {
-          id: 'sample-stage3',
-          title: 'AI 토론 샘플 과제',
-          statusLabel: '기본',
-          meta: 'Multi-Agent 토론 · 팩트체커 평가',
-        },
-        ...apiList,
-      ];
-    }
-    if (stageNum === 4) {
-      return [
-        {
-          id: 'sample-stage4',
-          title: '보안 강화 샘플 과제',
-          statusLabel: '기본',
-          meta: '비밀 키 방어 연습',
-        },
-        ...apiList,
-      ];
-    }
     return apiList;
   })();
 
+  const handleGuideContinue = () => {
+    const idFromUrl = assignmentIdParam?.trim();
+    if (idFromUrl) {
+      selectAssignment(idFromUrl);
+      return;
+    }
+    if (selectableList.length >= 1) {
+      selectAssignment(String(selectableList[0].id));
+      return;
+    }
+    setPhase('select');
+  };
+
+  const guideBusy = useAssignmentsApi && assignments.loading && !assignmentIdParam?.trim();
+
   const emptyMessage =
-    stageNum <= 2
-      ? '배정된 과제가 없습니다. 아래에서 과제 ID를 직접 입력할 수 있습니다.'
-      : '배정된 과제가 없어 샘플 과제로 시작할 수 있습니다.';
+    '배정된 과제가 없습니다. 아래에서 과제 ID를 직접 입력할 수 있습니다.';
 
   /* ── Guide popup ── */
   if (phase === 'guide') {
@@ -155,9 +135,9 @@ export function StudentStagePage() {
       <div className="stage-assign-shell">
         <StageGuideModal
           stage={stageNum}
-          onContinue={() => {
-            setPhase('select');
-          }}
+          onContinue={handleGuideContinue}
+          busy={guideBusy}
+          busyLabel="과제 불러오는 중…"
         />
       </div>
     );
@@ -179,7 +159,7 @@ export function StudentStagePage() {
             assignmentIdInput={assignmentIdInput}
             onAssignmentIdInputChange={setAssignmentIdInput}
             onSelect={selectAssignment}
-            showManualId={stageNum === 1 || stageNum === 2}
+            showManualId={stageNum >= 1 && stageNum <= 4}
           />
         </div>
       </div>
@@ -221,10 +201,10 @@ export function StudentStagePage() {
   }
 
   if (stageNum === 3) {
-    return <StudentStage3Activity skipIntroGuide />;
+    return <StudentStage3Activity assignmentId={activeId} skipIntroGuide />;
   }
 
-  return <StudentStage4Activity skipIntroGuide />;
+  return <StudentStage4Activity assignmentId={activeId} skipIntroGuide />;
 }
 
 
@@ -988,98 +968,153 @@ export function StudentResultsPage() {
   const { user } = useAuth();
   const useApi = Boolean(user && !user.isDemo);
   const summary = useFetch(fetchStudentDashboardSummaryApi, [], useApi);
+  const assignments = useFetch(fetchStudentDashboardAssignmentsApi, [], useApi);
 
-  const demoAxes = STUDENT_DASHBOARD_DEMO.axes;
+  const loading = useApi && (summary.loading || assignments.loading);
+  const error = useApi ? summary.error || assignments.error : null;
+
   const axes = (() => {
-    if (!useApi || !summary.data) return demoAxes;
+    if (!useApi || !summary.data) return STUDENT_DASHBOARD_DEMO.axes;
     return deriveLiteracyScores(summary.data.stage_summary);
   })();
+
   const total = averageLiteracyScore(axes) || summary.data?.total_score || 0;
 
+  const scoredTasks = useMemo(() => {
+    if (useApi && assignments.data) {
+      return assignments.data.assignments
+        .filter((item) => item.score != null)
+        .map((item) => ({
+          id: item.assignment_id,
+          title: item.title ?? `과제 #${item.assignment_id}`,
+          subjectLabel: subjectPageTitle(normalizeSubjectKey(item.subject)),
+          score: item.score as number,
+        }))
+        .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title, 'ko'));
+    }
+    return STUDENT_DASHBOARD_DEMO.tasks
+      .filter((task) => task.score != null)
+      .map((task) => ({
+        id: task.id,
+        title: task.title,
+        subjectLabel: task.subjectLabel,
+        score: task.score as number,
+      }));
+  }, [useApi, assignments.data]);
+
+  const insight = useMemo(() => {
+    const scored = LITERACY_AXES.map((axis) => ({
+      label: axis.label,
+      score: axes[axis.key],
+    })).filter((item): item is { label: string; score: number } => item.score != null);
+    if (scored.length < 2) return null;
+    const sorted = [...scored].sort((a, b) => b.score - a.score);
+    return { strong: sorted[0], weak: sorted[sorted.length - 1] };
+  }, [axes]);
+
   return (
-    <div className="s-dash">
+    <div className="s-dash s-results">
       <div className="shell wide">
-        <section className="dash-hero">
-          <div className="dash-hero-main">
-            <div className="dash-intro">
-              <p className="done-eyebrow">울산형 AI 리터러시</p>
-              <h1 className="page-title">나의 점수</h1>
-              <p className="page-desc dash-intro-desc">
-                학습 모드를 풀면 연결된 리터러시 축 점수가 올라갑니다.
-              </p>
-            </div>
-            <div className="dash-total">
-              <p className="dash-total-label">전체 AI 리터러시</p>
-              <div className="dash-ring" aria-hidden="true">
-                <svg viewBox="0 0 120 120" className="dash-ring-svg">
-                  <circle className="dash-ring-track" cx="60" cy="60" r="52" />
-                  <circle
-                    className="dash-ring-value"
-                    cx="60"
-                    cy="60"
-                    r="52"
-                    style={{ ['--p' as string]: String(total) }}
-                  />
-                </svg>
-                <div className="dash-ring-score">
-                  <strong>{total}</strong>
-                  <span>점</span>
+        {loading ? (
+          <p className="hint">점수를 불러오는 중…</p>
+        ) : error ? (
+          <p className="hint">{error}</p>
+        ) : (
+          <>
+            <header className="s-results-hero">
+              <div className="s-results-hero-main">
+                <p className="done-eyebrow">울산형 AI 리터러시</p>
+                <div className="s-results-score-block">
+                  <p className="s-results-total" aria-label={`총점 ${total}점`}>
+                    <strong>{total}</strong>
+                    <span>점</span>
+                  </p>
+                  <p className="s-results-meta">6개 역량 평균 · 미이수 제외</p>
                 </div>
               </div>
-              <p className="dash-total-meta">6축 평균 · 미이수 제외</p>
-            </div>
-          </div>
-        </section>
+              <div className="s-results-hero-aside">
+                {insight ? (
+                  <p className="s-results-insight">
+                    강점 <strong>{insight.strong.label}</strong>
+                    {' · '}
+                    더 키울 것 <strong>{insight.weak.label}</strong>
+                  </p>
+                ) : null}
+                <p className="hint s-results-desc">
+                  과제를 완료하면 연결된 역량 점수가 반영됩니다.
+                </p>
+              </div>
+            </header>
 
-        <div className="dash-layout">
-          <section className="info-card dash-hex-card">
-            <div className="info-card-head">
-              <span className="info-icon" aria-hidden="true">
-                ⬡
-              </span>
-              <p className="side-title">육각 점수판</p>
-            </div>
-            <HexLiteracyRadar scores={axes} />
-            <ul className="hex-legend">
-              {LITERACY_AXES.map((axis) => {
-                const score = axes[axis.key];
-                return (
-                  <li key={axis.key}>
-                    <span className="axis-name">{axis.label}</span>
-                    <span className={`axis-score${score == null ? ' is-null' : ''}`}>
-                      {score == null ? '미이수' : `${score}점`}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+            <div className="s-results-literacy">
+              <section className="info-card s-results-hex">
+                <div className="info-card-head">
+                  <span className="info-icon" aria-hidden="true">
+                    ⬡
+                  </span>
+                  <p className="side-title">역량 프로필</p>
+                </div>
+                <HexLiteracyRadar scores={axes} />
+              </section>
 
-          <div className="dash-side">
-            <section className="info-card">
+              <section className="info-card s-results-axes">
+                <div className="info-card-head">
+                  <span className="info-icon" aria-hidden="true">
+                    ▤
+                  </span>
+                  <p className="side-title">역량별 점수</p>
+                </div>
+                <ul className="skill-bars">
+                  {LITERACY_AXES.map((axis) => {
+                    const score = axes[axis.key];
+                    const pct = score ?? 0;
+                    return (
+                      <li key={axis.key}>
+                        <div className="skill-bar-top">
+                          <span>{axis.label}</span>
+                          <strong>{score != null ? score : '—'}</strong>
+                        </div>
+                        <div className="skill-bar-track">
+                          <span style={{ width: `${pct}%` }} />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            </div>
+
+            <section className="info-card s-results-assignments">
               <div className="info-card-head">
                 <span className="info-icon" aria-hidden="true">
-                  ▤
+                  ◎
                 </span>
-                <p className="side-title">학습 기록</p>
+                <p className="side-title">과제별 점수</p>
+                <span className="s-results-task-count">{scoredTasks.length}개</span>
               </div>
-              <ul className="dash-map">
-                {[1, 2, 3, 4].map((stage) => {
-                  const mode = learningModeByStage(stage);
-                  return (
-                    <li key={stage}>
-                      <span className="map-stage" aria-hidden="true">
-                        {mode?.icon ?? stage}
-                      </span>
-                      <strong>{STAGE_SCENARIO_LABELS[stage]}</strong>
-                      <span className="map-axes">{axisLabelsForStage(stage)}</span>
+              {scoredTasks.length === 0 ? (
+                <p className="hint s-results-empty">채점된 과제가 없습니다.</p>
+              ) : (
+                <ul className="s-results-task-scores">
+                  {scoredTasks.map((task) => (
+                    <li key={task.id}>
+                      <Link
+                        to={`/student/results/${task.id}`}
+                        className="s-results-task-row s-results-task-link"
+                      >
+                        <div className="s-results-task-main">
+                          <p className="s-results-task-title">{task.title}</p>
+                          <span className="s-results-task-subject">{task.subjectLabel}</span>
+                        </div>
+                        <strong className="s-results-task-score">{task.score}점</strong>
+                      </Link>
                     </li>
-                  );
-                })}
-              </ul>
+                  ))}
+                </ul>
+              )}
             </section>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -36,7 +36,7 @@ export const STAGE_GUIDES: Record<number, StageGuide> = {
           '파라미터를 너무 좋게(검색을 과하게) 올려 버리면 맞더라도 감점될 수 있어요. 최소한으로 조절하며 탐험해 보세요.',
       },
     ],
-    cta: '과제 고르러 가기',
+    cta: '시작',
   },
   2: {
     pages: [
@@ -64,7 +64,7 @@ export const STAGE_GUIDES: Record<number, StageGuide> = {
           'AI 답을 그대로 믿지 말고, 근거 문서와 대조해 스스로 확인하는 습관을 기릅니다.',
       },
     ],
-    cta: '과제 고르러 가기',
+    cta: '시작',
   },
   3: {
     pages: [
@@ -92,7 +92,7 @@ export const STAGE_GUIDES: Record<number, StageGuide> = {
         hint: '시작을 누르면 찬성·반대·팩트체커 AI가 토론을 준비합니다. 약 15초 걸릴 수 있습니다.',
       },
     ],
-    cta: '과제 고르러 가기',
+    cta: '시작',
   },
   4: {
     pages: [
@@ -118,6 +118,6 @@ export const STAGE_GUIDES: Record<number, StageGuide> = {
         calloutBody: '키를 지킨 비율과 보고서가 중심입니다. 힌트 카드는 쓸 수 있지만 감점됩니다.',
       },
     ],
-    cta: '과제 고르러 가기',
+    cta: '시작',
   },
 };

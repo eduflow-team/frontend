@@ -30,6 +30,16 @@ export const API_ENDPOINTS = {
       `/student/assignments/${id}/step2/highlight`,
     assignmentStep2Correction: (id: number | string) =>
       `/student/assignments/${id}/step2/correction`,
+    assignmentStep3: (id: number | string) => `/student/assignments/${id}/step3`,
+    assignmentStep3Debate: (id: number | string) => `/student/assignments/${id}/step3/debate`,
+    assignmentStep3Factcheck: (id: number | string) =>
+      `/student/assignments/${id}/step3/factcheck`,
+    assignmentStep3Sources: (id: number | string) =>
+      `/student/assignments/${id}/step3/sources`,
+    assignmentStep3Submit: (id: number | string) => `/student/assignments/${id}/step3/submit`,
+    assignmentStep4: (id: number | string) => `/student/assignments/${id}/step4`,
+    assignmentStep4Chat: (id: number | string) => `/student/assignments/${id}/step4/chat`,
+    assignmentStep4Submit: (id: number | string) => `/student/assignments/${id}/step4/submit`,
   },
   teacher: {
     dashboardSummary: '/teacher/dashboard/summary',
@@ -45,6 +55,10 @@ export const API_ENDPOINTS = {
     createAssignmentStep2: '/teacher/assignments/step2',
     createAssignmentStep2Set: '/teacher/assignments/step2/set',
     assignmentStep2Set: (id: number | string) => `/teacher/assignments/step2/set/${id}`,
+    createAssignmentStep3: '/teacher/assignments/step3',
+    previewAssignmentStep3Debate: (id: number | string) =>
+      `/teacher/assignments/${id}/step3/preview-debate`,
+    createAssignmentStep4: '/teacher/assignments/step4',
   },
   search: '/search',
 } as const;

@@ -4,13 +4,16 @@ import {
   ApiError,
   createTeacherAssignmentStep2Api,
   createTeacherAssignmentStep2SetApi,
+  fetchClassesApi,
   fetchTeacherAssignmentStep2SetApi,
   publishTeacherAssignmentStep2SetApi,
 } from '../../../api';
-import type { Stage2CreateResponse, Stage2SetCardPreview } from '../../../api/types';
+import type { ClassItem, Stage2CreateResponse, Stage2SetCardPreview } from '../../../api/types';
 import { HALLUCINATION_LABELS, SUBJECT_OPTIONS } from '../../../constants/assignments';
 import { learningModeByStage } from '../../../constants/navigation';
+import { useAuth } from '../../../contexts/AuthContext';
 import { defaultDueAtLocal, localDateTimeToIso } from '../../../utils/datetime';
+import { formatClassLabel } from '../../../utils/labels';
 
 const HALLUCINATION_OPTIONS = [
   { value: 'RETRIEVAL_ERROR', label: '잘못된 문서 검색', defaultOn: true },
@@ -79,9 +82,14 @@ function singleCreateToCard(preview: Stage2CreateResponse): Stage2SetCardPreview
 
 /** stage2-ui 출제 위자드 + 카드 세트 생성/선택 게시 */
 export function TeacherStage2Form() {
+  const { user } = useAuth();
+  const useApi = Boolean(user && !user.isDemo);
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState(1);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [classId, setClassId] = useState<number | ''>('');
   const [subject, setSubject] = useState('hist');
+  const [dueAt, setDueAt] = useState(defaultDueAtLocal());
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [persona, setPersona] = useState('서양 열강이 개항기 조선을 주도했다고 믿는 동아시아사 선생님');
@@ -99,6 +107,17 @@ export function TeacherStage2Form() {
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!useApi) return;
+    fetchClassesApi()
+      .then((res) => {
+        setClasses(res.classes);
+        const firstClass = res.classes[0];
+        if (firstClass) setClassId(firstClass.class_id);
+      })
+      .catch(() => setClasses([]));
+  }, [useApi]);
 
   useEffect(() => {
     const raw = searchParams.get('setId');
@@ -172,6 +191,14 @@ export function TeacherStage2Form() {
       setError('참고 문서를 업로드해 주세요.');
       return;
     }
+    if (useApi && classId === '') {
+      setError('학급을 선택해 주세요.');
+      return;
+    }
+    if (!dueAt.trim()) {
+      setError('과제 마감일을 선택해 주세요.');
+      return;
+    }
     setLoading(true);
     setError('');
     setSetId(null);
@@ -188,7 +215,7 @@ export function TeacherStage2Form() {
         subject,
         question: question.trim(),
         persona: persona.trim().slice(0, 100),
-        due_at: localDateTimeToIso(defaultDueAtLocal()),
+        due_at: localDateTimeToIso(dueAt),
         hallucination_types: [...hallucinationTypes],
         file: referenceFile,
       };
@@ -217,7 +244,13 @@ export function TeacherStage2Form() {
       }
       setPreviewing(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'AI 답변 생성에 실패했습니다.');
+      if (err instanceof ApiError && (err.status === 403 || err.message.includes('권한'))) {
+        setError(
+          '2단계 과제 생성 권한이 없습니다. 교사 계정에 학급이 연결되어 있는지 확인해 주세요.',
+        );
+      } else {
+        setError(err instanceof ApiError ? err.message : 'AI 답변 생성에 실패했습니다.');
+      }
     } finally {
       setLoading(false);
     }
@@ -302,23 +335,57 @@ export function TeacherStage2Form() {
           카드마다 학생이 찾을 환각은 1개입니다.
         </p>
 
-        <div className="teacher-subject-field">
-          <label className="label" htmlFor="s2-subject">
-            담당 교과
-          </label>
-          <select
-            id="s2-subject"
-            className="field"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            disabled={previewing || accepted}
-          >
-            {SUBJECT_OPTIONS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+        <div className="teacher-meta-row">
+          <div className="teacher-meta-field">
+            <label className="label" htmlFor="s2-class">
+              학급 선택
+            </label>
+            <select
+              id="s2-class"
+              className="field"
+              value={classId}
+              onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : '')}
+              disabled={!useApi || previewing || accepted}
+            >
+              <option value="">학급 선택</option>
+              {classes.map((cls) => (
+                <option key={cls.class_id} value={cls.class_id}>
+                  {formatClassLabel(cls.grade, cls.class_number)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="teacher-meta-field">
+            <label className="label" htmlFor="s2-subject">
+              담당 교과
+            </label>
+            <select
+              id="s2-subject"
+              className="field"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              disabled={previewing || accepted}
+            >
+              {SUBJECT_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="teacher-meta-field">
+            <label className="label" htmlFor="s2-due">
+              과제 마감일
+            </label>
+            <input
+              id="s2-due"
+              className="field"
+              type="datetime-local"
+              value={dueAt}
+              onChange={(e) => setDueAt(e.target.value)}
+              disabled={previewing || accepted}
+            />
+          </div>
         </div>
 
         <StepIndicator currentStep={step} previewing={previewing} accepted={accepted} />

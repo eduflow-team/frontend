@@ -308,6 +308,239 @@ export interface Step2CorrectionResponse {
   feedback_details: Step2CorrectionFeedbackDetail[];
 }
 
+export type Stage3Verdict = 'supported' | 'exaggerated' | 'unsupported' | 'false' | string;
+
+export interface Stage3Claim {
+  claim: string;
+  verdict: Stage3Verdict;
+  reason?: string;
+}
+
+export interface Stage3TurnPublic {
+  id: string;
+  side: 'pro' | 'con' | string;
+  round: string;
+  text: string;
+  claim: string;
+  grounds?: string[];
+  verdict?: Stage3Verdict | null;
+  why?: string | null;
+  claims?: Stage3Claim[] | null;
+}
+
+export interface Stage3Speaker {
+  name: string;
+  role: string;
+}
+
+export interface Stage3DebatePublicPayload {
+  topic: string;
+  source: string;
+  mode?: string;
+  elapsed?: number | string | null;
+  pro: Stage3Speaker;
+  con: Stage3Speaker;
+  turns: Stage3TurnPublic[];
+}
+
+export interface Stage3CreateRequest {
+  class_id: number;
+  topic: string;
+  pro_persona: string;
+  con_persona: string;
+  fact_persona?: string;
+  title?: string;
+  subject?: string;
+  debate_mode?: 'v1' | 'v2';
+  due_at?: string | null;
+}
+
+export interface Stage3CreateResponse {
+  assignment_id: number;
+  title?: string | null;
+  topic: string;
+  debate_mode: string;
+  created_at?: string | null;
+}
+
+export interface Stage3TeacherPreviewResponse {
+  assignment_id: number;
+  reused: boolean;
+  debate: Stage3DebatePublicPayload;
+  elapsed?: number | null;
+}
+
+export interface Stage3AttemptsDetail {
+  max_attempts: number;
+  used_attempts: number;
+  remaining_attempts: number;
+}
+
+export interface Stage3AssignmentDetailResponse {
+  assignment_id: number;
+  title?: string | null;
+  topic: string;
+  question?: string | null;
+  pro_persona: string;
+  con_persona: string;
+  fact_persona?: string | null;
+  debate_mode: string;
+  status: ProgressStatus | string;
+  debate_started: boolean;
+  submitted: boolean;
+  attempts: Stage3AttemptsDetail;
+  highest_score?: number | null;
+  due_at?: string | null;
+  debate?: Stage3DebatePublicPayload | null;
+  grade_result?: Stage3SubmitResponse | null;
+}
+
+export interface Stage3DebateResponse {
+  assignment_id: number;
+  attempt_id: number;
+  attempt_number: number;
+  reused: boolean;
+  debate: Stage3DebatePublicPayload;
+  attempts: Stage3AttemptsDetail;
+}
+
+export interface Stage3FactcheckRequest {
+  turn_id: string;
+}
+
+export interface Stage3FactcheckResponse {
+  turn_id: string;
+  verdict: Stage3Verdict;
+  why: string;
+  claims: Stage3Claim[];
+}
+
+export interface Stage3SourceItem {
+  title: string;
+  url: string;
+  source?: string;
+  published?: string;
+  kind?: string;
+}
+
+export interface Stage3SourcesResponse {
+  query: string;
+  articles: Stage3SourceItem[];
+  searches: Stage3SourceItem[];
+}
+
+export interface Stage3DecisionItem {
+  turn_id: string;
+  checked: boolean;
+}
+
+export interface Stage3SubmitRequest {
+  decisions?: Stage3DecisionItem[] | null;
+}
+
+export interface Stage3GradeRow {
+  id: string;
+  side: string;
+  round?: string | null;
+  text: string;
+  claim: string;
+  verdict: Stage3Verdict;
+  why: string;
+  checked: boolean;
+  suspicious: boolean;
+  outcome: string;
+}
+
+export interface Stage3SubmitResponse {
+  current_score: number;
+  highest_score: number;
+  is_highest_score: boolean;
+  caught: number;
+  passed: number;
+  missed: number;
+  wasted: number;
+  headline: string;
+  advice: string;
+  rows: Stage3GradeRow[];
+  attempts: Stage3AttemptsDetail;
+}
+
+export type Stage4Difficulty = 'EASY' | 'NORMAL' | 'HARD';
+
+export interface Stage4AttemptsInfo {
+  used_attempts: number;
+  remaining_attempts: number;
+  max_attempts: number;
+}
+
+export interface Stage4CreateRequest {
+  class_id: number;
+  mission: string;
+  secret_key: string;
+  difficulty: Stage4Difficulty;
+  max_attempts: number;
+  guideline: string;
+}
+
+export interface Stage4CreateResponse {
+  assignment_id: number;
+  title: string;
+  mission: string;
+  difficulty: Stage4Difficulty;
+  max_attempts: number;
+}
+
+export interface Stage4AttackLogItem {
+  attempt_no: number;
+  attack_prompt: string;
+  ai_response: string;
+  attack_success: boolean;
+  created_at?: string | null;
+}
+
+export interface Stage4AssignmentDetailResponse {
+  assignment_id: number;
+  title: string;
+  mission: string;
+  guideline: string;
+  difficulty: Stage4Difficulty;
+  status: ProgressStatus | string;
+  is_cleared: boolean;
+  can_submit_report: boolean;
+  attempts: Stage4AttemptsInfo;
+  attack_logs: Stage4AttackLogItem[];
+}
+
+export interface Stage4ChatResponse {
+  ai_response: string;
+  attack_success: boolean;
+  is_cleared: boolean;
+  hint_level: number;
+  hint?: string | null;
+  attempts: Stage4AttemptsInfo;
+}
+
+export interface Stage4ReportPayload {
+  successful_attacks: string;
+  failed_attacks: string;
+  why_breached: string;
+  defense_ideas: string;
+}
+
+export interface Stage4EvaluationReport {
+  clear_score: number;
+  efficiency_score: number;
+  analysis_score: number;
+  feedback: string;
+}
+
+export interface Stage4SubmitResponse {
+  current_score: number;
+  is_passed: boolean;
+  evaluation_report: Stage4EvaluationReport;
+  attempts: Stage4AttemptsInfo;
+}
+
 /* ── Auth ── */
 
 export interface SignupRequest {
@@ -405,6 +638,7 @@ export interface StudentAssignmentItem {
   max_attempts?: number | null;
   score?: number | null;
   stage?: number | null;
+  subject?: string | null;
   due_date?: string | null;
   status: ProgressStatus;
 }
@@ -440,6 +674,7 @@ export interface TeacherUnsubmittedResponse {
 export interface TeacherAssignmentItem {
   assignment_id: number;
   stage?: number | null;
+  subject?: string | null;
   title?: string | null;
   created_at?: string | null;
 }

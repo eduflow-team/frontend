@@ -316,7 +316,176 @@ h4 {
   flex: 1;
 }
 
-/* App layout */
+/* App layout — role accent (본문·페이지 바탕은 흰색 유지) */
+.app-shell.role-student {
+  --primary: #059669;
+  --primary-hover: #047857;
+  --primary-soft: #10b981;
+  --primary-bg: #ecfdf5;
+  --primary-border: #a7f3d0;
+  --primary-muted: #d1fae5;
+
+  --sidebar-bg: #f7fef9;
+  --sidebar-surface: #f0fdf4;
+  --sidebar-border: #dcfce7;
+}
+
+.app-shell.role-teacher {
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-soft: #8b5cf6;
+  --primary-bg: #f5f3ff;
+  --primary-border: #ddd6fe;
+  --primary-muted: #ede9fe;
+
+  --sidebar-bg: #faf8ff;
+  --sidebar-surface: #f5f3ff;
+  --sidebar-border: #ede9fe;
+}
+
+.app-shell.role-student .main,
+.app-shell.role-teacher .main,
+.app-shell.role-student .page-content,
+.app-shell.role-teacher .page-content {
+  background: #ffffff;
+}
+
+.app-shell.role-student .topbar,
+.app-shell.role-teacher .topbar {
+  background: color-mix(in srgb, var(--primary-bg) 72%, #ffffff);
+  border-bottom-color: var(--primary-border);
+}
+
+.app-shell.role-student .sidebar-toggle:hover,
+.app-shell.role-teacher .sidebar-toggle:hover,
+.app-shell.role-student .topbar-icon-btn:hover,
+.app-shell.role-teacher .topbar-icon-btn:hover {
+  background: var(--primary-bg);
+  border-color: var(--primary-border);
+  color: var(--primary);
+}
+
+.app-shell.role-student .topbar-search,
+.app-shell.role-teacher .topbar-search {
+  background: color-mix(in srgb, var(--primary-bg) 45%, #ffffff);
+}
+
+.app-shell.role-student .sidebar,
+.app-shell.role-teacher .sidebar {
+  background: var(--sidebar-bg);
+  border-right-color: var(--sidebar-border);
+}
+
+.app-shell.role-student .sidebar-header,
+.app-shell.role-teacher .sidebar-header {
+  border-bottom-color: var(--sidebar-border);
+}
+
+.app-shell.role-student .sidebar-brand .mark,
+.app-shell.role-teacher .sidebar-brand .mark,
+.app-shell.role-student .nav-item.active,
+.app-shell.role-teacher .nav-item.active,
+.app-shell.role-student .class-item.active,
+.app-shell.role-teacher .class-item.active,
+.app-shell.role-student .avatar,
+.app-shell.role-teacher .avatar {
+  background: var(--primary);
+}
+
+.app-shell.role-student .sidebar-role-badge,
+.app-shell.role-teacher .sidebar-role-badge {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+.app-shell.role-student .sidebar-user,
+.app-shell.role-teacher .sidebar-user {
+  background: var(--sidebar-surface);
+  border-top-color: var(--sidebar-border);
+}
+
+.app-shell.role-student .switch-btn:hover,
+.app-shell.role-teacher .switch-btn:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
+  border-color: var(--primary-border);
+}
+
+.app-shell.role-student .s-dash,
+.app-shell.role-teacher .s-dash {
+  --ink: #0d0d0d;
+  color: #0d0d0d;
+}
+
+.app-shell.role-student .s-dash .btn-primary,
+.app-shell.role-teacher .s-dash .btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.app-shell.role-student .page-content .card-title,
+.app-shell.role-teacher .page-content .card-title,
+.app-shell.role-student .page-content .t-home-section-title,
+.app-shell.role-teacher .page-content .t-home-section-title,
+.app-shell.role-student .page-content .t-home-assign-title,
+.app-shell.role-teacher .page-content .t-home-assign-title,
+.app-shell.role-student .page-content .t-home-row-title,
+.app-shell.role-teacher .page-content .t-home-row-title,
+.app-shell.role-student .page-content .page-hero h1,
+.app-shell.role-teacher .page-content .page-hero h1,
+.app-shell.role-student .s-dash .mode-section-title,
+.app-shell.role-teacher .s-dash .mode-section-title,
+.app-shell.role-student .s-dash .assignment-title,
+.app-shell.role-teacher .s-dash .assignment-title,
+.app-shell.role-student .s-dash .mode-card-title,
+.app-shell.role-teacher .s-dash .mode-card-title {
+  color: #0d0d0d;
+}
+
+.app-shell.role-student .page-content .t-home-row-meta,
+.app-shell.role-teacher .page-content .t-home-row-meta,
+.app-shell.role-student .page-content .t-home-section-desc,
+.app-shell.role-teacher .page-content .t-home-section-desc,
+.app-shell.role-student .page-content .t-home-assign-desc,
+.app-shell.role-teacher .page-content .t-home-assign-desc,
+.app-shell.role-student .s-dash .assignment-meta,
+.app-shell.role-teacher .s-dash .assignment-meta,
+.app-shell.role-student .s-dash .hint,
+.app-shell.role-teacher .s-dash .hint {
+  color: #6e6e80;
+}
+
+.app-shell.role-student .s1,
+.app-shell.role-teacher .s1,
+.app-shell.role-student .s2,
+.app-shell.role-teacher .s2,
+.app-shell.role-student .s3,
+.app-shell.role-teacher .s3,
+.app-shell.role-student .s4,
+.app-shell.role-teacher .s4 {
+  --ink: #0d0d0d;
+  --accent: var(--primary);
+  --focus: var(--primary);
+}
+
+.app-shell.role-teacher .s1,
+.app-shell.role-teacher .s2,
+.app-shell.role-teacher .s3,
+.app-shell.role-teacher .s4 {
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-light: #f5f3ff;
+}
+
+.app-shell.role-student .s2,
+.app-shell.role-student .s3,
+.app-shell.role-student .s4 {
+  --primary: #059669;
+  --primary-hover: #047857;
+  --primary-light: #ecfdf5;
+}
+
 .app-shell {
   display: flex;
   min-height: 100vh;
@@ -1097,6 +1266,30 @@ h4 {
   align-items: center;
 }
 
+.t-home-assignments-card {
+  --teacher-assign-row-height: 68px;
+}
+
+.t-home-assignments-list {
+  max-height: calc(var(--teacher-assign-row-height) * 5);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.t-home-assignments-list .t-home-row-assign {
+  min-height: var(--teacher-assign-row-height);
+  box-sizing: border-box;
+}
+
+.t-home-assignments-list .t-home-row-assign .t-home-row-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.35;
+}
+
 .t-home-row-title {
   font-weight: 600;
   color: var(--gray-900);
@@ -1804,4 +1997,54 @@ a.search-item:hover {
   .role-cards {
     flex-direction: column;
   }
+}
+
+.subject-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+
+.subject-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: #fff;
+  color: var(--gray-700);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: var(--t);
+}
+
+.subject-tab:hover {
+  background: var(--gray-50);
+  color: var(--gray-900);
+}
+
+.subject-tab.active {
+  background: var(--gray-900);
+  border-color: var(--gray-900);
+  color: #fff;
+}
+
+.subject-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.subject-section-card + .subject-section-card {
+  margin-top: 0;
+}
+
+.nav-subject-head {
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
 }

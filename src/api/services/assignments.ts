@@ -14,6 +14,22 @@ import type {
   Stage2SetCreateResponse,
   Stage2SetDetailResponse,
   Stage2SetPublishResponse,
+  Stage3AssignmentDetailResponse,
+  Stage3CreateRequest,
+  Stage3CreateResponse,
+  Stage3TeacherPreviewResponse,
+  Stage3DebateResponse,
+  Stage3FactcheckRequest,
+  Stage3FactcheckResponse,
+  Stage3SourcesResponse,
+  Stage3SubmitRequest,
+  Stage3SubmitResponse,
+  Stage4AssignmentDetailResponse,
+  Stage4ChatResponse,
+  Stage4CreateRequest,
+  Stage4CreateResponse,
+  Stage4ReportPayload,
+  Stage4SubmitResponse,
   Step2CorrectionRequest,
   Step2CorrectionResponse,
   Step2HighlightRequest,
@@ -185,4 +201,89 @@ export async function publishTeacherAssignmentStep2SetApi(
   return api.patch(API_ENDPOINTS.teacher.assignmentStep2Set(setId), {
     assignment_ids: assignmentIds,
   });
+}
+
+export async function createTeacherAssignmentStep3Api(
+  payload: Stage3CreateRequest,
+): Promise<Stage3CreateResponse> {
+  return api.post(API_ENDPOINTS.teacher.createAssignmentStep3, payload);
+}
+
+export async function previewTeacherAssignmentStep3DebateApi(
+  assignmentId: number | string,
+): Promise<Stage3TeacherPreviewResponse> {
+  return apiRequest<Stage3TeacherPreviewResponse>(
+    API_ENDPOINTS.teacher.previewAssignmentStep3Debate(assignmentId),
+    {
+      method: 'POST',
+      signal: AbortSignal.timeout(300_000),
+    },
+  );
+}
+
+export async function getStudentStep3Api(
+  assignmentId: number | string,
+): Promise<Stage3AssignmentDetailResponse> {
+  return api.get(API_ENDPOINTS.student.assignmentStep3(assignmentId));
+}
+
+export async function postStudentStep3DebateApi(
+  assignmentId: number | string,
+  body: { question?: string } = {},
+): Promise<Stage3DebateResponse> {
+  return apiRequest<Stage3DebateResponse>(
+    API_ENDPOINTS.student.assignmentStep3Debate(assignmentId),
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(300_000),
+    },
+  );
+}
+
+export async function postStudentStep3FactcheckApi(
+  assignmentId: number | string,
+  body: Stage3FactcheckRequest,
+): Promise<Stage3FactcheckResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep3Factcheck(assignmentId), body);
+}
+
+export async function postStudentStep3SourcesApi(
+  assignmentId: number | string,
+  body: { claim?: string; text?: string; turn_id?: string } = {},
+): Promise<Stage3SourcesResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep3Sources(assignmentId), body);
+}
+
+export async function postStudentStep3SubmitApi(
+  assignmentId: number | string,
+  body: Stage3SubmitRequest = {},
+): Promise<Stage3SubmitResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep3Submit(assignmentId), body);
+}
+
+export async function createTeacherAssignmentStep4Api(
+  payload: Stage4CreateRequest,
+): Promise<Stage4CreateResponse> {
+  return api.post(API_ENDPOINTS.teacher.createAssignmentStep4, payload);
+}
+
+export async function getStudentStep4Api(
+  assignmentId: number | string,
+): Promise<Stage4AssignmentDetailResponse> {
+  return api.get(API_ENDPOINTS.student.assignmentStep4(assignmentId));
+}
+
+export async function postStudentStep4ChatApi(
+  assignmentId: number | string,
+  attack_prompt: string,
+): Promise<Stage4ChatResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep4Chat(assignmentId), { attack_prompt });
+}
+
+export async function postStudentStep4SubmitApi(
+  assignmentId: number | string,
+  report: Stage4ReportPayload,
+): Promise<Stage4SubmitResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep4Submit(assignmentId), { report });
 }

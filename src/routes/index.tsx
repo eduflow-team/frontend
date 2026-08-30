@@ -11,6 +11,7 @@ import {
   StudentResultsPage,
   StudentStagePage,
 } from '../pages/student/StudentPages';
+import { StudentAssignmentReportPage } from '../pages/student/StudentAssignmentReportPage';
 import { TeacherDashboardPage } from '../pages/teacher/DashboardPage';
 import {
   TeacherAttendancePage,
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: '/teacher', element: <TeacherDashboardPage /> },
+          { path: '/teacher/subject/:subject', element: <TeacherDashboardPage /> },
           { path: '/teacher/stage/:stage', element: <TeacherStagePage /> },
           { path: '/teacher/materials', element: <TeacherMaterialsPage /> },
           { path: '/teacher/students', element: <TeacherStudentsPage /> },
@@ -71,9 +73,11 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: '/student', element: <StudentDashboardPage /> },
+          { path: '/student/subject/:subject', element: <StudentDashboardPage /> },
           { path: '/student/stage/:stage', element: <StudentStagePage /> },
           { path: '/student/:subject/stage/:stage', element: <StudentStagePage /> },
           { path: '/student/results', element: <StudentResultsPage /> },
+          { path: '/student/results/:assignmentId', element: <StudentAssignmentReportPage /> },
           { path: '/student/attendance', element: <StudentAttendancePage /> },
           { path: '/student/notices', element: <StudentNoticesPage /> },
         ],
