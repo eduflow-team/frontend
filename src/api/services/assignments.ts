@@ -83,7 +83,8 @@ export interface TeacherStep1CreateForm {
   class_id: number;
   subject: string;
   question: string;
-  answer: string;
+  /** 정답 키포인트 3개 */
+  answer_keypoints: string[];
   /** ISO 8601 (UTC 권장) */
   due_at: string;
   file: File;
@@ -96,7 +97,7 @@ export async function createTeacherAssignmentStep1Api(
   body.append('class_id', String(form.class_id));
   body.append('subject', form.subject);
   body.append('question', form.question);
-  body.append('answer', form.answer);
+  body.append('answer_keypoints', JSON.stringify(form.answer_keypoints));
   body.append('due_at', form.due_at);
   body.append('file', form.file);
 

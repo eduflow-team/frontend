@@ -17,7 +17,7 @@ import { TeacherStage3Form } from './stage3/TeacherStage3Form';
 import { TeacherStage4Form } from './stage4/TeacherStage4Form';
 
 const STAGE_DESCRIPTIONS: Record<string, string> = {
-  '1': '학습 자료와 퀴즈 1문제·정답을 등록합니다.',
+  '1': '학습 자료와 서술형 문제·정답 키포인트 3개를 등록합니다.',
   '2': '참고 문서와 페르소나를 설정해 의도적 환각 과제를 만듭니다.',
   '3': 'AI 관점 비교 토론 주제를 설정합니다.',
   '4': 'AI 보안 실습 과제를 게시합니다.',
@@ -154,7 +154,7 @@ function TeacherStage1Form() {
   const [classId, setClassId] = useState<number | ''>('');
   const [subject, setSubject] = useState('hist');
   const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
+  const [keypoints, setKeypoints] = useState<[string, string, string]>(['', '', '']);
   const [dueAt, setDueAt] = useState(defaultDueAtLocal);
   const [file, setFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -214,8 +214,13 @@ function TeacherStage1Form() {
       setError('학급과 파일을 입력해 주세요.');
       return;
     }
-    if (!question.trim() || !answer.trim()) {
-      setError('문제와 정답을 입력해 주세요.');
+    if (!question.trim()) {
+      setError('문제를 입력해 주세요.');
+      return;
+    }
+    const cleanedKeypoints = keypoints.map((k) => k.trim());
+    if (cleanedKeypoints.some((k) => !k)) {
+      setError('정답 키포인트 3개를 모두 입력해 주세요.');
       return;
     }
     if (!dueAt) {
@@ -230,7 +235,7 @@ function TeacherStage1Form() {
         class_id: Number(classId),
         subject,
         question: question.trim(),
-        answer: answer.trim(),
+        answer_keypoints: cleanedKeypoints,
         due_at: localDateTimeToIso(dueAt),
         file,
       });
@@ -317,26 +322,48 @@ function TeacherStage1Form() {
               rows={3}
               required
               disabled={submitting}
-              placeholder="퀴즈 문제 1개"
+              placeholder="예: 일제강점기 일본이 한국에 한 행동 3가지를 적으시오."
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
             />
+            <p className="field-note">학생이 근거를 모아 짧게 정리할 서술형 문제로 내 주세요. (핵심 요점 3개)</p>
           </div>
 
           <div className="field-group" data-tour="t1-tour-answer">
-            <label className="label" htmlFor="s1-answer">
-              정답
-            </label>
-            <input
-              id="s1-answer"
-              className="field"
-              required
-              disabled={submitting}
-              placeholder="예: 토지 조사 사업"
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-            />
-            <p className="field-note">객관식·단답형으로만 적어 주세요. 서술형 정답은 채점이 정확하지 않을 수 있습니다.</p>
+            <span className="label" id="s1-keypoints-label">
+              정답 키포인트 3개
+            </span>
+            <div className="keypoint-fields" role="group" aria-labelledby="s1-keypoints-label">
+              {keypoints.map((value, index) => (
+                <div key={`kp-${index}`} className="keypoint-field">
+                  <label className="keypoint-index" htmlFor={`s1-keypoint-${index + 1}`}>
+                    {index + 1}
+                  </label>
+                  <input
+                    id={`s1-keypoint-${index + 1}`}
+                    className="field"
+                    required
+                    disabled={submitting}
+                    placeholder={
+                      index === 0
+                        ? '예: 토지 조사 사업'
+                        : index === 1
+                          ? '예: 산미 증식 계획'
+                          : '예: 무단 통치'
+                    }
+                    value={value}
+                    onChange={(e) => {
+                      const next = [...keypoints] as [string, string, string];
+                      next[index] = e.target.value;
+                      setKeypoints(next);
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="field-note">
+              채점 기준이 되는 핵심 요점 3개입니다. 학생 답안에 이 내용이 포함됐는지로 부분 채점합니다.
+            </p>
           </div>
 
           <div className="field-group" style={{ maxWidth: 320 }} data-tour="t1-tour-due">

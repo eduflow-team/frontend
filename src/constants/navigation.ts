@@ -56,7 +56,7 @@ export const STUDENT_LEARNING_MODES: LearningMode[] = [
   {
     stage: 1,
     module: 'RAG 체험',
-    content: '퀴즈 탐색 · RAG 파라미터 체험',
+    content: '서술형 탐험 · RAG 파라미터 체험',
     tag: '탐색',
     path: '/student/stage/1',
     icon: '◇',
@@ -124,7 +124,7 @@ export const PAGE_TITLES: Record<string, string> = {
 };
 
 export const STAGE_TITLES: Record<number, string> = {
-  1: '퀴즈 탐색 · RAG 파라미터 체험',
+  1: '서술형 탐험 · RAG 파라미터 체험',
   2: 'AI 환각 탐지 및 Fact-check',
   3: 'Multi-Agent 토론 및 비판적 사고',
   4: '프롬프트 인젝션 방어',

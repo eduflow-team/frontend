@@ -4,7 +4,7 @@ export const STAGE1_STUDENT_TOUR_STEPS: UiTourStep[] = [
   {
     target: 's1-tour-mission',
     title: '문제 확인',
-    body: '선생님이 낸 퀴즈 문제가 위에 보여요. 마감도 바로 아래에 있고, 정답은 마감 전에 공개되지 않으니 힌트를 모아 스스로 찾아야 합니다.',
+    body: '선생님이 낸 서술형 문제가 위에 보여요. 마감도 바로 아래에 있고, 정답 키포인트는 마감 전에 공개되지 않으니 힌트를 모아 스스로 정리해야 합니다.',
     placement: 'bottom',
   },
   {
@@ -34,7 +34,7 @@ export const STAGE1_STUDENT_TOUR_STEPS: UiTourStep[] = [
   {
     target: 's1-tour-submit',
     title: '내 답안 제출',
-    body: '아래 제출칸에 답을 입력하세요. 맞으면 바로 최종 제출되고, 틀리면 한 번 더 기회가 있어요.',
+    body: '아래 작성칸에 핵심 요점 3가지를 짧게 정리해 제출하세요. 모두 맞으면 바로 최종 제출되고, 부족하면 한 번 더 기회가 있어요.',
     placement: 'top',
   },
 ];
@@ -48,16 +48,16 @@ export type Stage1HelpSection = {
 
 /** 화면 중간에도 다시 볼 수 있는 시나리오 1 도움말 */
 export const STAGE1_HELP_INTRO =
-  '퀴즈를 풀며 AI 검색 파라미터를 실험하는 단계예요. AI는 틀릴 수 있으니, 힌트를 모아 스스로 답을 제출하세요.';
+  '서술형 문제를 풀며 AI 검색 파라미터를 실험하는 단계예요. AI는 틀릴 수 있으니, 힌트를 모아 핵심 요점을 스스로 정리해 제출하세요.';
 
 export const STAGE1_HELP_SECTIONS: Stage1HelpSection[] = [
   {
     where: '위',
     title: '문제 · 학습 자료',
     bullets: [
-      '퀴즈 문제와 마감이 위에 있어요',
+      '서술형 문제와 마감이 위에 있어요',
       '「학습 자료」로 선생님이 올린 PDF를 볼 수 있어요',
-      '정답은 마감 전에 공개되지 않아요',
+      '정답 키포인트는 마감 전에 공개되지 않아요',
     ],
   },
   {
@@ -86,9 +86,9 @@ export const STAGE1_HELP_SECTIONS: Stage1HelpSection[] = [
     where: '아래',
     title: '내 답안 제출',
     bullets: [
-      '화면 아래 제출칸에 본인 답을 입력해요',
-      '정답이면 바로 최종 제출·완료돼요',
-      '오답이면 한 번 더 도전할 수 있어요',
+      '핵심 요점 3가지를 번호로 짧게 정리해 써요',
+      '요점마다 부분 점수가 나가요',
+      '3개 모두 맞히면 바로 최종 제출·완료돼요',
       '두 번 모두 쓰면 점수가 더 높은 제출이 최종이에요',
     ],
   },

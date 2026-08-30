@@ -14,6 +14,7 @@ import {
 import type {
   Stage1AssignmentDetailResponse,
   Stage1AttemptSummary,
+  Stage1EvaluationReport,
   Stage1FinalizeResponse,
   Stage1Parameters,
   Stage1SubmitResponse,
@@ -44,6 +45,18 @@ import { StudentStage3Activity } from './stage3/StudentStage3Activity';
 import { StudentStage4Activity } from './stage4/StudentStage4Activity';
 
 type StageFlowPhase = 'guide' | 'select' | 'learn';
+
+function reportFromAttempt(attempt: Stage1AttemptSummary): Stage1EvaluationReport {
+  return {
+    is_correct: attempt.is_correct,
+    correct_score: attempt.correct_score,
+    resource_penalty: attempt.resource_penalty,
+    feedback: attempt.feedback,
+    matched_keypoints: attempt.matched_keypoints,
+    total_keypoints: attempt.total_keypoints,
+    keypoint_results: attempt.keypoint_results,
+  };
+}
 
 export function StudentStagePage() {
   const { stage } = useParams<{ subject?: string; stage: string }>();
@@ -296,12 +309,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
               current_score: finalAttempt.score,
               highest_score: finalAttempt.score,
               is_correct: finalAttempt.is_correct,
-              evaluation_report: {
-                is_correct: finalAttempt.is_correct,
-                correct_score: finalAttempt.correct_score,
-                resource_penalty: finalAttempt.resource_penalty,
-                feedback: finalAttempt.feedback,
-              },
+              evaluation_report: reportFromAttempt(finalAttempt),
               attempts: {
                 used_attempts: res.attempts.used_attempts,
                 remaining_attempts: res.attempts.remaining_attempts,
@@ -418,6 +426,10 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
       setToast('제출할 답을 입력해 주세요.');
       return;
     }
+    if (studentAnswer.trim().length < 20) {
+      setToast('답안은 20자 이상 작성해 주세요. 핵심 요점을 짧게 정리해 보세요.');
+      return;
+    }
     if (remaining <= 0) {
       setToast('제출 기회를 모두 사용했습니다.');
       return;
@@ -463,17 +475,16 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             return best;
           }, null);
         if (winner) {
+          const report =
+            winner.attempt_number === res.attempts.used_attempts
+              ? res.evaluation_report
+              : reportFromAttempt(winner);
           setFinalResult({
             attempt_number: winner.attempt_number,
             current_score: winner.score,
             highest_score: winner.score,
             is_correct: winner.is_correct,
-            evaluation_report: {
-              is_correct: winner.is_correct,
-              correct_score: winner.correct_score,
-              resource_penalty: winner.resource_penalty,
-              feedback: winner.feedback,
-            },
+            evaluation_report: report,
             attempts: res.attempts,
             attempt_summaries: summaries,
             is_finalized: true,
@@ -482,7 +493,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
         }
         setDone(true);
         if (res.is_correct && winner?.attempt_number === res.attempts.used_attempts) {
-          setToast('정답입니다! 최종 제출이 확정되었어요.');
+          setToast('모든 핵심 요점을 맞혔어요! 최종 제출이 확정되었어요.');
         } else if (summaries.length > 1 && winner) {
           setToast(
             `제출이 끝났어요. ${winner.attempt_number}번째 제출(${winner.score}점)이 더 높아 최종 점수로 확정됐어요.`,
@@ -491,7 +502,15 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
           setToast('최종 제출이 확정되었어요.');
         }
       } else {
-        setToast('오답이에요. 파라미터를 조정해 한 번 더 도전할 수 있어요.');
+        const matched = res.evaluation_report.matched_keypoints ?? 0;
+        const total = res.evaluation_report.total_keypoints ?? 3;
+        if (matched > 0) {
+          setToast(
+            `핵심 요점 ${matched}/${total}개 반영. 파라미터를 조정해 한 번 더 보완할 수 있어요.`,
+          );
+        } else {
+          setToast('핵심 요점이 부족해요. 파라미터를 조정해 한 번 더 도전할 수 있어요.');
+        }
       }
     } catch (err) {
       setToast(err instanceof ApiError ? err.message : '제출에 실패했습니다.');
@@ -513,6 +532,9 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
       attemptSummaries.find((a) => a.is_final);
     const shownParams = chosen?.parameters ?? detail.best_parameters ?? params;
     const answerText = finalResult.correct_answer || detail.correct_answer;
+    const keypointResults = finalResult.evaluation_report.keypoint_results ?? [];
+    const matchedCount = finalResult.evaluation_report.matched_keypoints;
+    const totalCount = finalResult.evaluation_report.total_keypoints;
     return (
       <section className="done-layout">
         <article className="done-sheet">
@@ -524,7 +546,11 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             </p>
             <div className="done-sheet-meta">
               <span className={finalResult.is_correct ? 'is-ok' : 'is-bad'}>
-                {finalResult.is_correct ? '정답' : '오답'}
+                {finalResult.is_correct
+                  ? '핵심 요점 모두 반영'
+                  : typeof matchedCount === 'number' && typeof totalCount === 'number' && totalCount > 0
+                    ? `요점 ${matchedCount}/${totalCount}`
+                    : '부분 반영'}
               </span>
               <span>최종 {finalResult.attempt_number}회차</span>
               <span>리소스 감점 {finalResult.evaluation_report.resource_penalty}</span>
@@ -534,7 +560,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
           <div className="done-sheet-body">
             <div className="done-sheet-block">
               <p className="done-sheet-kicker">제출 답안</p>
-              <p className="done-feedback">{chosen?.student_answer || '—'}</p>
+              <p className="done-feedback done-feedback-report">{chosen?.student_answer || '—'}</p>
             </div>
             <div className="done-sheet-block">
               <p className="done-sheet-kicker">제출 파라미터</p>
@@ -557,12 +583,29 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             <div className="done-sheet-block">
               <p className="done-sheet-kicker">피드백</p>
               <p className="done-feedback">{finalResult.evaluation_report.feedback}</p>
+              {keypointResults.length > 0 ? (
+                <ul className="keypoint-check-list" aria-label="핵심 요점 채점">
+                  {keypointResults.map((kp) => (
+                    <li key={`done-kp-${kp.index}`} className={kp.matched ? 'is-hit' : 'is-miss'}>
+                      <span className="keypoint-check-mark" aria-hidden="true">
+                        {kp.matched ? '✓' : '·'}
+                      </span>
+                      <span>
+                        {kp.matched && kp.keypoint
+                          ? `${kp.index}. ${kp.keypoint}`
+                          : `요점 ${kp.index}${kp.matched ? '' : ' — 아직 부족'}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               {answerText ? (
                 <p className="done-answer">
-                  정답 <strong>{answerText}</strong>
+                  정답 키포인트
+                  <strong className="done-answer-multiline">{answerText}</strong>
                 </p>
               ) : (
-                <p className="done-answer is-muted">정답 문구는 마감 후에 공개됩니다.</p>
+                <p className="done-answer is-muted">정답 키포인트는 마감 후에 공개됩니다.</p>
               )}
             </div>
           </div>
@@ -760,11 +803,15 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
             {usedAttempts}/{maxAttempts}회
           </span>
         </div>
-        <div className="submit-bar-row">
-          <input
+        <p className="submit-bar-hint">
+          AI 힌트를 모아 핵심 요점 3가지를 짧게 정리해 작성하세요. (20자 이상)
+        </p>
+        <div className="submit-bar-row submit-bar-row-report">
+          <textarea
             id="s1-student-answer"
             className="field"
-            placeholder="교과서 표현으로 정답 입력"
+            rows={4}
+            placeholder={'예:\n1) …\n2) …\n3) …'}
             value={studentAnswer}
             onChange={(e) => setStudentAnswer(e.target.value)}
             disabled={remaining <= 0 || Boolean(detail.is_finalized)}
@@ -783,7 +830,8 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
         </div>
         {attemptSummaries.length > 0 && !detail.is_finalized ? (
           <p className="submit-bar-note">
-            오답이에요. 파라미터를 바꿔 한 번 더 제출할 수 있어요. ({usedAttempts}/{maxAttempts}회 사용)
+            아직 요점이 부족해요. 파라미터를 바꿔 자료를 더 찾은 뒤 한 번 더 제출할 수 있어요. (
+            {usedAttempts}/{maxAttempts}회 사용)
           </p>
         ) : null}
       </div>
@@ -792,16 +840,38 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
         <div className="result show">
           <div className="score-row">
             <strong>{submitResult.current_score}</strong>
-            <span>점 · {submitResult.is_correct ? '정답' : '오답'}</span>
+            <span>
+              점 ·{' '}
+              {submitResult.is_correct
+                ? '핵심 요점 모두 반영'
+                : `요점 ${submitResult.evaluation_report.matched_keypoints ?? 0}/${submitResult.evaluation_report.total_keypoints ?? 3}`}
+            </span>
           </div>
           <p className="hint">
             정답점수 {submitResult.evaluation_report.correct_score} · 리소스 감점{' '}
             {submitResult.evaluation_report.resource_penalty}
           </p>
           <p className="hint">{submitResult.evaluation_report.feedback}</p>
+          {(submitResult.evaluation_report.keypoint_results?.length ?? 0) > 0 ? (
+            <ul className="keypoint-check-list" aria-label="핵심 요점 채점">
+              {submitResult.evaluation_report.keypoint_results!.map((kp) => (
+                <li key={`result-kp-${kp.index}`} className={kp.matched ? 'is-hit' : 'is-miss'}>
+                  <span className="keypoint-check-mark" aria-hidden="true">
+                    {kp.matched ? '✓' : '·'}
+                  </span>
+                  <span>
+                    {kp.matched && kp.keypoint
+                      ? `${kp.index}. ${kp.keypoint}`
+                      : `요점 ${kp.index}${kp.matched ? '' : ' — 아직 부족'}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {remaining > 0 ? (
             <p className="hint">
-              정답을 맞히면 바로 최종 제출됩니다. 두 번 모두 쓰면 점수가 더 높은 제출이 최종이 돼요.
+              요점 3개를 모두 맞히면 바로 최종 제출됩니다. 두 번 모두 쓰면 점수가 더 높은 제출이 최종이
+              돼요.
             </p>
           ) : null}
         </div>

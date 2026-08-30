@@ -34,6 +34,12 @@ export interface Stage1AttemptsInfo {
   remaining_attempts: number;
 }
 
+export interface Stage1KeypointResult {
+  index: number;
+  keypoint: string;
+  matched: boolean;
+}
+
 export interface Stage1AttemptSummary {
   attempt_number: number;
   score: number;
@@ -44,6 +50,9 @@ export interface Stage1AttemptSummary {
   student_answer: string;
   parameters: Stage1Parameters;
   is_final?: boolean;
+  matched_keypoints?: number;
+  total_keypoints?: number;
+  keypoint_results?: Stage1KeypointResult[];
 }
 
 export interface Stage1AssignmentDetailResponse {
@@ -68,6 +77,8 @@ export interface Stage1AssignmentDetailResponse {
   subject?: string | null;
   is_answer_revealed?: boolean;
   correct_answer?: string | null;
+  answer_keypoints?: string[] | null;
+  answer_keypoint_count?: number;
 }
 
 export interface Stage1ChatRequest {
@@ -86,6 +97,16 @@ export interface Stage1ChatResponse {
   };
 }
 
+export interface Stage1EvaluationReport {
+  is_correct: boolean;
+  correct_score: number;
+  resource_penalty: number;
+  feedback: string;
+  matched_keypoints?: number;
+  total_keypoints?: number;
+  keypoint_results?: Stage1KeypointResult[];
+}
+
 export interface Stage1SubmitRequest {
   final_parameters: Stage1Parameters;
   student_answer: string;
@@ -96,12 +117,7 @@ export interface Stage1SubmitResponse {
   highest_score: number;
   is_highest_score: boolean;
   is_correct: boolean;
-  evaluation_report: {
-    is_correct: boolean;
-    correct_score: number;
-    resource_penalty: number;
-    feedback: string;
-  };
+  evaluation_report: Stage1EvaluationReport;
   attempts: {
     used_attempts: number;
     remaining_attempts: number;
@@ -120,12 +136,7 @@ export interface Stage1FinalizeResponse {
   current_score: number;
   highest_score: number;
   is_correct: boolean;
-  evaluation_report: {
-    is_correct: boolean;
-    correct_score: number;
-    resource_penalty: number;
-    feedback: string;
-  };
+  evaluation_report: Stage1EvaluationReport;
   attempts: {
     used_attempts: number;
     remaining_attempts: number;

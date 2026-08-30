@@ -167,6 +167,30 @@
   line-height: 1.45;
   color: var(--muted);
 }
+.s1 .keypoint-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.s1 .keypoint-field {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+.s1 .keypoint-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--ink);
+}
 .s1 .row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1091,15 +1115,32 @@
 .s1 .submit-bar-head .side-title {
   margin: 0;
 }
+.s1 .submit-bar-hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
 .s1 .submit-bar-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
 }
+.s1 .submit-bar-row-report {
+  align-items: end;
+}
 .s1 .submit-bar-row .field {
   height: 42px;
   min-width: 0;
+}
+.s1 .submit-bar-row-report .field {
+  height: auto;
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.5;
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 .s1 .submit-bar-row .btn-primary {
   height: 42px;
@@ -1115,6 +1156,33 @@
   font-size: 13px;
   color: var(--muted);
   line-height: 1.45;
+}
+.s1 .keypoint-check-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.s1 .keypoint-check-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.s1 .keypoint-check-list li.is-miss {
+  color: var(--muted);
+}
+.s1 .keypoint-check-mark {
+  flex: 0 0 auto;
+  width: 1.1em;
+  font-weight: 700;
+}
+.s1 .keypoint-check-list li.is-hit .keypoint-check-mark {
+  color: var(--ink);
 }
 .s1 .attempt-pick {
   margin-top: 14px;
@@ -1820,6 +1888,9 @@
   color: var(--ink);
   letter-spacing: -0.01em;
 }
+.s1 .done-feedback-report {
+  white-space: pre-wrap;
+}
 .s1 .done-answer {
   margin: 14px 0 0;
   padding: 12px 14px;
@@ -1832,6 +1903,13 @@
   margin-left: 6px;
   color: var(--ink);
   font-weight: 650;
+}
+.s1 .done-answer-multiline {
+  display: block;
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  font-weight: 650;
+  color: var(--ink);
 }
 .s1 .done-answer.is-muted {
   background: transparent;
