@@ -62,10 +62,13 @@ interface Stage3GradeResult {
   missed: number;
   wasted: number;
   score: number;
+  usageScore: number;
+  reasoningScore: number;
   headline: string;
   advice: string;
   judgment?: string;
   corrections?: Record<string, { highlight: string; why: string; ground: string }>;
+  correctionGrades?: Record<string, { whyRating: number; groundRating: number; turnScore: number; feedback: string }>;
 }
 
 const VERDICT_LABEL: Record<Stage3Verdict, string> = {
@@ -76,6 +79,17 @@ const VERDICT_LABEL: Record<Stage3Verdict, string> = {
 };
 
 const OUTCOMES: Stage3Outcome[] = ['caught', 'passed', 'missed', 'wasted'];
+
+function dedupeSourceItems(items: Stage3SourceItem[]): Stage3SourceItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const core = (item.title || '').replace(/\s*—\s*.+$/, '').replace(/\s+/g, '').toLowerCase();
+    const key = core || item.url;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 function toUiVerdict(value?: string | null): Stage3Verdict {
   if (value === 'supported' || value === 'exaggerated' || value === 'unsupported' || value === 'false') {
@@ -150,7 +164,25 @@ function rowFromApi(row: Stage3ApiGradeRow, debate: Stage3Debate): Stage3GradeRo
   };
 }
 
-function resultFromSubmit(res: Stage3SubmitResponse, debate: Stage3Debate): Stage3GradeResult {
+function resultFromSubmit(
+  res: Stage3SubmitResponse,
+  debate: Stage3Debate,
+  extras?: {
+    judgment?: string;
+    corrections?: Record<string, { highlight: string; why: string; ground: string }>;
+  },
+): Stage3GradeResult {
+  const correctionGrades = Object.fromEntries(
+    (res.correction_rows ?? []).map((row) => [
+      row.turn_id,
+      {
+        whyRating: row.why_rating,
+        groundRating: row.ground_rating,
+        turnScore: row.turn_score,
+        feedback: row.feedback,
+      },
+    ]),
+  );
   return {
     topic: debate.topic,
     source: debate.source,
@@ -160,8 +192,13 @@ function resultFromSubmit(res: Stage3SubmitResponse, debate: Stage3Debate): Stag
     missed: res.missed,
     wasted: res.wasted,
     score: res.highest_score ?? res.current_score ?? 0,
+    usageScore: res.usage_score ?? res.current_score ?? 0,
+    reasoningScore: res.reasoning_score ?? res.current_score ?? 0,
     headline: res.headline,
     advice: res.advice,
+    judgment: extras?.judgment,
+    corrections: extras?.corrections,
+    correctionGrades,
   };
 }
 
@@ -185,6 +222,8 @@ function resultFromCompleted(detail: Stage3AssignmentDetailResponse): Stage3Grad
     missed: 0,
     wasted: 0,
     score: detail.highest_score ?? 0,
+    usageScore: detail.highest_score ?? 0,
+    reasoningScore: detail.highest_score ?? 0,
     headline: '과제를 제출했습니다',
     advice: '이미 제출한 토론 평가입니다. 최고 점수가 반영되어 있습니다.',
   };
@@ -309,8 +348,8 @@ function HighlightBubble({
     const onMouseUp = () => {
       justWrapped = wrapSelection();
     };
-    const onClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
+    const onClick = (e: Event) => {
+      const target = (e.target as HTMLElement | null);
       const mark = target?.closest('mark.hl-user');
       if (!mark || !bubble.contains(mark)) return;
       e.preventDefault();
@@ -354,7 +393,7 @@ export function StudentStage3Activity({
   const [sourceOpen, setSourceOpen] = useState(false);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceArticles, setSourceArticles] = useState<Stage3SourceItem[]>([]);
-  const [sourceSearches, setSourceSearches] = useState<Stage3SourceItem[]>([]);
+  const [, setSourceSearches] = useState<Stage3SourceItem[]>([]);
   const [sourceQuote, setSourceQuote] = useState('');
   const [whyText, setWhyText] = useState('');
   const [groundText, setGroundText] = useState('');
@@ -528,8 +567,9 @@ export function StudentStage3Activity({
   };
 
   const openSource = async (turn: Stage3Turn) => {
-    const claim = turn.claim || turn.grounds?.[0] || turn.text || '';
-    setSourceQuote(claim);
+    const highlighted = collectHighlights(turn.id);
+    const claim = highlighted || turn.claim || turn.grounds?.[0] || '';
+    setSourceQuote(claim || turn.text || '');
     setSourceOpen(true);
     setSourceLoading(true);
     setSourceArticles([]);
@@ -538,10 +578,9 @@ export function StudentStage3Activity({
       const data = await postStudentStep3SourcesApi(assignmentId, {
         turn_id: turn.id,
         claim,
-        text: turn.text,
       });
-      setSourceArticles(data.articles || []);
-      setSourceSearches(data.searches || []);
+      setSourceArticles(dedupeSourceItems(data.articles || []));
+      setSourceSearches(dedupeSourceItems(data.searches || []));
     } catch (err) {
       setToast(apiErrorMessage(err, '출처를 찾지 못했습니다.'));
     } finally {
@@ -661,8 +700,18 @@ export function StudentStage3Activity({
           turn_id,
           checked,
         })),
+        corrections: Object.entries(corrections).map(([turn_id, item]) => ({
+          turn_id,
+          highlight: item.highlight,
+          why_wrong: item.why,
+          correct_ground: item.ground,
+        })),
       });
-      setResult({ ...resultFromSubmit(res, debateRef.current), judgment: judgeText, corrections });
+      setResult({
+        ...resultFromSubmit(res, debateRef.current, { judgment: judgeText, corrections }),
+        judgment: judgeText,
+        corrections,
+      });
       setAlreadySubmitted(true);
       setPhase('done');
     } catch (err) {
@@ -1094,24 +1143,30 @@ export function StudentStage3Activity({
               {sourceLoading ? <p className="hint">관련 뉴스·기사·인터뷰를 찾는 중…</p> : null}
               {!sourceLoading && (
                 <>
-                  <p className="hint">이 근거와 관련된 뉴스·인터뷰입니다. 제목을 누르면 원문이 열립니다.</p>
-                  <div className="source-list">
-                    {(sourceArticles.length ? sourceArticles : sourceSearches).map((item) => (
-                      <a
-                        key={item.url}
-                        className="source-item"
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <span className="src">
-                          {item.kind || '뉴스'}
-                          {item.source ? ` · ${item.source}` : ''}
-                        </span>
-                        <span className="title">{item.title}</span>
-                      </a>
-                    ))}
-                  </div>
+                  {sourceArticles.length > 0 ? (
+                    <>
+                      <p className="hint">이 근거와 관련된 뉴스·인터뷰입니다. 제목을 누르면 원문이 열립니다.</p>
+                      <div className="source-list">
+                        {sourceArticles.map((item) => (
+                          <a
+                            key={item.url}
+                            className="source-item"
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <span className="src">
+                              {item.kind || '뉴스'}
+                              {item.source ? ` · ${item.source}` : ''}
+                            </span>
+                            <span className="title">{item.title}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="hint">관련 기사를 찾지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
+                  )}
                 </>
               )}
             </div>
@@ -1186,13 +1241,16 @@ export function StudentStage3Done({
           <div className="score-ring" style={{ ['--p' as string]: String(result.score) }}>
             <div className="inner">
               <strong>{result.score}</strong>
-              <span>AI 활용 점수</span>
+              <span>종합 점수</span>
             </div>
           </div>
           <div className="score-copy">
             <h1>{result.headline}</h1>
             <p>{result.advice}</p>
             <p className="hint hint-sm" style={{ marginTop: 10 }}>
+              팩트체커 사용 {result.usageScore}점 · 근거 설명 {result.reasoningScore}점
+            </p>
+            <p className="hint hint-sm" style={{ marginTop: 6 }}>
               {result.topic}
             </p>
           </div>
@@ -1273,6 +1331,9 @@ export function StudentStage3Done({
                         ) : null}
                         {result.corrections?.[row.id]?.ground ? (
                           <em>맞은 근거 — {result.corrections[row.id].ground}</em>
+                        ) : null}
+                        {result.correctionGrades?.[row.id]?.feedback ? (
+                          <em>근거 설명 피드백 — {result.correctionGrades[row.id].feedback}</em>
                         ) : null}
                       </div>
                       <span className={`mark ${mark.cls}`}>{mark.label}</span>

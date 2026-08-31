@@ -11,9 +11,6 @@ import type {
   RefreshResponse,
   SignupRequest,
   SignupResponse,
-  SocialLoginRequest,
-  SocialProvider,
-  SocialSignupRequest,
 } from '../types';
 
 export async function loginApi(payload: LoginRequest): Promise<LoginResponse> {
@@ -57,32 +54,6 @@ export async function refreshTokenApi(
 ): Promise<RefreshResponse> {
   const data = await api.post<RefreshResponse>(
     API_ENDPOINTS.auth.refresh,
-    payload,
-    { skipAuth: true },
-  );
-  setTokens(data.access_token, data.refresh_token);
-  return data;
-}
-
-export async function socialLoginApi(
-  provider: SocialProvider,
-  payload: SocialLoginRequest,
-): Promise<LoginResponse> {
-  const data = await api.post<LoginResponse>(
-    API_ENDPOINTS.auth.social(provider),
-    payload,
-    { skipAuth: true },
-  );
-  setTokens(data.access_token, data.refresh_token);
-  return data;
-}
-
-export async function socialSignupApi(
-  provider: SocialProvider,
-  payload: SocialSignupRequest,
-): Promise<LoginResponse> {
-  const data = await api.post<LoginResponse>(
-    API_ENDPOINTS.auth.socialSignup(provider),
     payload,
     { skipAuth: true },
   );

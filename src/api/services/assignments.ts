@@ -25,10 +25,12 @@ import type {
   Stage3SubmitRequest,
   Stage3SubmitResponse,
   Stage4AssignmentDetailResponse,
+  Stage4ChatRequest,
   Stage4ChatResponse,
   Stage4CreateRequest,
   Stage4CreateResponse,
-  Stage4ReportPayload,
+  Stage4SetScore,
+  Stage4SubmitRequest,
   Stage4SubmitResponse,
   Step2CorrectionRequest,
   Step2CorrectionResponse,
@@ -99,7 +101,8 @@ export interface TeacherStep1CreateForm {
   class_id: number;
   subject: string;
   question: string;
-  answer: string;
+  /** 정답 키포인트 3개 */
+  answer_keypoints: string[];
   /** ISO 8601 (UTC 권장) */
   due_at: string;
   file: File;
@@ -112,7 +115,7 @@ export async function createTeacherAssignmentStep1Api(
   body.append('class_id', String(form.class_id));
   body.append('subject', form.subject);
   body.append('question', form.question);
-  body.append('answer', form.answer);
+  body.append('answer_keypoints', JSON.stringify(form.answer_keypoints));
   body.append('due_at', form.due_at);
   body.append('file', form.file);
 
@@ -262,9 +265,9 @@ export async function postStudentStep3SubmitApi(
 }
 
 export async function createTeacherAssignmentStep4Api(
-  payload: Stage4CreateRequest,
+  body: Stage4CreateRequest,
 ): Promise<Stage4CreateResponse> {
-  return api.post(API_ENDPOINTS.teacher.createAssignmentStep4, payload);
+  return api.post(API_ENDPOINTS.teacher.createAssignmentStep4, body);
 }
 
 export async function getStudentStep4Api(
@@ -273,16 +276,22 @@ export async function getStudentStep4Api(
   return api.get(API_ENDPOINTS.student.assignmentStep4(assignmentId));
 }
 
+export async function getStudentStep4SetApi(
+  assignmentId: number | string,
+): Promise<Stage4SetScore> {
+  return api.get(API_ENDPOINTS.student.assignmentStep4Set(assignmentId));
+}
+
 export async function postStudentStep4ChatApi(
   assignmentId: number | string,
-  attack_prompt: string,
+  body: Stage4ChatRequest,
 ): Promise<Stage4ChatResponse> {
-  return api.post(API_ENDPOINTS.student.assignmentStep4Chat(assignmentId), { attack_prompt });
+  return api.post(API_ENDPOINTS.student.assignmentStep4Chat(assignmentId), body);
 }
 
 export async function postStudentStep4SubmitApi(
   assignmentId: number | string,
-  report: Stage4ReportPayload,
+  body: Stage4SubmitRequest,
 ): Promise<Stage4SubmitResponse> {
-  return api.post(API_ENDPOINTS.student.assignmentStep4Submit(assignmentId), { report });
+  return api.post(API_ENDPOINTS.student.assignmentStep4Submit(assignmentId), body);
 }

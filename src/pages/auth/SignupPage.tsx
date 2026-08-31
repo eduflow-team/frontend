@@ -182,7 +182,7 @@ export function SignupPage() {
               className="form-control"
               type="email"
               id="signup-email"
-              placeholder="school@example.com"
+              placeholder="e2e.teacher@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ApiError,
   createTeacherAssignmentStep3Api,
-  fetchClassesApi,
+  fetchTeacherClassesApi,
   previewTeacherAssignmentStep3DebateApi,
 } from '../../../api';
 import type { ClassItem, Stage3DebatePublicPayload, Stage3TurnPublic } from '../../../api/types';
@@ -88,7 +88,7 @@ function appendTurnFlaws(turn: Stage3TurnPublic, items: FlawPreviewItem[]) {
 /** stage3_ui 교사 출제 화면 — POST /teacher/assignments/step3 */
 export function TeacherStage3Form() {
   const { user } = useAuth();
-  const useApi = Boolean(user && !user.isDemo);
+  const useApi = Boolean(user);
 
   const [step, setStep] = useState(1);
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -114,17 +114,24 @@ export function TeacherStage3Form() {
 
   useEffect(() => {
     if (!useApi) return;
-    fetchClassesApi()
+    fetchTeacherClassesApi()
       .then((res) => {
         setClasses(res.classes);
         const firstClass = res.classes[0];
         if (firstClass) setClassId(firstClass.class_id);
+        else setClassId('');
       })
-      .catch(() => setClasses([]));
+      .catch(() => {
+        setClasses([]);
+        setClassId('');
+      });
   }, [useApi]);
 
   const validateMeta = (): string => {
-    if (!useApi) return '데모 계정에서는 과제를 게시할 수 없습니다. 실제 계정으로 로그인해 주세요.';
+    if (!useApi) return '로그인이 필요합니다.';
+    if (classes.length === 0) {
+      return '담당 학급이 연결되지 않았습니다. 관리자에게 담임 학급 등록을 요청해 주세요.';
+    }
     if (classId === '') return '학급을 선택해 주세요.';
     if (!dueAt.trim()) return '과제 마감일을 선택해 주세요.';
     return '';
@@ -403,8 +410,7 @@ export function TeacherStage3Form() {
                       </div>
                     </dl>
                     <p className="field-hint" style={{ marginTop: 14 }}>
-                      Langflow가 6라운드 토론을 생성합니다. 약 50~80초 걸릴 수 있습니다. 생성이 끝나면
-                      4단계에서 오류 근거를 미리 확인할 수 있습니다.
+                      약 50~80초 걸릴 수 있습니다.
                     </p>
                   </div>
                 </div>
@@ -412,7 +418,7 @@ export function TeacherStage3Form() {
                   <strong>토론 구조</strong>
                   <ul>
                     <li>찬성 입론 → 반대 입론 → 반대 반론 → 찬성 반론 → 최종 변론</li>
-                    <li>전체 토론에 검증이 필요한 근거가 최소 2개 포함됩니다</li>
+                    <li>전체 토론에 검증이 필요한 근거 2~3개와 정상 근거 4개 이상이 함께 포함됩니다</li>
                   </ul>
                 </aside>
               </div>

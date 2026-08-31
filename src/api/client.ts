@@ -112,6 +112,7 @@ export async function apiRequest<T>(
     if (refreshed) {
       return apiRequest<T>(path, options, { ...opts, _retried: true });
     }
+    window.dispatchEvent(new CustomEvent('eduflow:auth-expired'));
   }
 
   if (!response.ok) {
@@ -163,6 +164,7 @@ export async function apiRequestBlob(
     if (refreshed) {
       return apiRequestBlob(path, options, { ...opts, _retried: true });
     }
+    window.dispatchEvent(new CustomEvent('eduflow:auth-expired'));
   }
 
   if (!response.ok) {

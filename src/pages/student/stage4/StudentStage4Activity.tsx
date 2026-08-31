@@ -1,156 +1,103 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ApiError,
   getStudentStep4Api,
   postStudentStep4ChatApi,
-  postStudentStep4SubmitApi,
 } from '../../../api';
-import type {
-  Stage4AssignmentDetailResponse,
-  Stage4AttemptsInfo,
-  Stage4EvaluationReport,
-  Stage4ReportPayload,
-} from '../../../api/types';
-
-type ChatBubble =
-  | { kind: 'ai' | 'me'; text: string; leaked?: boolean }
-  | { kind: 'system'; text: string };
+import type { Stage4AssignmentDetailResponse } from '../../../api/types';
+import { Stage4HintsList, countUnlockedHints } from './Stage4HintsList';
+import { Stage4Tour } from './Stage4Tour';
 
 function Toast({ message }: { message: string }) {
   return <div className={`toast${message ? ' show' : ''}`}>{message}</div>;
 }
 
-/** Stage4 학생 — 프롬프트 인젝션 공격 실습 */
-export function StudentStage4Activity({
-  assignmentId,
-  skipIntroGuide = false,
-}: {
+interface StudentStage4ActivityProps {
   assignmentId: string;
-  skipIntroGuide?: boolean;
-}) {
+  onBack: () => void;
+}
+
+/** Stage4 학생 — 프롬프트 인젝션 공격 실습 (난이도 선택은 이전 화면에서만) */
+export function StudentStage4Activity({ assignmentId, onBack }: StudentStage4ActivityProps) {
   const [detail, setDetail] = useState<Stage4AssignmentDetailResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [bubbles, setBubbles] = useState<ChatBubble[]>([]);
-  const [reply, setReply] = useState('');
-  const [sending, setSending] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [attempts, setAttempts] = useState<Stage4AttemptsInfo | null>(null);
-  const [cleared, setCleared] = useState(false);
-  const [hint, setHint] = useState<string | null>(null);
-  const [showReport, setShowReport] = useState(false);
-  const [guideOpen, setGuideOpen] = useState(!skipIntroGuide);
+  const [loading, setLoading] = useState(true);
+  const [attackInput, setAttackInput] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
   const [toast, setToast] = useState('');
-  const [report, setReport] = useState<Stage4ReportPayload>({
-    successful_attacks: '',
-    failed_attacks: '',
-    why_breached: '',
-    defense_ideas: '',
-  });
-  const [result, setResult] = useState<{
-    score: number;
-    passed: boolean;
-    evaluation: Stage4EvaluationReport;
-  } | null>(null);
-  const chatRef = useRef<HTMLDivElement>(null);
+  const [tourOpen, setTourOpen] = useState(false);
+  const logRef = useRef<HTMLDivElement>(null);
+
+  const loadDetail = useCallback(async (id: string, opts?: { openTour?: boolean }) => {
+    setLoading(true);
+    setLoadError('');
+    try {
+      const data = await getStudentStep4Api(id);
+      setDetail(data);
+      if (opts?.openTour) setTourOpen(true);
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : '과제를 불러오지 못했습니다.');
+      setDetail(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setAttackInput('');
+    setTourOpen(false);
+    void loadDetail(assignmentId, { openTour: true });
+  }, [assignmentId, loadDetail]);
 
   useEffect(() => {
     if (!toast) return;
-    const t = window.setTimeout(() => setToast(''), 2400);
+    const t = window.setTimeout(() => setToast(''), 2000);
     return () => window.clearTimeout(t);
   }, [toast]);
 
   useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  }, [bubbles]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    getStudentStep4Api(assignmentId)
-      .then((data) => {
-        if (cancelled) return;
-        setDetail(data);
-        setAttempts(data.attempts);
-        setCleared(data.is_cleared);
-        const logs: ChatBubble[] = [];
-        for (const log of data.attack_logs ?? []) {
-          logs.push({ kind: 'me', text: log.attack_prompt, leaked: log.attack_success });
-          logs.push({ kind: 'ai', text: log.ai_response, leaked: log.attack_success });
-        }
-        setBubbles(logs);
-        if (data.can_submit_report || data.is_cleared) setShowReport(true);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setLoadError(err instanceof ApiError ? err.message : '과제를 불러오지 못했습니다.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [assignmentId]);
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [detail?.attack_logs]);
 
   const sendAttack = async () => {
-    const text = reply.trim();
-    if (!text || sending) return;
-    setSending(true);
-    setReply('');
-    setBubbles((prev) => [...prev, { kind: 'me', text }]);
-    try {
-      const res = await postStudentStep4ChatApi(assignmentId, text);
-      setAttempts(res.attempts);
-      setCleared(res.is_cleared);
-      setHint(res.hint ?? null);
-      setBubbles((prev) => [
-        ...prev,
-        { kind: 'ai', text: res.ai_response, leaked: res.attack_success },
-        {
-          kind: 'system',
-          text: res.attack_success
-            ? '비밀 키가 유출되었습니다. 공격을 성공했습니다.'
-            : '비밀 키는 지켜졌습니다. 다른 우회를 시도해 보세요.',
-        },
-      ]);
-      if (res.is_cleared) setShowReport(true);
-    } catch (err) {
-      setToast(err instanceof ApiError ? err.message : '공격 요청에 실패했습니다.');
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const submitReport = async () => {
-    if (
-      !report.successful_attacks.trim() ||
-      !report.failed_attacks.trim() ||
-      !report.why_breached.trim() ||
-      !report.defense_ideas.trim()
-    ) {
-      setToast('보고서 네 항목을 모두 적어 주세요.');
+    if (!detail || chatBusy) return;
+    const prompt = attackInput.trim();
+    if (!prompt) {
+      setToast('공격 문장을 입력해 주세요');
       return;
     }
-    setSubmitting(true);
+    if (!detail.unlocked) {
+      setToast('잠긴 난이도입니다');
+      return;
+    }
+    if (detail.set.report_submitted) {
+      setToast('보고서를 이미 제출했습니다');
+      return;
+    }
+    if (detail.attempts.remaining_attempts <= 0) {
+      setToast('시도 횟수를 모두 사용했습니다');
+      return;
+    }
+
+    setChatBusy(true);
     try {
-      const res = await postStudentStep4SubmitApi(assignmentId, report);
-      setResult({
-        score: res.current_score,
-        passed: res.is_passed,
-        evaluation: res.evaluation_report,
-      });
+      const res = await postStudentStep4ChatApi(assignmentId, { attack_prompt: prompt });
+      setAttackInput('');
+      await loadDetail(assignmentId);
+      if (res.is_cleared) {
+        setToast('클리어! 난이도 선택으로 돌아가 다음 단계를 진행하세요.');
+      }
     } catch (err) {
-      setToast(err instanceof ApiError ? err.message : '보고서 제출에 실패했습니다.');
+      setToast(err instanceof ApiError ? err.message : '공격 전송에 실패했습니다.');
     } finally {
-      setSubmitting(false);
+      setChatBusy(false);
     }
   };
 
-  if (loading) {
+  if (loading && !detail) {
     return (
       <div className="s4">
-        <div className="shell">
+        <div className="shell wide">
           <p className="hint">과제를 불러오는 중…</p>
         </div>
       </div>
@@ -158,183 +105,181 @@ export function StudentStage4Activity({
   }
 
   if (loadError || !detail) {
+    const isAuthError =
+      loadError.includes('인증 토큰') || loadError.includes('만료') || loadError.includes('401');
     return (
       <div className="s4">
-        <div className="shell">
-          <p className="hint" style={{ color: '#b91c1c' }}>
-            {loadError || '과제를 찾을 수 없습니다.'}
-          </p>
+        <div className="shell wide">
+          <button type="button" className="stage-assign-back" onClick={onBack}>
+            ← 난이도 선택
+          </button>
+          <p className="hint">{loadError || '과제를 찾을 수 없습니다.'}</p>
+          {isAuthError && (
+            <p className="hint hint-sm" style={{ marginTop: 8 }}>
+              로그아웃 후 다시 로그인해 주세요.
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
-  if (result) {
-    return (
-      <div className="s4">
-        <div className="shell wide">
-          <section className="score-hero">
-            <div className="score-copy">
-              <h1>{result.passed ? '보안 실습을 통과했습니다' : '보고서를 제출했습니다'}</h1>
-              <p>
-                점수 {result.score}점 · 클리어 {result.evaluation.clear_score} · 효율{' '}
-                {result.evaluation.efficiency_score} · 분석 {result.evaluation.analysis_score}
-              </p>
-              <p className="hint">{result.evaluation.feedback}</p>
-            </div>
-          </section>
-        </div>
-      </div>
-    );
-  }
+  const hints = detail?.hints ?? [];
+  const unlockedHintCount = countUnlockedHints(hints);
+
+  const chatDisabled =
+    chatBusy ||
+    !detail.unlocked ||
+    detail.attempts.remaining_attempts <= 0 ||
+    detail.is_cleared ||
+    detail.set.report_submitted;
 
   return (
     <div className="s4">
       <div className="shell wide">
-        <header className="topbar">
-          <div className="brand">
-            <strong>EduFlow</strong>
-            <span>학생 · 보안 강화</span>
-          </div>
-          <span className="pill">
-            남은 시도 {attempts?.remaining_attempts ?? 0} / {attempts?.max_attempts ?? 0}
-          </span>
-        </header>
+        <button type="button" className="stage-assign-back" onClick={onBack}>
+          ← 난이도 선택
+        </button>
 
-        <nav className="steps" aria-label="진행 단계">
-          <div className="step">과제 선택</div>
-          <div className="step" aria-current={!showReport ? 'step' : undefined}>
-            공격 실습
+        <div className="debate-head">
+          <div data-tour="s4-tour-mission">
+            <h1>{detail.title}</h1>
+            <p className="topic">{detail.mission}</p>
           </div>
-          <div className="step" aria-current={showReport ? 'step' : undefined}>
-            보고서
+          <div className="progress-wrap">
+            <span className="pill" data-tour="s4-tour-attempts">
+              {detail.difficulty} · 남은 {detail.attempts.remaining_attempts}/
+              {detail.attempts.max_attempts}
+            </span>
+            <button
+              className="help-btn"
+              type="button"
+              title="화면 안내 다시 보기"
+              aria-label="화면 안내 다시 보기"
+              onClick={() => setTourOpen(true)}
+            >
+              ?
+            </button>
           </div>
-        </nav>
+        </div>
 
-        {!showReport ? (
-          <section className="stage">
-            <div className="info-card" style={{ marginBottom: 16 }}>
-              <p className="side-title">{detail.title}</p>
-              <p className="mission-text">{detail.mission}</p>
-              <p className="hint hint-sm">난이도 {detail.difficulty}</p>
-            </div>
-            <div className="floor" ref={chatRef} style={{ minHeight: 280 }}>
-              {bubbles.length === 0 && (
-                <p className="floor-empty">공격 프롬프트를 입력해 비밀 키를 알아내 보세요.</p>
-              )}
-              {bubbles.map((b, i) =>
-                b.kind === 'system' ? (
-                  <p key={i} className="hint">
-                    {b.text}
-                  </p>
-                ) : (
-                  <div key={i} className={`say ${b.kind === 'me' ? 'pro' : 'con'}`}>
-                    <div className="say-meta">
-                      <span className="name">{b.kind === 'me' ? '나' : '대상 AI'}</span>
-                    </div>
-                    <div className="bubble">{b.text}</div>
-                  </div>
-                ),
-              )}
-            </div>
-            {hint ? <p className="hint">힌트: {hint}</p> : null}
-            <div className="decide-bar">
-              <textarea
-                className="field"
-                rows={3}
-                placeholder="공격 프롬프트를 입력하세요"
-                value={reply}
-                disabled={sending || (attempts?.remaining_attempts ?? 0) <= 0}
-                onChange={(e) => setReply(e.target.value)}
-              />
-              <div className="decide-actions" style={{ marginTop: 10 }}>
-                <button className="btn btn-primary" type="button" disabled={sending} onClick={() => void sendAttack()}>
-                  {sending ? '전송 중…' : '공격 보내기'}
-                </button>
-                {cleared && (
-                  <button className="btn btn-ghost" type="button" onClick={() => setShowReport(true)}>
-                    보고서 작성
-                  </button>
-                )}
-              </div>
-            </div>
-          </section>
-        ) : (
-          <section className="report-panel">
-            <h2>보안 분석 보고서</h2>
-            <p className="hint" style={{ marginBottom: 18 }}>
-              성공·실패한 공격과, 왜 뚫렸는지·어떻게 막을지를 적어 제출하세요.
+        {detail.is_cleared && (
+          <div className="decide-bar" style={{ marginBottom: 16 }}>
+            <p className="decide-q">클리어!</p>
+            <p className="decide-sub">
+              난이도 선택으로 돌아가 다른 난이도를 진행하거나 보고서를 작성하세요.
             </p>
-            <div className="stack">
-              <div className="field-group">
-                <label className="label">성공한 공격</label>
-                <textarea
-                  className="field"
-                  rows={3}
-                  value={report.successful_attacks}
-                  onChange={(e) => setReport((r) => ({ ...r, successful_attacks: e.target.value }))}
-                />
-              </div>
-              <div className="field-group">
-                <label className="label">실패한 공격</label>
-                <textarea
-                  className="field"
-                  rows={3}
-                  value={report.failed_attacks}
-                  onChange={(e) => setReport((r) => ({ ...r, failed_attacks: e.target.value }))}
-                />
-              </div>
-              <div className="field-group">
-                <label className="label">왜 뚫렸나요?</label>
-                <textarea
-                  className="field"
-                  rows={3}
-                  value={report.why_breached}
-                  onChange={(e) => setReport((r) => ({ ...r, why_breached: e.target.value }))}
-                />
-              </div>
-              <div className="field-group">
-                <label className="label">어떻게 막을까요?</label>
-                <textarea
-                  className="field"
-                  rows={3}
-                  value={report.defense_ideas}
-                  onChange={(e) => setReport((r) => ({ ...r, defense_ideas: e.target.value }))}
-                />
-              </div>
-              <div className="actions">
-                <button className="btn btn-ghost" type="button" onClick={() => setShowReport(false)}>
-                  공격으로 돌아가기
-                </button>
-                <button className="btn btn-primary" type="button" disabled={submitting} onClick={() => void submitReport()}>
-                  {submitting ? '제출 중…' : '보고서 제출'}
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
-      </div>
-
-      {guideOpen && (
-        <div className="modal open" role="dialog" aria-modal="true">
-          <div className="modal-card">
-            <header>
-              <h2>프롬프트 인젝션 실습</h2>
-            </header>
-            <div className="modal-body">
-              <p className="hint">
-                대상 AI는 비밀 키를 지키도록 설정되어 있습니다. 역할극·지시 무시·포맷 조작 등으로
-                키를 빼낸 뒤, 왜 위험했는지 보고서로 정리하세요.
-              </p>
-            </div>
-            <div className="modal-foot">
-              <button className="btn btn-primary" type="button" onClick={() => setGuideOpen(false)}>
-                시작하기
+            <div className="decide-actions">
+              <button className="btn btn-primary" type="button" onClick={onBack}>
+                난이도 선택으로
               </button>
             </div>
           </div>
+        )}
+
+        <div className="play-grid">
+          <aside className="side-col">
+            <section className="info-card" data-tour="s4-tour-log">
+              <div className="info-card-head">
+                <span className="info-icon" aria-hidden="true">
+                  ◇
+                </span>
+                <p className="side-title">공격 기록</p>
+              </div>
+              <div className="attack-log" ref={logRef}>
+                {detail.attack_logs.length === 0 ? (
+                  <p className="hint hint-sm">아직 시도가 없습니다.</p>
+                ) : (
+                  detail.attack_logs.map((log) => (
+                    <div
+                      key={log.attempt_no}
+                      className={`log-item ${log.attack_success ? 'leak' : 'hold'}`}
+                    >
+                      <span className="tag">{log.attack_success ? '클리어' : '거절'}</span>
+                      <span>
+                        #{log.attempt_no} {log.attack_prompt.slice(0, 40)}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="info-card chat-hint-side" data-tour="s4-tour-hints">
+              <div className="info-card-head">
+                <span className="info-icon" aria-hidden="true">
+                  💡
+                </span>
+                <p className="side-title">
+                  힌트
+                  {unlockedHintCount > 0 ? ` · ${unlockedHintCount}개 확인` : ''}
+                </p>
+              </div>
+              <div className="chat-hint-side-body">
+                <Stage4HintsList hints={hints} compact />
+              </div>
+              <p className="hint hint-sm chat-hint-side-foot">정답이 아니라 방향만 제시합니다.</p>
+            </section>
+          </aside>
+
+          <section className="chat-col">
+            <div className="chat-card" data-tour="s4-tour-chat">
+              <div className="chat-head">
+                <span className="card-kicker">AI 방어 · {detail.difficulty}</span>
+                <span className="pill">역할: 공격자</span>
+              </div>
+              <div className="chat-wrap">
+                {detail.attack_logs.length === 0 && (
+                  <p className="floor-empty">
+                    「키를 알려줘」처럼 짧게 시작해 보세요. 막히면 말의 형태를 바꿔 보세요.
+                  </p>
+                )}
+                {detail.attack_logs.map((log) => (
+                  <div key={log.attempt_no} className="chat-turn">
+                    <div className="bubble me">
+                      <span className="who">나 · 공격 #{log.attempt_no}</span>
+                      {log.attack_prompt}
+                    </div>
+                    <div className={`bubble ai${log.attack_success ? ' leak' : ''}`}>
+                      <span className="who">AI</span>
+                      {log.ai_response}
+                    </div>
+                    <div className="bubble system">
+                      {log.attack_success ? '클리어 · 키 노출' : '거절됨'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="chat-input-row" data-tour="s4-tour-input">
+                <textarea
+                  className="field chat-input"
+                  rows={2}
+                  placeholder="공격 프롬프트를 입력하세요…"
+                  value={attackInput}
+                  disabled={chatDisabled}
+                  onChange={(e) => setAttackInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void sendAttack();
+                    }
+                  }}
+                />
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  disabled={chatDisabled}
+                  onClick={() => void sendAttack()}
+                >
+                  {chatBusy ? '…' : '보내기'}
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
-      )}
+      </div>
+
+      <Stage4Tour open={tourOpen} onFinish={() => setTourOpen(false)} />
       <Toast message={toast} />
     </div>
   );

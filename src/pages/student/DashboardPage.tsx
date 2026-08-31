@@ -5,17 +5,17 @@ import {
   fetchStudentDashboardSummaryApi,
   fetchStudentNoticesApi,
 } from '../../api';
-import type { ProgressStatus, StudentAssignmentItem, StageSummaryItem } from '../../api/types';
+import type { ProgressStatus, StudentAssignmentItem, StudentDashboardSummary } from '../../api/types';
 import { SUBJECT_OPTIONS, normalizeSubjectKey } from '../../constants/assignments';
 import { subjectPageTitle } from '../../constants/navigation';
-import { averageLiteracyScore, deriveLiteracyScores } from '../../constants/literacyAxes';
+import { averageLiteracyScore, literacyScoresFromApi } from '../../constants/literacyAxes';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import {
-  STUDENT_DASHBOARD_DEMO,
+  emptyStudentDashboard,
   type DashboardTask,
   type StudentDashboardViewModel,
-} from '../../mocks/studentDashboard';
+} from '../../types/dashboard';
 import { formatDueAt } from '../../utils/datetime';
 import { PROGRESS_LABELS } from '../../utils/labels';
 
@@ -115,18 +115,10 @@ function sortTasks(tasks: DashboardTask[], sortKey: TaskSortKey): DashboardTask[
 function buildFromApi(
   name: string,
   classLabel: string,
-  summary: { total_score: number; attendance_rate: number; stage_summary: StageSummaryItem[] },
+  summary: StudentDashboardSummary,
   assignments: StudentAssignmentItem[],
 ): StudentDashboardViewModel {
-  const stageRows = summary.stage_summary.map((s) => {
-    if (s.score != null) return s;
-    const scored = assignments.filter((a) => Number(a.stage) === s.stage && a.score != null);
-    if (!scored.length) return s;
-    const avg = Math.round(scored.reduce((sum, a) => sum + (a.score ?? 0), 0) / scored.length);
-    return { ...s, score: avg };
-  });
-
-  const axes = deriveLiteracyScores(stageRows);
+  const axes = literacyScoresFromApi(summary.literacy_axes);
   const tasks: DashboardTask[] = assignments.map((item) => ({
     id: item.assignment_id,
     title: item.title ?? `과제 #${item.assignment_id}`,
@@ -236,7 +228,7 @@ export function StudentDashboardPage() {
   const { subject: subjectParam } = useParams<{ subject?: string }>();
   const activeSubject = subjectParam ? normalizeSubjectKey(subjectParam) : null;
   const { user } = useAuth();
-  const useApi = Boolean(user && !user.isDemo);
+  const useApi = Boolean(user);
   const [sortKey, setSortKey] = useState<TaskSortKey>('due');
 
   const summary = useFetch(fetchStudentDashboardSummaryApi, [], useApi);
@@ -250,11 +242,10 @@ export function StudentDashboardPage() {
   const loading = useApi && (summary.loading || assignments.loading);
   const error = useApi ? summary.error || assignments.error : null;
 
-  let model: StudentDashboardViewModel = {
-    ...STUDENT_DASHBOARD_DEMO,
-    studentName: user?.name ?? STUDENT_DASHBOARD_DEMO.studentName,
-    classLabel: user?.className ?? STUDENT_DASHBOARD_DEMO.classLabel,
-  };
+  let model: StudentDashboardViewModel = emptyStudentDashboard(
+    user?.name ?? '',
+    user?.className ?? '',
+  );
 
   if (useApi && summary.data && assignments.data) {
     model = buildFromApi(
@@ -356,9 +347,7 @@ export function StudentDashboardPage() {
                     전체 보기
                   </Link>
                 </div>
-                {!useApi ? (
-                  <p className="hint">로그인하면 학급 공지를 확인할 수 있습니다.</p>
-                ) : notices.loading ? (
+                {notices.loading ? (
                   <p className="hint">공지를 불러오는 중…</p>
                 ) : notices.error ? (
                   <p className="hint">{notices.error}</p>

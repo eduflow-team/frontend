@@ -120,7 +120,7 @@ export function TeacherDashboardPage() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const useApi = user && !user.isDemo;
+  const useApi = Boolean(user);
   const [reloadKey, setReloadKey] = useState(0);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [actionError, setActionError] = useState('');
@@ -187,38 +187,18 @@ export function TeacherDashboardPage() {
         <span className="card-title">{activeSubject ? '등록된 과제' : '전체 과제'}</span>
       </div>
       <div className="card-body">
-        {useApi ? (
-          <ApiStateBody
-            loading={assignments.loading}
-            error={assignments.error}
-            isEmpty={!visibleAssignments.length}
-            emptyMessage="등록된 과제가 없습니다."
-          >
-            <AssignmentRows
-              items={visibleAssignments}
-              deletingId={deletingId}
-              onDelete={handleDelete}
-            />
-          </ApiStateBody>
-        ) : (
+        <ApiStateBody
+          loading={assignments.loading}
+          error={assignments.error}
+          isEmpty={!visibleAssignments.length}
+          emptyMessage="등록된 과제가 없습니다."
+        >
           <AssignmentRows
-            items={
-              activeSubject
-                ? [
-                    { assignment_id: 101, title: '개항기 RAG 퀴즈', stage: 1, subject: 'hist' },
-                    { assignment_id: 102, title: '환각 탐지 — 근대사', stage: 2, subject: 'hist' },
-                  ].filter((item) => assignmentSubjectKey(item) === activeSubject)
-                : [
-                    { assignment_id: 101, title: '개항기 RAG 퀴즈', stage: 1, subject: 'hist' },
-                    { assignment_id: 102, title: '환각 탐지 — 근대사', stage: 2, subject: 'hist' },
-                    { assignment_id: 201, title: '광합성 AI 토론', stage: 3, subject: 'sci' },
-                    { assignment_id: 301, title: '시민권 보안 실습', stage: 4, subject: 'soc' },
-                  ]
-            }
+            items={visibleAssignments}
             deletingId={deletingId}
             onDelete={handleDelete}
           />
-        )}
+        </ApiStateBody>
         {actionError && <p className="inline-alert error">{actionError}</p>}
       </div>
     </div>
@@ -228,10 +208,7 @@ export function TeacherDashboardPage() {
     return (
       <div className="t-home">
         {flash}
-        <PageHero title={heroTitle} description={`${heroDesc} (데모)`} />
-        {!activeSubject ? <AssignShortcuts subjectKey={teacherSubjectKey(user)} onHome /> : null}
-        {activeSubject ? <AssignShortcuts subjectKey={activeSubject} /> : null}
-        {assignmentsCard}
+        <PageHero title={heroTitle} description="로그인이 필요합니다." />
       </div>
     );
   }

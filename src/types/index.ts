@@ -9,8 +9,6 @@ export interface User {
   role: UserRole;
   subject?: string;
   className?: string;
-  /** 백엔드 없이 UI만 볼 때 */
-  isDemo?: boolean;
 }
 
 export interface NavItem {

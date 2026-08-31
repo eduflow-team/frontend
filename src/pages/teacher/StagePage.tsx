@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ApiError,
   createTeacherAssignmentStep1Api,
-  fetchClassesApi,
+  fetchTeacherClassesApi,
 } from '../../api';
 import type { ClassItem } from '../../api/types';
 import { SUBJECT_OPTIONS } from '../../constants/assignments';
@@ -17,7 +17,7 @@ import { TeacherStage3Form } from './stage3/TeacherStage3Form';
 import { TeacherStage4Form } from './stage4/TeacherStage4Form';
 
 const STAGE_DESCRIPTIONS: Record<string, string> = {
-  '1': '학습 문서와 퀴즈 문제·정답을 등록하면 학생이 RAG로 답을 찾아보는 활동을 시작할 수 있습니다.',
+  '1': '학습 자료와 서술형 문제·정답 키포인트 3개를 등록하면 학생이 RAG로 답을 찾아보는 활동을 시작할 수 있습니다.',
   '2': '참고 문서와 페르소나를 설정해 의도적 환각 과제를 만듭니다.',
   '3': 'AI 관점 비교 토론 주제를 설정합니다.',
   '4': 'AI 보안 실습 과제를 게시합니다.',
@@ -27,7 +27,7 @@ export function TeacherStagePage() {
   const { stage } = useParams<{ stage: string }>();
   const stageNum = stage ?? '1';
   const { user } = useAuth();
-  const useApi = Boolean(user && !user.isDemo && stageNum === '1');
+  const useApi = Boolean(user) && stageNum === '1';
 
   if (stageNum === '2') {
     return <TeacherStage2Form />;
@@ -45,53 +45,10 @@ export function TeacherStagePage() {
     return (
       <div className="s1">
         <div className="shell teacher-shell">
-          <nav className="steps teacher-flow-steps" aria-label="진행 단계">
-            <div className="step" aria-current="step">
-              과제 만들기
-            </div>
-            <div className="step">학생 학습</div>
-            <div className="step">결과 확인</div>
-          </nav>
           <h1 className="page-title">{learningModeByStage(1)?.module ?? 'RAG 체험'}</h1>
           <p className="page-desc">{STAGE_DESCRIPTIONS['1']}</p>
-          <div className="teacher-meta-row">
-            <div className="teacher-meta-field">
-              <label className="label" htmlFor="s1-demo-class">
-                학급 선택
-              </label>
-              <select id="s1-demo-class" className="field" disabled>
-                <option>학급 선택</option>
-              </select>
-            </div>
-            <div className="teacher-meta-field">
-              <label className="label" htmlFor="s1-demo-subject">
-                담당 교과
-              </label>
-              <select id="s1-demo-subject" className="field" disabled defaultValue="hist">
-                {SUBJECT_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="teacher-meta-field">
-              <label className="label" htmlFor="s1-demo-due">
-                과제 마감일
-              </label>
-              <input id="s1-demo-due" className="field" type="datetime-local" disabled />
-            </div>
-          </div>
           <div className="info-card">
-            <div className="info-card-head">
-              <span className="info-icon" aria-hidden="true">
-                ◇
-              </span>
-              <p className="side-title">RAG 체험 과제 편집</p>
-            </div>
-            <p className="mission-text">
-              실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요.
-            </p>
+            <p className="mission-text">로그인이 필요합니다.</p>
           </div>
         </div>
       </div>
@@ -216,7 +173,7 @@ function TeacherStage1Form() {
   const [classId, setClassId] = useState<number | ''>('');
   const [subject, setSubject] = useState('hist');
   const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
+  const [keypoints, setKeypoints] = useState<[string, string, string]>(['', '', '']);
   const [dueAt, setDueAt] = useState(defaultDueAtLocal);
   const [file, setFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -247,7 +204,7 @@ function TeacherStage1Form() {
   };
 
   useEffect(() => {
-    fetchClassesApi()
+    fetchTeacherClassesApi()
       .then((res) => {
         setClasses(res.classes);
         if (res.classes[0]) setClassId(res.classes[0].class_id);
@@ -272,7 +229,7 @@ function TeacherStage1Form() {
     if (step === 1 && !file) return '학습 문서를 업로드해 주세요.';
     if (step === 2) {
       if (!question.trim()) return '문제를 입력해 주세요.';
-      if (!answer.trim()) return '정답을 입력해 주세요.';
+      if (keypoints.some((k) => !k.trim())) return '정답 키포인트 3개를 모두 입력해 주세요.';
     }
     return '';
   };
@@ -295,8 +252,13 @@ function TeacherStage1Form() {
       setError('학급과 파일을 입력해 주세요.');
       return;
     }
-    if (!question.trim() || !answer.trim()) {
-      setError('문제와 정답을 입력해 주세요.');
+    if (!question.trim()) {
+      setError('문제를 입력해 주세요.');
+      return;
+    }
+    const cleanedKeypoints = keypoints.map((k) => k.trim());
+    if (cleanedKeypoints.some((k) => !k)) {
+      setError('정답 키포인트 3개를 모두 입력해 주세요.');
       return;
     }
     if (!dueAt) {
@@ -311,7 +273,7 @@ function TeacherStage1Form() {
         class_id: Number(classId),
         subject,
         question: question.trim(),
-        answer: answer.trim(),
+        answer_keypoints: cleanedKeypoints,
         due_at: localDateTimeToIso(dueAt),
         file,
       });
@@ -359,7 +321,8 @@ function TeacherStage1Form() {
 
         <h1 className="page-title">{learningModeByStage(1)?.module ?? 'RAG 체험'}</h1>
         <p className="page-desc">
-          학습 문서와 퀴즈 문제·정답을 등록하면 학생이 RAG로 답을 찾아보는 활동을 시작할 수 있습니다.
+          학습 자료와 서술형 문제·정답 키포인트 3개를 등록하면 학생이 RAG로 답을 찾아보는 활동을 시작할 수
+          있습니다.
         </p>
 
         <div className="teacher-meta-row">
@@ -520,33 +483,54 @@ function TeacherStage1Form() {
                 className="field"
                 rows={4}
                 required
-                placeholder="퀴즈 문제 1개"
+                placeholder="예: 일제강점기 일본이 한국에 한 행동 3가지를 적으시오."
                 value={question}
                 disabled={submitting}
                 onChange={(e) => setQuestion(e.target.value)}
               />
-              <label htmlFor="s1-answer" className="teacher-field-spaced" data-tour="t1-tour-answer">
-                정답
-              </label>
-              <input
-                id="s1-answer"
-                className="field"
-                required
-                placeholder="예: 토지 조사 사업"
-                value={answer}
-                disabled={submitting}
-                onChange={(e) => setAnswer(e.target.value)}
-              />
+              <p className="field-note">학생이 근거를 모아 짧게 정리할 서술형 문제로 내 주세요. (핵심 요점 3개)</p>
+
+              <span className="label teacher-field-spaced" id="s1-keypoints-label" data-tour="t1-tour-answer">
+                정답 키포인트 3개
+              </span>
+              <div className="keypoint-fields" role="group" aria-labelledby="s1-keypoints-label">
+                {keypoints.map((value, index) => (
+                  <div key={`kp-${index}`} className="keypoint-field">
+                    <label className="keypoint-index" htmlFor={`s1-keypoint-${index + 1}`}>
+                      {index + 1}
+                    </label>
+                    <input
+                      id={`s1-keypoint-${index + 1}`}
+                      className="field"
+                      required
+                      disabled={submitting}
+                      placeholder={
+                        index === 0
+                          ? '예: 토지 조사 사업'
+                          : index === 1
+                            ? '예: 산미 증식 계획'
+                            : '예: 무단 통치'
+                      }
+                      value={value}
+                      onChange={(e) => {
+                        const next = [...keypoints] as [string, string, string];
+                        next[index] = e.target.value;
+                        setKeypoints(next);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
               <p className="field-note">
-                객관식·단답형으로만 적어 주세요. 서술형 정답은 채점이 정확하지 않을 수 있습니다.
+                채점 기준이 되는 핵심 요점 3개입니다. 학생 답안에 이 내용이 포함됐는지로 부분 채점합니다.
               </p>
             </div>
             <aside className="teacher-aside">
-              <strong>문제·정답 작성 가이드</strong>
+              <strong>문제·키포인트 작성 가이드</strong>
               <ul>
-                <li>학습 문서 범위에서 답을 찾을 수 있는 문제로 작성하세요</li>
-                <li>정답은 객관식·단답형으로 교과서 표현을 사용하세요</li>
-                <li>마감 전까지 학생에게 정답은 보이지 않습니다</li>
+                <li>학습 문서 범위에서 근거를 모아 쓸 수 있는 서술형 문제로 작성하세요</li>
+                <li>채점용 핵심 요점 3개를 짧게·객관적으로 적어 주세요</li>
+                <li>마감 전까지 학생에게 키포인트는 보이지 않습니다</li>
               </ul>
             </aside>
           </div>

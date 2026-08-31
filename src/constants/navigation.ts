@@ -10,6 +10,8 @@ export const TEACHER_NAV: NavSection[] = [
     label: '학급',
     items: [
       { label: '학생 현황', path: '/teacher/students' },
+      { label: '성적 관리', path: '/teacher/grades' },
+      { label: '출석 관리', path: '/teacher/attendance' },
       { label: '공지사항', path: '/teacher/notices' },
     ],
   },
@@ -19,13 +21,6 @@ export const TEACHER_SUBJECTS = [
   { key: 'hist' as const, name: '한국사' },
   { key: 'sci' as const, name: '과학' },
   { key: 'soc' as const, name: '사회' },
-];
-
-export const TEACHER_CLASSES = [
-  { id: 'all', label: '전체 학급', count: '84명' },
-  { id: '3-1', label: '3학년 1반', count: '28명' },
-  { id: '3-2', label: '3학년 2반', count: '28명' },
-  { id: '3-3', label: '3학년 3반', count: '28명' },
 ];
 
 export const STUDENT_NAV: NavSection[] = [
@@ -48,7 +43,7 @@ export const STUDENT_LEARNING_MODES: LearningMode[] = [
   {
     stage: 1,
     module: 'RAG 체험',
-    content: '퀴즈 탐색 · RAG 파라미터 체험',
+    content: '서술형 탐험 · RAG 파라미터 체험',
     tag: '탐색',
     path: '/student/stage/1',
     icon: '◇',
@@ -94,12 +89,10 @@ export const PAGE_TITLES: Record<string, string> = {
   '/teacher/stage/2': 'Hallucination 탐지',
   '/teacher/stage/3': 'AI 토론',
   '/teacher/stage/4': '보안 강화',
-  '/teacher/materials': '자료 관리',
   '/teacher/students': '학생 현황',
   '/teacher/grades': '성적 관리',
   '/teacher/attendance': '출석 관리',
   '/teacher/notices': '공지사항',
-  '/teacher/messages': '메시지함',
   '/student': '홈',
   '/student/results': '점수',
   '/student/attendance': '출석',
@@ -118,7 +111,7 @@ export function subjectPageTitle(subjectKey: string): string {
 }
 
 export const STAGE_TITLES: Record<number, string> = {
-  1: '퀴즈 탐색 · RAG 파라미터 체험',
+  1: '서술형 탐험 · RAG 파라미터 체험',
   2: 'AI 환각 탐지 및 Fact-check',
   3: 'Multi-Agent 토론 및 비판적 사고',
   4: '프롬프트 인젝션 방어',

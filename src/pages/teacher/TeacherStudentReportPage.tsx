@@ -6,7 +6,7 @@ import { HexLiteracyRadar } from '../../components/student/HexLiteracyRadar';
 import {
   LITERACY_AXES,
   averageLiteracyScore,
-  deriveLiteracyScores,
+  literacyScoresFromApi,
 } from '../../constants/literacyAxes';
 import { STUDENT_LEARNING_MODES, learningModeLabel } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,7 +27,7 @@ export function TeacherStudentReportPage() {
   const { studentId } = useParams<{ studentId: string }>();
   const id = Number(studentId);
   const { user } = useAuth();
-  const useApi = Boolean(user && !user.isDemo && Number.isFinite(id));
+  const useApi = Boolean(user && Number.isFinite(id));
 
   const records = useFetch(fetchTeacherRecordsStudentsApi, [id], useApi);
   const grades = useFetch(fetchTeacherGradesApi, [id], useApi);
@@ -42,7 +42,7 @@ export function TeacherStudentReportPage() {
   if (!useApi) {
     return (
       <>
-        <PageHero title="학생 리포트" description="데모에서는 학생별 리포트를 확인할 수 없습니다." />
+        <PageHero title="학생 리포트" description="로그인이 필요합니다." />
         <div className="card">
           <div className="card-body">
             <Link to="/teacher/students" className="btn btn-ghost btn-sm">
@@ -59,19 +59,13 @@ export function TeacherStudentReportPage() {
     return detail?.status === 'COMPLETED';
   }).length;
 
-  const literacyScores = deriveLiteracyScores(
-    STUDENT_LEARNING_MODES.map((mode) => {
-      const key = stageKey(mode.stage);
-      const progress = recordStudent?.stage_summary[key];
-      const detail = gradeStudent?.stage_details[key];
-      return {
-        stage: mode.stage,
-        score: detail?.score ?? progress?.score ?? null,
-        status: progress?.status,
-      };
-    }),
+  const literacyScores = literacyScoresFromApi(
+    gradeStudent?.literacy_axes ?? recordStudent?.literacy_axes,
   );
-  const literacyAvg = averageLiteracyScore(literacyScores);
+  const literacyAvg =
+    gradeStudent?.literacy_total ??
+    recordStudent?.literacy_total ??
+    averageLiteracyScore(literacyScores);
 
   return (
     <div className="t-report">

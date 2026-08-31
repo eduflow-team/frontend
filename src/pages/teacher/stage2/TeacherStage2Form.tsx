@@ -4,7 +4,7 @@ import {
   ApiError,
   createTeacherAssignmentStep2Api,
   createTeacherAssignmentStep2SetApi,
-  fetchClassesApi,
+  fetchTeacherClassesApi,
   fetchTeacherAssignmentStep2SetApi,
   publishTeacherAssignmentStep2SetApi,
 } from '../../../api';
@@ -83,7 +83,7 @@ function singleCreateToCard(preview: Stage2CreateResponse): Stage2SetCardPreview
 /** stage2-ui 출제 위자드 + 카드 세트 생성/선택 게시 */
 export function TeacherStage2Form() {
   const { user } = useAuth();
-  const useApi = Boolean(user && !user.isDemo);
+  const useApi = Boolean(user);
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState(1);
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -110,7 +110,7 @@ export function TeacherStage2Form() {
 
   useEffect(() => {
     if (!useApi) return;
-    fetchClassesApi()
+    fetchTeacherClassesApi()
       .then((res) => {
         setClasses(res.classes);
         const firstClass = res.classes[0];

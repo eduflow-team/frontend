@@ -24,6 +24,8 @@ export interface Stage3ReportResult {
   missed: number;
   wasted: number;
   score: number;
+  usageScore?: number;
+  reasoningScore?: number;
   headline: string;
   advice: string;
   judgment?: string;
@@ -85,9 +87,11 @@ export function Stage3ReportView({ result }: { result: Stage3ReportResult }) {
   return (
     <DoneSheetReport
       score={result.score}
-      scoreLabel="AI 활용 점수"
+      scoreLabel="종합 점수"
       meta={
         <>
+          <DoneSheetMetaTag>사용 {result.usageScore ?? result.score}</DoneSheetMetaTag>
+          <DoneSheetMetaTag>설명 {result.reasoningScore ?? result.score}</DoneSheetMetaTag>
           <DoneSheetMetaTag>잡아냄 {result.caught}</DoneSheetMetaTag>
           <DoneSheetMetaTag tone="ok">넘어감 {result.passed}</DoneSheetMetaTag>
           <DoneSheetMetaTag tone="bad">놓침 {result.missed}</DoneSheetMetaTag>

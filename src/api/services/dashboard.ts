@@ -1,6 +1,7 @@
 import { api } from '../client';
 import { API_ENDPOINTS } from '../endpoints';
 import type {
+  ClassListResponse,
   EmptyResponse,
   StudentDashboardAssignments,
   StudentDashboardSummary,
@@ -8,6 +9,10 @@ import type {
   TeacherDashboardSummary,
   TeacherUnsubmittedResponse,
 } from '../types';
+
+export async function fetchTeacherClassesApi(): Promise<ClassListResponse> {
+  return api.get(API_ENDPOINTS.teacher.classes);
+}
 
 export async function fetchStudentDashboardSummaryApi(): Promise<StudentDashboardSummary> {
   return api.get(API_ENDPOINTS.student.dashboardSummary);

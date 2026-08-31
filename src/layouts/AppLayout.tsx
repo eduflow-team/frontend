@@ -15,13 +15,6 @@ import { TopbarSearch } from '../components/TopbarSearch';
 
 function TopbarSearchGate() {
   const { user } = useAuth();
-  if (user?.isDemo) {
-    return (
-      <div className="topbar-search">
-        <input type="text" placeholder="과제 · 학생 · 공지 검색" disabled />
-      </div>
-    );
-  }
   return <TopbarSearch role={user?.role} />;
 }
 
@@ -29,22 +22,6 @@ function MenuIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M4 7h16M4 12h16M4 17h16" />
-    </svg>
-  );
-}
-
-function BellIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 01-3.46 0" />
     </svg>
   );
 }
@@ -138,7 +115,6 @@ export function AppLayout() {
   };
 
   const handleLeave = async () => {
-    if (user.isDemo) return;
     if (!window.confirm('정말 회원 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
     try {
       await leaveApi();
@@ -200,15 +176,9 @@ export function AppLayout() {
           </button>
           <div className="topbar-title">{pageTitle}</div>
           <TopbarSearchGate />
-          <button type="button" className="topbar-icon-btn" title="알림" aria-label="알림">
-            <BellIcon />
-            <span className="dot" />
+          <button type="button" className="btn btn-ghost btn-sm" onClick={handleLeave}>
+            탈퇴
           </button>
-          {!user.isDemo && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={handleLeave}>
-              탈퇴
-            </button>
-          )}
           <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
             로그아웃
           </button>

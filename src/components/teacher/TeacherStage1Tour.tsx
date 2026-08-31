@@ -10,7 +10,7 @@ export const STAGE1_TEACHER_TOUR_STEPS: UiTourStep[] = [
   {
     target: 't1-tour-due',
     title: '마감일',
-    body: '제출 마감을 정하세요. 마감 후에만 정답이 공개됩니다.',
+    body: '제출 마감을 정하세요. 마감 후에만 정답 키포인트가 공개됩니다.',
     placement: 'bottom',
   },
   {
@@ -22,13 +22,13 @@ export const STAGE1_TEACHER_TOUR_STEPS: UiTourStep[] = [
   {
     target: 't1-tour-question',
     title: '문제',
-    body: '2단계에서 학생이 풀 퀴즈 문제 1개를 입력하세요. 정답이 짧게 떨어지는 객관식·단답형으로 내 주세요.',
+    body: '2단계에서 학생이 근거를 모아 정리할 서술형 문제 1개를 입력하세요. 예: “일제강점기 일본이 한국에 한 행동 3가지를 적으시오.”',
     placement: 'bottom',
   },
   {
     target: 't1-tour-answer',
-    title: '정답',
-    body: '채점용 정답은 객관식·단답형으로만 적어 주세요. (예: 토지 조사 사업) 긴 서술형은 채점이 맞지 않을 수 있어요. 마감 전에 학생에게는 보이지 않습니다.',
+    title: '정답 키포인트',
+    body: '채점용 핵심 요점 3개를 적어 주세요. 학생 답안에 이 요점이 포함됐는지로 부분 점수가 나갑니다. 마감 전에 학생에게는 보이지 않습니다.',
     placement: 'bottom',
   },
   {
