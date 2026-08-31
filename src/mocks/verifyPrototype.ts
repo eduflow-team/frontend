@@ -80,12 +80,12 @@ export function modeBadge(phase: VerifyPhase) {
 
 export function verifyIntro(phase: VerifyPhase) {
   if (phase === 'find') {
-    return '좌측 교과 발췌와 대조하며 지문에서 틀린 부분을 드래그해 선택하고, 아래에서 환각 유형과 이유를 적어 주세요.';
+    return '교과 자료와 다른 문장을 드래그하거나 클릭해 선택하세요.';
   }
   if (phase === 'correct') {
-    return '찾은 오류를 교과 자료에 맞게 한 문장으로 고쳐 보세요.';
+    return '찾은 오류를 교과 자료에 맞는 올바른 문장으로 고쳐 최종 제출하세요.';
   }
-  return '이 카드의 검증과 교정이 모두 끝났습니다.';
+  return '이 과제의 환각 탐지와 교정이 모두 끝났습니다.';
 }
 
 export function flawedAiFullText() {

@@ -5,6 +5,8 @@ import type {
   Stage1ChatRequest,
   Stage1ChatResponse,
   Stage1CreateResponse,
+  Stage1FinalizeRequest,
+  Stage1FinalizeResponse,
   Stage1SubmitRequest,
   Stage1SubmitResponse,
   Stage2AssignmentDetailResponse,
@@ -12,10 +14,16 @@ import type {
   Stage2SetCreateResponse,
   Stage2SetDetailResponse,
   Stage2SetPublishResponse,
-  Step2CorrectionRequest,
-  Step2CorrectionResponse,
-  Step2HighlightRequest,
-  Step2HighlightResponse,
+  Stage3AssignmentDetailResponse,
+  Stage3CreateRequest,
+  Stage3CreateResponse,
+  Stage3TeacherPreviewResponse,
+  Stage3DebateResponse,
+  Stage3FactcheckRequest,
+  Stage3FactcheckResponse,
+  Stage3SourcesResponse,
+  Stage3SubmitRequest,
+  Stage3SubmitResponse,
   Stage4AssignmentDetailResponse,
   Stage4ChatRequest,
   Stage4ChatResponse,
@@ -24,6 +32,10 @@ import type {
   Stage4SetScore,
   Stage4SubmitRequest,
   Stage4SubmitResponse,
+  Step2CorrectionRequest,
+  Step2CorrectionResponse,
+  Step2HighlightRequest,
+  Step2HighlightResponse,
 } from '../types';
 
 export async function getStudentStep1Api(
@@ -50,6 +62,13 @@ export async function postStudentStep1SubmitApi(
   body: Stage1SubmitRequest,
 ): Promise<Stage1SubmitResponse> {
   return api.post(API_ENDPOINTS.student.assignmentStep1Submit(assignmentId), body);
+}
+
+export async function postStudentStep1FinalizeApi(
+  assignmentId: number | string,
+  body: Stage1FinalizeRequest,
+): Promise<Stage1FinalizeResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep1Finalize(assignmentId), body);
 }
 
 export async function getStudentStep2Api(
@@ -82,7 +101,8 @@ export interface TeacherStep1CreateForm {
   class_id: number;
   subject: string;
   question: string;
-  answer: string;
+  /** 정답 키포인트 3개 */
+  answer_keypoints: string[];
   /** ISO 8601 (UTC 권장) */
   due_at: string;
   file: File;
@@ -95,7 +115,7 @@ export async function createTeacherAssignmentStep1Api(
   body.append('class_id', String(form.class_id));
   body.append('subject', form.subject);
   body.append('question', form.question);
-  body.append('answer', form.answer);
+  body.append('answer_keypoints', JSON.stringify(form.answer_keypoints));
   body.append('due_at', form.due_at);
   body.append('file', form.file);
 
@@ -183,6 +203,65 @@ export async function publishTeacherAssignmentStep2SetApi(
   return api.patch(API_ENDPOINTS.teacher.assignmentStep2Set(setId), {
     assignment_ids: assignmentIds,
   });
+}
+
+export async function createTeacherAssignmentStep3Api(
+  payload: Stage3CreateRequest,
+): Promise<Stage3CreateResponse> {
+  return api.post(API_ENDPOINTS.teacher.createAssignmentStep3, payload);
+}
+
+export async function previewTeacherAssignmentStep3DebateApi(
+  assignmentId: number | string,
+): Promise<Stage3TeacherPreviewResponse> {
+  return apiRequest<Stage3TeacherPreviewResponse>(
+    API_ENDPOINTS.teacher.previewAssignmentStep3Debate(assignmentId),
+    {
+      method: 'POST',
+      signal: AbortSignal.timeout(300_000),
+    },
+  );
+}
+
+export async function getStudentStep3Api(
+  assignmentId: number | string,
+): Promise<Stage3AssignmentDetailResponse> {
+  return api.get(API_ENDPOINTS.student.assignmentStep3(assignmentId));
+}
+
+export async function postStudentStep3DebateApi(
+  assignmentId: number | string,
+  body: { question?: string } = {},
+): Promise<Stage3DebateResponse> {
+  return apiRequest<Stage3DebateResponse>(
+    API_ENDPOINTS.student.assignmentStep3Debate(assignmentId),
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(300_000),
+    },
+  );
+}
+
+export async function postStudentStep3FactcheckApi(
+  assignmentId: number | string,
+  body: Stage3FactcheckRequest,
+): Promise<Stage3FactcheckResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep3Factcheck(assignmentId), body);
+}
+
+export async function postStudentStep3SourcesApi(
+  assignmentId: number | string,
+  body: { claim?: string; text?: string; turn_id?: string } = {},
+): Promise<Stage3SourcesResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep3Sources(assignmentId), body);
+}
+
+export async function postStudentStep3SubmitApi(
+  assignmentId: number | string,
+  body: Stage3SubmitRequest = {},
+): Promise<Stage3SubmitResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep3Submit(assignmentId), body);
 }
 
 export async function createTeacherAssignmentStep4Api(

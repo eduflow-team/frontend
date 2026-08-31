@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   PAGE_TITLES,
-  STUDENT_LEARNING_MODES,
   STUDENT_NAV,
+  STUDENT_SUBJECT_NAV,
   TEACHER_NAV,
   learningModeByStage,
+  subjectPageTitle,
 } from '../constants/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError, leaveApi } from '../api';
@@ -70,8 +71,6 @@ function TeacherSidebar() {
 }
 
 function StudentSidebar() {
-  const location = useLocation();
-
   return (
     <nav className="sidebar-nav">
       {STUDENT_NAV.map((section) => (
@@ -88,18 +87,9 @@ function StudentSidebar() {
         </div>
       ))}
 
-      <div className="nav-section-label">학습 모드</div>
-      {STUDENT_LEARNING_MODES.map((mode) => (
-        <Link
-          key={mode.path}
-          to={mode.path}
-          className={`nav-sub-item mode-nav-item${location.pathname === mode.path || location.pathname.endsWith(`/stage/${mode.stage}`) ? ' active' : ''}`}
-        >
-          <span className="mode-nav-icon" aria-hidden="true">
-            {mode.icon}
-          </span>
-          <span className="mode-nav-label">{mode.module}</span>
-        </Link>
+      <div className="nav-section-label">과목</div>
+      {STUDENT_SUBJECT_NAV.map((item) => (
+        <NavLinkItem key={item.path} to={item.path} label={item.label} />
       ))}
     </nav>
   );
@@ -110,9 +100,15 @@ function resolvePageTitle(pathname: string): string {
 
   if (/^\/teacher\/students\/\d+$/.test(pathname)) return '학생 리포트';
 
-  const modeMatch = pathname.match(/^\/student\/(?:(?:hist|sci|soc)\/)?stage\/(\d)$/);
+  const teacherSubjectMatch = pathname.match(/^\/teacher\/subject\/([^/]+)$/);
+  if (teacherSubjectMatch) return subjectPageTitle(teacherSubjectMatch[1]);
+
+  const studentSubjectMatch = pathname.match(/^\/student\/subject\/([^/]+)$/);
+  if (studentSubjectMatch) return subjectPageTitle(studentSubjectMatch[1]);
+
+  const modeMatch = pathname.match(/^\/student\/(?:(hist|sci|soc)\/)?stage\/(\d)$/);
   if (modeMatch) {
-    const mode = learningModeByStage(Number(modeMatch[1]));
+    const mode = learningModeByStage(Number(modeMatch[2]));
     return mode?.module ?? '학습 모드';
   }
 
@@ -154,7 +150,7 @@ export function AppLayout() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isTeacher ? 'role-teacher' : 'role-student'}`}>
       <aside
         className={`sidebar${sidebarOpen ? '' : ' collapsed'}${mobileOpen ? ' open-mobile' : ''}`}
       >

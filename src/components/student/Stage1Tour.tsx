@@ -4,19 +4,19 @@ export const STAGE1_STUDENT_TOUR_STEPS: UiTourStep[] = [
   {
     target: 's1-tour-mission',
     title: '문제 확인',
-    body: '선생님이 낸 퀴즈 문제가 여기 있어요. 정답은 마감 전에 공개되지 않으니, 힌트를 모아 스스로 찾아야 합니다.',
-    placement: 'right',
+    body: '선생님이 낸 서술형 문제가 위에 보여요. 마감도 바로 아래에 있고, 정답 키포인트는 마감 전에 공개되지 않으니 힌트를 모아 스스로 정리해야 합니다.',
+    placement: 'bottom',
   },
   {
     target: 's1-tour-doc',
     title: '학습 자료',
-    body: '선생님이 올린 PDF예요. 「보기」를 누르면 원본 화면으로 확인할 수 있어요.',
-    placement: 'right',
+    body: '문제 오른쪽 「학습 자료」 버튼을 누르면 선생님이 올린 PDF 원본을 볼 수 있어요.',
+    placement: 'left',
   },
   {
     target: 's1-tour-params',
     title: '파라미터 조절',
-    body: 'chunk_size · top_k · temperature를 바꿔 가며 AI 검색 방식을 실험해 보세요. 기본값보다 과하게 키우면 맞더라도 감점될 수 있어요.',
+    body: '왼쪽에서 chunk_size · top_k · temperature를 바꿔 가며 AI 검색 방식을 실험해 보세요. 기본값보다 과하게 키우면 맞더라도 감점될 수 있어요.',
     placement: 'right',
   },
   {
@@ -28,14 +28,69 @@ export const STAGE1_STUDENT_TOUR_STEPS: UiTourStep[] = [
   {
     target: 's1-tour-chat',
     title: 'AI와 대화로 힌트 받기',
-    body: '여기로 자유롭게 질문하세요. AI는 정답을 직접 말하지 않고 힌트만 줍니다.',
+    body: '오른쪽 채팅창으로 자유롭게 질문하세요. AI는 정답을 직접 말하지 않고 힌트만 줍니다.',
     placement: 'left',
   },
   {
     target: 's1-tour-submit',
     title: '내 답안 제출',
-    body: '힌트와 참고 문장을 보고 답을 직접 입력해 제출하세요. 제출 기회는 2회예요.',
+    body: '아래 작성칸에 핵심 요점 3가지를 짧게 정리해 제출하세요. 모두 맞으면 바로 최종 제출되고, 부족하면 한 번 더 기회가 있어요.',
     placement: 'top',
+  },
+];
+
+export type Stage1HelpSection = {
+  where: string;
+  title: string;
+  bullets: string[];
+  tip?: string;
+};
+
+/** 화면 중간에도 다시 볼 수 있는 시나리오 1 도움말 */
+export const STAGE1_HELP_INTRO =
+  '서술형 문제를 풀며 AI 검색 파라미터를 실험하는 단계예요. AI는 틀릴 수 있으니, 힌트를 모아 핵심 요점을 스스로 정리해 제출하세요.';
+
+export const STAGE1_HELP_SECTIONS: Stage1HelpSection[] = [
+  {
+    where: '위',
+    title: '문제 · 학습 자료',
+    bullets: [
+      '서술형 문제와 마감이 위에 있어요',
+      '「학습 자료」로 선생님이 올린 PDF를 볼 수 있어요',
+      '정답 키포인트는 마감 전에 공개되지 않아요',
+    ],
+  },
+  {
+    where: '왼쪽',
+    title: '파라미터',
+    bullets: [
+      'chunk_size · top_k · temperature로 검색 방식을 바꿔요',
+      '기본값보다 top_k·chunk를 과하게 키우면 감점될 수 있어요',
+    ],
+    tip: '맞더라도 자원을 많이 쓰면 점수가 깎여요. 최소한으로 조절해 보세요.',
+  },
+  {
+    where: '왼쪽',
+    title: 'top-k 자세히 보기',
+    bullets: [
+      '질문을 보낸 뒤 버튼을 누르면 AI가 참고한 문장이 보여요',
+      'top_k 숫자만큼 문장이 쌓여요',
+    ],
+  },
+  {
+    where: '오른쪽',
+    title: 'AI 채팅',
+    bullets: ['자유롭게 질문해 힌트를 모으세요', 'AI는 정답을 직접 말하지 않아요'],
+  },
+  {
+    where: '아래',
+    title: '내 답안 제출',
+    bullets: [
+      '핵심 요점 3가지를 번호로 짧게 정리해 써요',
+      '요점마다 부분 점수가 나가요',
+      '3개 모두 맞히면 바로 최종 제출·완료돼요',
+      '두 번 모두 쓰면 점수가 더 높은 제출이 최종이에요',
+    ],
   },
 ];
 

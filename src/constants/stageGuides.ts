@@ -28,15 +28,15 @@ export const STAGE_GUIDES: Record<number, StageGuide> = {
       {
         title: 'RAG 탐험 시작',
         intro:
-          '선생님이 수업 내용으로 퀴즈를 내셨어요. 여러분은 그 문제를 풀어 {highlight}해야 합니다.',
-        highlight: '정답을 제출',
-        body: 'AI는 항상 맞는 답을 주지 않아요. 파라미터를 바꿔 잘못된 AI 답변을 먼저 고치고, 올바른 힌트를 얻은 뒤 그걸로 정답을 찾아보세요.',
+          '선생님이 수업 내용으로 서술형 문제를 내셨어요. 여러분은 핵심 요점을 정리해 {highlight}해야 합니다.',
+        highlight: '답안을 제출',
+        body: 'AI는 항상 맞는 답을 주지 않아요. 파라미터를 바꿔 힌트를 모은 뒤, 핵심 요점 3가지를 짧게 정리해 제출해 보세요.',
         calloutTitle: '주의',
         calloutBody:
           '파라미터를 너무 좋게(검색을 과하게) 올려 버리면 맞더라도 감점될 수 있어요. 최소한으로 조절하며 탐험해 보세요.',
       },
     ],
-    cta: '과제 고르러 가기',
+    cta: '시작',
   },
   2: {
     pages: [
@@ -64,7 +64,7 @@ export const STAGE_GUIDES: Record<number, StageGuide> = {
           'AI 답을 그대로 믿지 말고, 근거 문서와 대조해 스스로 확인하는 습관을 기릅니다.',
       },
     ],
-    cta: '과제 고르러 가기',
+    cta: '시작',
   },
   3: {
     pages: [
@@ -92,7 +92,7 @@ export const STAGE_GUIDES: Record<number, StageGuide> = {
         hint: '시작을 누르면 찬성·반대·팩트체커 AI가 토론을 준비합니다. 약 15초 걸릴 수 있습니다.',
       },
     ],
-    cta: '과제 고르러 가기',
+    cta: '시작',
   },
   4: {
     pages: [
@@ -145,6 +145,6 @@ export const STAGE_GUIDES: Record<number, StageGuide> = {
         hint: '힌트는 방향만 알려 줍니다. 정답 문장을 외우기보다, 왜 통했는지·막혔는지를 스스로 정리해 보세요.',
       },
     ],
-    cta: '과제 고르러 가기',
+    cta: '시작',
   },
 };
