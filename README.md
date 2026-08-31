@@ -41,28 +41,22 @@
 
 ## 빠른 시작
 
-의존성 설치
-
 ```bash
-npm install
-```
+# 1. 저장소 클론
+git clone https://github.com/eduflow-team/frontend.git
+cd frontend
 
-환경 설정
-
-```bash
+# 2. 환경 변수 파일 생성
 cp .env.example .env
-```
 
-개발 서버
+# 3. 의존성 설치
+npm install
 
-```bash
+# 4. 개발 서버 실행
 npm run dev
-```
 
-프로덕션 빌드
-
-```bash
-npm run build
+# 5. 브라우저 접속
+open http://localhost:5173
 ```
 
 </div>
