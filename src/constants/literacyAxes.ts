@@ -1,4 +1,7 @@
-/** 울산형 AI 리터러시 6축 · 17차 회의 통합점수 매핑 */
+/**
+ * 울산형 AI 리터러시 6축 — 표시용 상수·API 매핑.
+ * 점수 환산은 백엔드 `literacy_scorer`가 담당한다.
+ */
 
 export type LiteracyAxisKey =
   | 'ai_operation'
@@ -24,7 +27,7 @@ export const LITERACY_AXES: LiteracyAxis[] = [
   { key: 'ethics', label: 'AI 윤리', formal: '윤리적 활용' },
 ];
 
-/** 단계 → 주요 리터러시 역량 (17차 회의 · 채원 자료) */
+/** 단계 → 주요 리터러시 역량 (표시·안내용, 환산은 백엔드와 동일 표) */
 export const STAGE_LITERACY_MAP: Record<number, LiteracyAxisKey[]> = {
   1: ['ai_operation', 'ai_response', 'collaboration'],
   2: ['hallucination', 'critical', 'ai_response'],
@@ -52,42 +55,25 @@ export function emptyLiteracyScores(): LiteracyScores {
   };
 }
 
-/** 단계별 점수로 6축 점수 산출 (해당 축에 매핑된 단계 점수 평균) */
-export function deriveLiteracyScores(
-  stages: { stage: number; score?: number | null; status?: string }[],
-): LiteracyScores {
-  const buckets: Record<LiteracyAxisKey, number[]> = {
-    ai_operation: [],
-    hallucination: [],
-    ai_response: [],
-    critical: [],
-    collaboration: [],
-    ethics: [],
-  };
-
-  for (const item of stages) {
-    if (item.score == null) continue;
-    const keys = STAGE_LITERACY_MAP[item.stage];
-    if (!keys) continue;
-    for (const key of keys) {
-      buckets[key].push(Math.max(0, Math.min(100, item.score)));
-    }
-  }
-
-  const out = emptyLiteracyScores();
-  (Object.keys(buckets) as LiteracyAxisKey[]).forEach((key) => {
-    const vals = buckets[key];
-    out[key] = vals.length
-      ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)
-      : null;
-  });
-  return out;
-}
-
 export function averageLiteracyScore(scores: LiteracyScores): number {
   const vals = LITERACY_AXES.map((a) => scores[a.key]).filter((v): v is number => v != null);
   if (!vals.length) return 0;
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
+
+/** 백엔드 literacy_axes → 화면용. 없으면 전부 미이수. */
+export function literacyScoresFromApi(
+  axes?: Partial<LiteracyScores> | null,
+): LiteracyScores {
+  const out = emptyLiteracyScores();
+  if (!axes) return out;
+  for (const key of Object.keys(out) as LiteracyAxisKey[]) {
+    const v = axes[key];
+    if (v != null && Number.isFinite(v)) {
+      out[key] = Math.max(0, Math.min(100, Math.round(v)));
+    }
+  }
+  return out;
 }
 
 export function axisLabelsForStage(stage: number): string {

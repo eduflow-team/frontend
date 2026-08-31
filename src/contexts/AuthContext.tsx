@@ -119,7 +119,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function restoreSession() {
       const token = getAccessToken();
       if (!token) {
-        if (!cancelled) setAuthReady(true);
+        if (!cancelled) {
+          // 토큰 없이 user만 남은 경우 API 401 방지
+          persist(null);
+          setAuthReady(true);
+        }
         return;
       }
 
@@ -138,6 +142,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
+  }, [persist]);
+
+  useEffect(() => {
+    const onExpired = () => {
+      clearTokens();
+      persist(null);
+    };
+    window.addEventListener('eduflow:auth-expired', onExpired);
+    return () => window.removeEventListener('eduflow:auth-expired', onExpired);
   }, [persist]);
 
   const applyRemoteUser = useCallback(

@@ -29,6 +29,10 @@ export const API_ENDPOINTS = {
       `/student/assignments/${id}/step2/highlight`,
     assignmentStep2Correction: (id: number | string) =>
       `/student/assignments/${id}/step2/correction`,
+    assignmentStep4: (id: number | string) => `/student/assignments/${id}/step4`,
+    assignmentStep4Set: (id: number | string) => `/student/assignments/${id}/step4/set`,
+    assignmentStep4Chat: (id: number | string) => `/student/assignments/${id}/step4/chat`,
+    assignmentStep4Submit: (id: number | string) => `/student/assignments/${id}/step4/submit`,
   },
   teacher: {
     dashboardSummary: '/teacher/dashboard/summary',
@@ -44,6 +48,7 @@ export const API_ENDPOINTS = {
     createAssignmentStep2: '/teacher/assignments/step2',
     createAssignmentStep2Set: '/teacher/assignments/step2/set',
     assignmentStep2Set: (id: number | string) => `/teacher/assignments/step2/set/${id}`,
+    createAssignmentStep4: '/teacher/assignments/step4',
   },
   search: '/search',
 } as const;

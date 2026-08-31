@@ -3,11 +3,11 @@ import {
   fetchStudentDashboardAssignmentsApi,
   fetchStudentDashboardSummaryApi,
 } from '../../api';
-import type { ProgressStatus, StudentAssignmentItem, StageSummaryItem } from '../../api/types';
+import type { ProgressStatus, StudentAssignmentItem, StudentDashboardSummary } from '../../api/types';
 import {
   STAGE_SCENARIO_LABELS,
   averageLiteracyScore,
-  deriveLiteracyScores,
+  literacyScoresFromApi,
 } from '../../constants/literacyAxes';
 import { STUDENT_LEARNING_MODES, learningModeByStage } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
@@ -64,18 +64,10 @@ function buildHeroCopy(remaining: DashboardTask[]) {
 function buildFromApi(
   name: string,
   classLabel: string,
-  summary: { total_score: number; attendance_rate: number; stage_summary: StageSummaryItem[] },
+  summary: StudentDashboardSummary,
   assignments: StudentAssignmentItem[],
 ): StudentDashboardViewModel {
-  const stageRows = summary.stage_summary.map((s) => {
-    if (s.score != null) return s;
-    const scored = assignments.filter((a) => Number(a.stage) === s.stage && a.score != null);
-    if (!scored.length) return s;
-    const avg = Math.round(scored.reduce((sum, a) => sum + (a.score ?? 0), 0) / scored.length);
-    return { ...s, score: avg };
-  });
-
-  const axes = deriveLiteracyScores(stageRows);
+  const axes = literacyScoresFromApi(summary.literacy_axes);
   const tasks: DashboardTask[] = assignments
     .map((item) => {
       const stage = Number(item.stage ?? 1);

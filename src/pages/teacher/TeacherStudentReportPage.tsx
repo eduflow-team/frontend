@@ -6,7 +6,7 @@ import { HexLiteracyRadar } from '../../components/student/HexLiteracyRadar';
 import {
   LITERACY_AXES,
   averageLiteracyScore,
-  deriveLiteracyScores,
+  literacyScoresFromApi,
 } from '../../constants/literacyAxes';
 import { STUDENT_LEARNING_MODES, learningModeLabel } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
@@ -59,19 +59,13 @@ export function TeacherStudentReportPage() {
     return detail?.status === 'COMPLETED';
   }).length;
 
-  const literacyScores = deriveLiteracyScores(
-    STUDENT_LEARNING_MODES.map((mode) => {
-      const key = stageKey(mode.stage);
-      const progress = recordStudent?.stage_summary[key];
-      const detail = gradeStudent?.stage_details[key];
-      return {
-        stage: mode.stage,
-        score: detail?.score ?? progress?.score ?? null,
-        status: progress?.status,
-      };
-    }),
+  const literacyScores = literacyScoresFromApi(
+    gradeStudent?.literacy_axes ?? recordStudent?.literacy_axes,
   );
-  const literacyAvg = averageLiteracyScore(literacyScores);
+  const literacyAvg =
+    gradeStudent?.literacy_total ??
+    recordStudent?.literacy_total ??
+    averageLiteracyScore(literacyScores);
 
   return (
     <div className="t-report">

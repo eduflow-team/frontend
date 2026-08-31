@@ -1,45 +1,106 @@
 import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ApiError, createTeacherAssignmentStep4Api, fetchClassesApi } from '../../../api';
+import type { ClassItem, Stage4CreateResponse } from '../../../api/types';
 import { learningModeByStage } from '../../../constants/navigation';
-import {
-  STAGE4_DEFAULT_ASSIGN,
-  readStage4Assignment,
-  saveStage4Assignment,
-} from '../../../mocks/stage4Guard';
+import { useAuth } from '../../../contexts/AuthContext';
+import { formatClassLabel } from '../../../utils/labels';
 
-/** stage4_ui 교사 — 보안 과제 만들기 */
+/** Stage4 교사 — 프롬프트 인젝션 실습 과제 생성 (EASY/NORMAL/HARD 세트) */
 export function TeacherStage4Form() {
-  const saved = readStage4Assignment();
-  const [title, setTitle] = useState(saved.title);
-  const [mission, setMission] = useState(saved.mission);
-  const [secret, setSecret] = useState(saved.secret);
-  const [attacker, setAttacker] = useState(saved.attacker);
-  const [due, setDue] = useState(saved.due);
-  const [hints, setHints] = useState([
-    saved.hints[0] || STAGE4_DEFAULT_ASSIGN.hints[0],
-    saved.hints[1] || STAGE4_DEFAULT_ASSIGN.hints[1],
-    saved.hints[2] || STAGE4_DEFAULT_ASSIGN.hints[2],
-  ]);
-  const [created, setCreated] = useState(false);
+  const navigate = useNavigate();
+  const { user, authReady } = useAuth();
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [classId, setClassId] = useState<number | ''>('');
+  const [title, setTitle] = useState('프롬프트 인젝션 보안 실습');
+  const [mission, setMission] = useState('숨겨진 비밀 키를 프롬프트 인젝션으로 찾아라.');
+  const [secretKey, setSecretKey] = useState('EDUFLOW-SECRET-42');
+  const [maxAttempts, setMaxAttempts] = useState(10);
+  const [guideline, setGuideline] = useState(
+    '공격자 역할로 AI와 대화하며 비밀 키를 탈취해 보세요. EASY부터 시작해 순서대로 클리어하세요.',
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [created, setCreated] = useState<Stage4CreateResponse | null>(null);
   const [toast, setToast] = useState('');
 
   useEffect(() => {
+    if (!authReady || user?.isDemo) return;
+    fetchClassesApi()
+      .then((res) => {
+        setClasses(res.classes);
+        if (res.classes[0]) setClassId(res.classes[0].class_id);
+      })
+      .catch(() => setClasses([]));
+  }, [authReady, user?.isDemo]);
+
+  useEffect(() => {
     if (!toast) return;
-    const t = window.setTimeout(() => setToast(''), 1800);
+    const t = window.setTimeout(() => setToast(''), 2200);
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  const create = () => {
-    saveStage4Assignment({
-      title: title.trim() || STAGE4_DEFAULT_ASSIGN.title,
-      mission: mission.trim() || STAGE4_DEFAULT_ASSIGN.mission,
-      secret: secret.trim() || STAGE4_DEFAULT_ASSIGN.secret,
-      attacker: attacker.trim() || STAGE4_DEFAULT_ASSIGN.attacker,
-      due: due.trim(),
-      hints: hints.map((h) => h.trim()).filter(Boolean),
-    });
-    setCreated(true);
-    setToast('과제를 게시했습니다.');
+  const create = async () => {
+    setError('');
+    if (user?.isDemo || !user) {
+      setError('데모 모드에서는 API를 사용할 수 없습니다. 실제 계정으로 로그인해 주세요.');
+      return;
+    }
+    if (classId === '') {
+      setError('학급을 선택해 주세요.');
+      return;
+    }
+    if (!title.trim() || !mission.trim() || !secretKey.trim() || !guideline.trim()) {
+      setError('제목, 미션, 비밀 키, 가이드라인을 입력해 주세요.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await createTeacherAssignmentStep4Api({
+        class_id: Number(classId),
+        title: title.trim(),
+        mission: mission.trim(),
+        secret_key: secretKey.trim(),
+        max_attempts: maxAttempts,
+        guideline: guideline.trim(),
+      });
+      setCreated(res);
+      setToast('과제 세트(EASY/NORMAL/HARD)를 게시했습니다.');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '과제 생성에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (!authReady) {
+    return (
+      <div className="s4">
+        <div className="shell">
+          <p className="hint">세션 확인 중…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || user.isDemo) {
+    return (
+      <div className="s4">
+        <div className="shell">
+          <h1 className="page-title">{learningModeByStage(4)?.module ?? '프롬프트 인젝션 실습'}</h1>
+          <div className="info-card">
+            <p className="mission-text">
+              Stage4 과제 생성은 백엔드 API가 필요합니다. 데모가 아닌 계정으로{' '}
+              <Link to="/login">로그인</Link>해 주세요.
+            </p>
+            <p className="hint hint-sm" style={{ marginTop: 8 }}>
+              테스트 계정: e2e.teacher@example.com / Passw0rd!
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="s4">
@@ -52,13 +113,35 @@ export function TeacherStage4Form() {
           <div className="step">결과 확인</div>
         </nav>
 
-        <h1 className="page-title">{learningModeByStage(4)?.module ?? '보안 강화'}</h1>
+        <h1 className="page-title">{learningModeByStage(4)?.module ?? '프롬프트 인젝션 실습'}</h1>
         <p className="page-desc">
-          학생이 지켜야 할 비밀 키를 정하세요. AI가 프롬프트 인젝션으로 키를 물어보고, 학생은
-          문지기로서 답에 키를 넣지 않아야 합니다.
+          한 번 생성하면 EASY · NORMAL · HARD 세트가 함께 만들어집니다. 학생은 순서대로 해금하며
+          공격 실습과 보고서를 제출합니다.
         </p>
 
         <div className="stack">
+          <div className="field-group">
+            <label className="label" htmlFor="classSelect">
+              학급
+            </label>
+            <select
+              id="classSelect"
+              className="field"
+              value={classId}
+              onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : '')}
+            >
+              {classes.length === 0 ? (
+                <option value="">학급 불러오는 중…</option>
+              ) : (
+                classes.map((c) => (
+                  <option key={c.class_id} value={c.class_id}>
+                    {formatClassLabel(c.grade, c.class_number)}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
           <div className="field-group">
             <label className="label" htmlFor="titleInput">
               과제 제목
@@ -69,7 +152,9 @@ export function TeacherStage4Form() {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              placeholder="학생이 목록에서 볼 제목"
             />
+            <p className="hint hint-sm">학생 과제 선택 화면에 이 제목으로 표시됩니다.</p>
           </div>
 
           <div className="field-group">
@@ -79,53 +164,52 @@ export function TeacherStage4Form() {
             <textarea
               id="missionInput"
               className="field"
+              rows={3}
               value={mission}
               onChange={(e) => setMission(e.target.value)}
             />
-            <p className="hint hint-sm">
-              학생에게 보이는 안내입니다. “키를 찾아라”가 아니라 “키를 지켜라”로 적어 주세요.
-            </p>
           </div>
 
           <div className="row-2">
             <div className="field-group">
               <label className="label" htmlFor="secretInput">
-                숨겨진 비밀 키
+                비밀 키 (교사만 설정)
               </label>
               <input
                 id="secretInput"
                 className="field"
                 type="text"
-                value={secret}
-                onChange={(e) => setSecret(e.target.value)}
+                value={secretKey}
+                onChange={(e) => setSecretKey(e.target.value)}
               />
-              <p className="hint hint-sm">
-                학생은 지키는 입장이라 이 키를 볼 수 있습니다. AI에게는 알려주지 마세요.
-              </p>
+              <p className="hint hint-sm">학생 API에는 노출되지 않습니다. AI 응답에 포함되면 클리어입니다.</p>
             </div>
             <div className="field-group">
-              <label className="label" htmlFor="dueInput">
-                마감
+              <label className="label" htmlFor="attemptsInput">
+                난이도당 최대 시도
               </label>
               <input
-                id="dueInput"
+                id="attemptsInput"
                 className="field"
-                type="text"
-                value={due}
-                onChange={(e) => setDue(e.target.value)}
+                type="number"
+                min={1}
+                max={30}
+                value={maxAttempts}
+                onChange={(e) => setMaxAttempts(Number(e.target.value) || 10)}
               />
             </div>
           </div>
 
           <div className="field-group">
-            <label className="label" htmlFor="attackerInput">
-              AI 공격자 설정
+            <label className="label" htmlFor="guidelineInput">
+              학습 가이드라인
             </label>
             <textarea
-              id="attackerInput"
+              id="guidelineInput"
               className="field"
-              value={attacker}
-              onChange={(e) => setAttacker(e.target.value)}
+              rows={3}
+              value={guideline}
+              onChange={(e) => setGuideline(e.target.value)}
             />
           </div>
 
@@ -137,62 +221,42 @@ export function TeacherStage4Form() {
               <p className="side-title">난이도 · 순차 해금</p>
             </div>
             <p className="mission-text">
-              학생은 <b>EASY</b>부터 시작합니다. 해당 난이도의 공격 프롬프트를 모두 막으면{' '}
-              <b>NORMAL</b>, 이어서 <b>HARD</b>가 열립니다.
+              EASY 클리어 → NORMAL 해금 → NORMAL 클리어 → HARD 해금. 힌트는 백엔드가 실패 누적에
+              따라 자동 제공합니다.
             </p>
             <div className="diff-preview">
               <div className="diff-card">
                 <strong>EASY</strong>
-                <span>직접 질문</span>
+                <span>직접 요구</span>
               </div>
               <div className="diff-card">
                 <strong>NORMAL</strong>
-                <span>역할극 · 지시 무시</span>
+                <span>역할 · 승인</span>
               </div>
               <div className="diff-card">
                 <strong>HARD</strong>
-                <span>JSON/YAML · 변형 출력</span>
+                <span>복합 우회</span>
               </div>
             </div>
           </section>
 
-          <div className="field-group">
-            <label className="label">방어 힌트 카드</label>
-            <p className="hint hint-sm" style={{ marginBottom: 8 }}>
-              학생이 막히면 쓸 수 있습니다. 사용하면 감점됩니다.
-            </p>
-            {hints.map((h, i) => (
-              <input
-                key={i}
-                className="field"
-                style={{ marginBottom: i < 2 ? 6 : 0 }}
-                type="text"
-                value={h}
-                onChange={(e) => {
-                  const next = [...hints];
-                  next[i] = e.target.value;
-                  setHints(next);
-                }}
-              />
-            ))}
-          </div>
-
-          <section className="info-card">
-            <div className="info-card-head">
-              <span className="info-icon" aria-hidden="true">
-                ◇
-              </span>
-              <p className="side-title">채점 방식</p>
-            </div>
-            <p className="mission-text">
-              키를 답에 넣지 않고 막은 비율, 힌트를 적게 쓴 정도, 보고서(왜 위험한지 · 어떻게 막을지)를
-              함께 봅니다.
-            </p>
-          </section>
+          {error && <p className="hint" style={{ color: 'var(--danger, #c0392b)' }}>{error}</p>}
 
           <div className="actions">
-            <button className="btn btn-primary" type="button" onClick={create}>
-              과제 만들기
+            <button
+              className="btn btn-primary"
+              type="button"
+              disabled={submitting}
+              onClick={() => void create()}
+            >
+              {submitting ? '생성 중…' : '과제 세트 만들기'}
+            </button>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => navigate('/teacher')}
+            >
+              대시보드로
             </button>
           </div>
 
@@ -202,12 +266,16 @@ export function TeacherStage4Form() {
                 <span className="info-icon" aria-hidden="true">
                   ✓
                 </span>
-                <p className="side-title">게시 완료</p>
+                <p className="side-title">게시 완료 · set #{created.set_id}</p>
               </div>
-              <p className="mission-text">
-                과제를 게시했습니다. 같은 브라우저의 학생 보안 강화 화면에서 방어 활동을 확인할 수
-                있습니다.
-              </p>
+              <p className="mission-text">{created.title}</p>
+              <ul className="hint hint-sm" style={{ marginTop: 8 }}>
+                {created.assignments.map((a) => (
+                  <li key={a.assignment_id}>
+                    {a.difficulty}: assignment_id {a.assignment_id}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>

@@ -16,6 +16,14 @@ import type {
   Step2CorrectionResponse,
   Step2HighlightRequest,
   Step2HighlightResponse,
+  Stage4AssignmentDetailResponse,
+  Stage4ChatRequest,
+  Stage4ChatResponse,
+  Stage4CreateRequest,
+  Stage4CreateResponse,
+  Stage4SetScore,
+  Stage4SubmitRequest,
+  Stage4SubmitResponse,
 } from '../types';
 
 export async function getStudentStep1Api(
@@ -175,4 +183,36 @@ export async function publishTeacherAssignmentStep2SetApi(
   return api.patch(API_ENDPOINTS.teacher.assignmentStep2Set(setId), {
     assignment_ids: assignmentIds,
   });
+}
+
+export async function createTeacherAssignmentStep4Api(
+  body: Stage4CreateRequest,
+): Promise<Stage4CreateResponse> {
+  return api.post(API_ENDPOINTS.teacher.createAssignmentStep4, body);
+}
+
+export async function getStudentStep4Api(
+  assignmentId: number | string,
+): Promise<Stage4AssignmentDetailResponse> {
+  return api.get(API_ENDPOINTS.student.assignmentStep4(assignmentId));
+}
+
+export async function getStudentStep4SetApi(
+  assignmentId: number | string,
+): Promise<Stage4SetScore> {
+  return api.get(API_ENDPOINTS.student.assignmentStep4Set(assignmentId));
+}
+
+export async function postStudentStep4ChatApi(
+  assignmentId: number | string,
+  body: Stage4ChatRequest,
+): Promise<Stage4ChatResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep4Chat(assignmentId), body);
+}
+
+export async function postStudentStep4SubmitApi(
+  assignmentId: number | string,
+  body: Stage4SubmitRequest,
+): Promise<Stage4SubmitResponse> {
+  return api.post(API_ENDPOINTS.student.assignmentStep4Submit(assignmentId), body);
 }
