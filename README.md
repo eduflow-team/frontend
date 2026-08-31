@@ -12,32 +12,54 @@
 
 ## 주요 화면
 
-| 선생님 홈 | 선생님 Stage 2 출제 |
-|:---------:|:-------------------:|
-| ![선생님 홈](docs/screenshots/teacher-home.png) | ![선생님 Stage 2 출제](docs/screenshots/teacher-stage2.png) |
-| 과제 만들기 · 제출률 · 미제출 · 전체 과제 | Hallucination 탐지 단계별 출제 (참고 문서 → 후보) |
+<table>
+  <tr>
+    <th width="50%">선생님 홈</th>
+    <th width="50%">선생님 Stage 2 출제</th>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/teacher-home.png" alt="선생님 홈" width="100%" />
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/teacher-stage2.png" alt="선생님 Stage 2 출제" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <th width="50%">학생 홈</th>
+    <th width="50%">학생 점수</th>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/student-home.png" alt="학생 홈" width="100%" />
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/student-scores.png" alt="학생 점수" width="100%" />
+    </td>
+  </tr>
+</table>
 
 ## 빠른 시작
 
-`<의존성 설치>`
+의존성 설치
 
 ```bash
 npm install
 ```
 
-`<환경 설정>`
+환경 설정
 
 ```bash
 cp .env.example .env
 ```
 
-`<개발 서버>`
+개발 서버
 
 ```bash
 npm run dev
 ```
 
-`<프로덕션 빌드>`
+프로덕션 빌드
 
 ```bash
 npm run build
