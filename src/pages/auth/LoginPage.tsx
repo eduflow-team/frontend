@@ -45,7 +45,7 @@ export function LoginPage() {
               className="form-control"
               type="email"
               id="login-email"
-              placeholder="e2e.teacher@example.com"
+              placeholder="email@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
@@ -77,13 +77,6 @@ export function LoginPage() {
             {submitting ? '로그인 중…' : '로그인'}
           </button>
         </form>
-
-        <p
-          className="hint"
-          style={{ marginTop: 16, fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}
-        >
-          테스트 계정: e2e.teacher@example.com · e2e.student@example.com / Passw0rd!
-        </p>
       </div>
     </div>
   );
