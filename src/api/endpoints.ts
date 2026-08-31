@@ -42,6 +42,7 @@ export const API_ENDPOINTS = {
     assignmentStep4Submit: (id: number | string) => `/student/assignments/${id}/step4/submit`,
   },
   teacher: {
+    classes: '/teacher/classes',
     dashboardSummary: '/teacher/dashboard/summary',
     dashboardUnsubmitted: '/teacher/dashboard/students/unsubmitted',
     dashboardAssignments: '/teacher/dashboard/assignments',

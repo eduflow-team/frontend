@@ -434,8 +434,24 @@ export interface Stage3DecisionItem {
   checked: boolean;
 }
 
+export interface Stage3CorrectionItem {
+  turn_id: string;
+  highlight?: string | null;
+  why_wrong?: string | null;
+  correct_ground?: string | null;
+}
+
 export interface Stage3SubmitRequest {
   decisions?: Stage3DecisionItem[] | null;
+  corrections?: Stage3CorrectionItem[] | null;
+}
+
+export interface Stage3CorrectionGradeRow {
+  turn_id: string;
+  why_rating: number;
+  ground_rating: number;
+  turn_score: number;
+  feedback: string;
 }
 
 export interface Stage3GradeRow {
@@ -453,6 +469,8 @@ export interface Stage3GradeRow {
 
 export interface Stage3SubmitResponse {
   current_score: number;
+  usage_score: number;
+  reasoning_score: number;
   highest_score: number;
   is_highest_score: boolean;
   caught: number;
@@ -462,6 +480,7 @@ export interface Stage3SubmitResponse {
   headline: string;
   advice: string;
   rows: Stage3GradeRow[];
+  correction_rows?: Stage3CorrectionGradeRow[];
   attempts: Stage3AttemptsDetail;
 }
 

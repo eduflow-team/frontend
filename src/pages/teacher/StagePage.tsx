@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ApiError,
   createTeacherAssignmentStep1Api,
-  fetchClassesApi,
+  fetchTeacherClassesApi,
 } from '../../api';
 import type { ClassItem } from '../../api/types';
 import { SUBJECT_OPTIONS } from '../../constants/assignments';
@@ -247,7 +247,7 @@ function TeacherStage1Form() {
   };
 
   useEffect(() => {
-    fetchClassesApi()
+    fetchTeacherClassesApi()
       .then((res) => {
         setClasses(res.classes);
         if (res.classes[0]) setClassId(res.classes[0].class_id);

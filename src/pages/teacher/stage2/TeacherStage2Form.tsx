@@ -4,7 +4,7 @@ import {
   ApiError,
   createTeacherAssignmentStep2Api,
   createTeacherAssignmentStep2SetApi,
-  fetchClassesApi,
+  fetchTeacherClassesApi,
   fetchTeacherAssignmentStep2SetApi,
   publishTeacherAssignmentStep2SetApi,
 } from '../../../api';
@@ -110,7 +110,7 @@ export function TeacherStage2Form() {
 
   useEffect(() => {
     if (!useApi) return;
-    fetchClassesApi()
+    fetchTeacherClassesApi()
       .then((res) => {
         setClasses(res.classes);
         const firstClass = res.classes[0];

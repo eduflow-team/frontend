@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ApiError, createTeacherAssignmentStep4Api, fetchClassesApi } from '../../../api';
+import { ApiError, createTeacherAssignmentStep4Api, fetchTeacherClassesApi } from '../../../api';
 import type { ClassItem, Stage4Difficulty } from '../../../api/types';
 import { SUBJECT_OPTIONS } from '../../../constants/assignments';
 import { learningModeByStage } from '../../../constants/navigation';
@@ -71,7 +71,7 @@ export function TeacherStage4Form() {
 
   useEffect(() => {
     if (!useApi) return;
-    fetchClassesApi()
+    fetchTeacherClassesApi()
       .then((res) => {
         setClasses(res.classes);
         const firstClass = res.classes[0];
