@@ -410,8 +410,7 @@ export function TeacherStage3Form() {
                       </div>
                     </dl>
                     <p className="field-hint" style={{ marginTop: 14 }}>
-                      Langflow가 6라운드 토론을 생성합니다. 약 50~80초 걸릴 수 있습니다. 생성이 끝나면
-                      4단계에서 오류 근거를 미리 확인할 수 있습니다.
+                      약 50~80초 걸릴 수 있습니다.
                     </p>
                   </div>
                 </div>

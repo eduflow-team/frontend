@@ -567,8 +567,9 @@ export function StudentStage3Activity({
   };
 
   const openSource = async (turn: Stage3Turn) => {
-    const claim = turn.claim || turn.grounds?.[0] || turn.text || '';
-    setSourceQuote(claim);
+    const highlighted = collectHighlights(turn.id);
+    const claim = highlighted || turn.claim || turn.grounds?.[0] || '';
+    setSourceQuote(claim || turn.text || '');
     setSourceOpen(true);
     setSourceLoading(true);
     setSourceArticles([]);
@@ -577,7 +578,6 @@ export function StudentStage3Activity({
       const data = await postStudentStep3SourcesApi(assignmentId, {
         turn_id: turn.id,
         claim,
-        text: turn.text,
       });
       setSourceArticles(dedupeSourceItems(data.articles || []));
       setSourceSearches(dedupeSourceItems(data.searches || []));
@@ -1143,24 +1143,30 @@ export function StudentStage3Activity({
               {sourceLoading ? <p className="hint">관련 뉴스·기사·인터뷰를 찾는 중…</p> : null}
               {!sourceLoading && (
                 <>
-                  <p className="hint">이 근거와 관련된 뉴스·인터뷰입니다. 제목을 누르면 원문이 열립니다.</p>
-                  <div className="source-list">
-                    {(sourceArticles.length ? sourceArticles : sourceSearches).map((item) => (
-                      <a
-                        key={item.url}
-                        className="source-item"
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <span className="src">
-                          {item.kind || '뉴스'}
-                          {item.source ? ` · ${item.source}` : ''}
-                        </span>
-                        <span className="title">{item.title}</span>
-                      </a>
-                    ))}
-                  </div>
+                  {sourceArticles.length > 0 ? (
+                    <>
+                      <p className="hint">이 근거와 관련된 뉴스·인터뷰입니다. 제목을 누르면 원문이 열립니다.</p>
+                      <div className="source-list">
+                        {sourceArticles.map((item) => (
+                          <a
+                            key={item.url}
+                            className="source-item"
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <span className="src">
+                              {item.kind || '뉴스'}
+                              {item.source ? ` · ${item.source}` : ''}
+                            </span>
+                            <span className="title">{item.title}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="hint">관련 기사를 찾지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
+                  )}
                 </>
               )}
             </div>
