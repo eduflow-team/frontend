@@ -93,7 +93,7 @@ export function TeacherStage4Form() {
               Stage4 과제 생성은 백엔드 API가 필요합니다. <Link to="/login">로그인</Link>해 주세요.
             </p>
             <p className="hint hint-sm" style={{ marginTop: 8 }}>
-              테스트 계정: teacher01@example.com
+              테스트 계정: e2e.teacher@example.com / Passw0rd!
             </p>
           </div>
         </div>

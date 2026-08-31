@@ -45,7 +45,7 @@ export function LoginPage() {
               className="form-control"
               type="email"
               id="login-email"
-              placeholder="teacher01@example.com"
+              placeholder="e2e.teacher@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
@@ -82,7 +82,7 @@ export function LoginPage() {
           className="hint"
           style={{ marginTop: 16, fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}
         >
-          테스트 계정: teacher01@example.com / student01@example.com
+          테스트 계정: e2e.teacher@example.com · e2e.student@example.com / Passw0rd!
         </p>
       </div>
     </div>
