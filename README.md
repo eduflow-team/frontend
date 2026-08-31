@@ -39,6 +39,8 @@
   </tr>
 </table>
 
+</div>
+
 ## 빠른 시작
 
 ```bash
@@ -58,5 +60,3 @@ npm run dev
 # 5. 브라우저 접속
 open http://localhost:5173
 ```
-
-</div>
