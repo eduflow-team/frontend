@@ -1,5 +1,5 @@
 import { HALLUCINATION_TYPE_GUIDE } from '../../../constants/stage2StudentGuide';
-import type { VerifyPhase } from '../../../mocks/verifyPrototype';
+import type { VerifyPhase } from '../../../types/stage2';
 
 const PHASE_STEPS: Record<VerifyPhase, { title: string; body: string }[]> = {
   find: [

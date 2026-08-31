@@ -1,8 +1,6 @@
 /** 백엔드 `users.role` / auth 스키마와 동일한 값 */
 export type ApiRole = 'STUDENT' | 'TEACHER';
 
-export type SocialProvider = 'kakao' | 'google' | 'apple';
-
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'PENDING';
 
 export type ProgressStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
@@ -544,19 +542,6 @@ export interface MeResponse {
   name: string;
   email: string | null;
   role: ApiRole;
-}
-
-export interface SocialLoginRequest {
-  social_token: string;
-}
-
-export interface SocialSignupRequest {
-  social_token: string;
-  name: string;
-  phone: string;
-  role: ApiRole;
-  class_id?: number | null;
-  signup_code?: string | null;
 }
 
 /* ── Dashboard ── */

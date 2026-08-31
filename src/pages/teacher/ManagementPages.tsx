@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ApiError,
   createTeacherNoticeApi,
@@ -48,167 +48,9 @@ function todayIso(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-export function TeacherMaterialsPage() {
-  const textbooks = [
-    { id: 'hist-3', title: '한국사 교과서 (2022 개정)', meta: '3단원 · 조선의 과학기술' },
-    { id: 'hist-4', title: '한국사 교과서 (2022 개정)', meta: '4단원 · 근대 사회로의 전환' },
-    { id: 'hist-extra', title: '한국사 부교재', meta: '조선시대 과학기술 심화' },
-  ] as const;
-
-  const [selectedTextbook, setSelectedTextbook] = useState<string>(textbooks[0].id);
-  const [uploads, setUploads] = useState<
-    { id: string; name: string; sizeLabel: string; status: 'ready' | 'active' }[]
-  >([
-    {
-      id: 'seed-1',
-      name: '조선시대_과학기술_단원.pdf',
-      sizeLabel: '2.4 MB',
-      status: 'active',
-    },
-  ]);
-  const [toast, setToast] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = window.setTimeout(() => setToast(''), 1800);
-    return () => window.clearTimeout(t);
-  }, [toast]);
-
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const fileExt = (name: string) => {
-    const ext = name.split('.').pop()?.toUpperCase() ?? 'FILE';
-    return ext.slice(0, 4);
-  };
-
-  const addFiles = (files: FileList | null) => {
-    if (!files?.length) return;
-    const next = Array.from(files).map((f) => ({
-      id: `${f.name}-${f.size}-${f.lastModified}`,
-      name: f.name,
-      sizeLabel: formatSize(f.size),
-      status: 'ready' as const,
-    }));
-    setUploads((prev) => {
-      const names = new Set(prev.map((p) => p.name));
-      return [...next.filter((n) => !names.has(n.name)), ...prev];
-    });
-    setToast(`${next.length}개 파일을 추가했습니다.`);
-  };
-
-  const removeUpload = (id: string) => {
-    setUploads((prev) => prev.filter((u) => u.id !== id));
-    setToast('자료를 목록에서 제거했습니다.');
-  };
-
-  return (
-    <>
-      <PageHero
-        title="자료 관리"
-        description="모든 학습 모드에서 공통으로 쓰는 교과·참고 자료를 관리합니다."
-      />
-
-      <div className="grid-2">
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">교과서 라이브러리</span>
-          </div>
-          <div className="card-body materials-list">
-            {textbooks.map((book) => {
-              const active = selectedTextbook === book.id;
-              return (
-                <label
-                  key={book.id}
-                  className={`materials-radio${active ? ' active' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="textbook"
-                    checked={active}
-                    onChange={() => setSelectedTextbook(book.id)}
-                  />
-                  <span>
-                    <span className="materials-radio-title">{book.title}</span>
-                    <span className="materials-radio-meta">{book.meta}</span>
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">참고 문서 업로드</span>
-          </div>
-          <div className="card-body">
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".pdf,.doc,.docx,.txt,.md"
-              multiple
-              hidden
-              onChange={(e) => {
-                addFiles(e.target.files);
-                e.target.value = '';
-              }}
-            />
-            <button
-              type="button"
-              className="upload-zone"
-              onClick={() => inputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                addFiles(e.dataTransfer.files);
-              }}
-            >
-              <p>교과서 외 참고문서를 업로드하세요</p>
-              <small>PDF, DOCX, TXT · 최대 50MB</small>
-            </button>
-
-            <div className="materials-uploads">
-              {uploads.length === 0 ? (
-                <p className="materials-empty">업로드된 참고 문서가 없습니다.</p>
-              ) : (
-                uploads.map((file) => (
-                  <div key={file.id} className="uploaded-file">
-                    <div className="file-icon">{fileExt(file.name)}</div>
-                    <div className="uploaded-file-meta">
-                      <div className="file-name">{file.name}</div>
-                      <div className="file-size">{file.sizeLabel}</div>
-                    </div>
-                    <span className={`badge${file.status === 'active' ? ' badge-active' : ''}`}>
-                      {file.status === 'active' ? '사용 중' : '준비됨'}
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => removeUpload(file.id)}
-                    >
-                      삭제
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className={`toast${toast ? ' show' : ''}`}>{toast}</div>
-    </>
-  );
-}
-
 export function TeacherStudentsPage() {
   const { user } = useAuth();
-  const useApi = user && !user.isDemo;
+  const useApi = Boolean(user);
   const unsubmitted = useFetch(fetchTeacherUnsubmittedApi, [], Boolean(useApi));
   const students = useFetch(fetchTeacherRecordsStudentsApi, [], Boolean(useApi));
 
@@ -307,7 +149,7 @@ export function TeacherStudentsPage() {
 
 export function TeacherGradesPage() {
   const { user } = useAuth();
-  const useApi = user && !user.isDemo;
+  const useApi = Boolean(user);
   const { data, loading, error } = useFetch(fetchTeacherGradesApi, [], Boolean(useApi));
 
   if (!useApi) {
@@ -352,7 +194,7 @@ export function TeacherGradesPage() {
 
 export function TeacherAttendancePage() {
   const { user } = useAuth();
-  const useApi = user && !user.isDemo;
+  const useApi = Boolean(user);
   const [date, setDate] = useState(todayIso());
   const [statuses, setStatuses] = useState<Record<number, AttendanceStatus>>({});
   const [saving, setSaving] = useState(false);
@@ -496,7 +338,7 @@ export function TeacherAttendancePage() {
 
 export function TeacherNoticesPage() {
   const { user } = useAuth();
-  const useApi = user && !user.isDemo;
+  const useApi = Boolean(user);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [classId, setClassId] = useState<number | ''>('');
@@ -673,15 +515,5 @@ export function TeacherNoticesPage() {
         </div>
       </div>
     </>
-  );
-}
-
-export function TeacherMessagesPage() {
-  return (
-    <TeacherSimplePage
-      title="메시지함"
-      description="학생 및 학부모와의 메시지를 확인합니다."
-      cardTitle="메시지 목록"
-    />
   );
 }

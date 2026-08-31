@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function LoginPage() {
-  const { login, enterDemo } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,7 +45,7 @@ export function LoginPage() {
               className="form-control"
               type="email"
               id="login-email"
-              placeholder="school@example.com"
+              placeholder="teacher01@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
@@ -65,10 +65,6 @@ export function LoginPage() {
               autoComplete="current-password"
             />
           </div>
-          <label className="auth-check">
-            <input type="checkbox" />
-            <span>로그인 상태 유지</span>
-          </label>
           {error && (
             <p style={{ color: 'var(--negative)', fontSize: 13, marginTop: 12 }}>{error}</p>
           )}
@@ -82,29 +78,12 @@ export function LoginPage() {
           </button>
         </form>
 
-        <span className="auth-link">비밀번호를 잊으셨나요?</span>
-        <div className="auth-demo">
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => {
-              enterDemo('teacher');
-              navigate('/teacher');
-            }}
-          >
-            교사 데모
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => {
-              enterDemo('student');
-              navigate('/student');
-            }}
-          >
-            학생 데모
-          </button>
-        </div>
+        <p
+          className="hint"
+          style={{ marginTop: 16, fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}
+        >
+          테스트 계정: teacher01@example.com / student01@example.com
+        </p>
       </div>
     </div>
   );

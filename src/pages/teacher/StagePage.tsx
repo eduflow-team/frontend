@@ -27,7 +27,7 @@ export function TeacherStagePage() {
   const { stage } = useParams<{ stage: string }>();
   const stageNum = stage ?? '1';
   const { user } = useAuth();
-  const useApi = Boolean(user && !user.isDemo && stageNum === '1');
+  const useApi = Boolean(user) && stageNum === '1';
 
   if (stageNum === '2') {
     return <TeacherStage2Form />;
@@ -45,53 +45,10 @@ export function TeacherStagePage() {
     return (
       <div className="s1">
         <div className="shell teacher-shell">
-          <nav className="steps teacher-flow-steps" aria-label="진행 단계">
-            <div className="step" aria-current="step">
-              과제 만들기
-            </div>
-            <div className="step">학생 학습</div>
-            <div className="step">결과 확인</div>
-          </nav>
           <h1 className="page-title">{learningModeByStage(1)?.module ?? 'RAG 체험'}</h1>
           <p className="page-desc">{STAGE_DESCRIPTIONS['1']}</p>
-          <div className="teacher-meta-row">
-            <div className="teacher-meta-field">
-              <label className="label" htmlFor="s1-demo-class">
-                학급 선택
-              </label>
-              <select id="s1-demo-class" className="field" disabled>
-                <option>학급 선택</option>
-              </select>
-            </div>
-            <div className="teacher-meta-field">
-              <label className="label" htmlFor="s1-demo-subject">
-                담당 교과
-              </label>
-              <select id="s1-demo-subject" className="field" disabled defaultValue="hist">
-                {SUBJECT_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="teacher-meta-field">
-              <label className="label" htmlFor="s1-demo-due">
-                과제 마감일
-              </label>
-              <input id="s1-demo-due" className="field" type="datetime-local" disabled />
-            </div>
-          </div>
           <div className="info-card">
-            <div className="info-card-head">
-              <span className="info-icon" aria-hidden="true">
-                ◇
-              </span>
-              <p className="side-title">RAG 체험 과제 편집</p>
-            </div>
-            <p className="mission-text">
-              실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요.
-            </p>
+            <p className="mission-text">로그인이 필요합니다.</p>
           </div>
         </div>
       </div>

@@ -28,8 +28,7 @@ import {
 } from '../../../components/student/stage2/Stage2WorkflowSteps';
 import { StudentStage2Done } from '../../../components/student/stage2/StudentStage2Done';
 import { SHOW_STAGE2_EXCERPT_PANEL } from '../../../constants/stage2StudentGuide';
-import { verifyIntro, type VerifyPhase } from '../../../mocks/verifyPrototype';
-import { STAGE2_DEMO, STAGE2_HALLUC_OPTIONS, getStage2ErrorMarks } from '../../../mocks/stage2Demo';
+import { verifyIntro, type VerifyPhase } from '../../../types/stage2';
 type Rubric = { evidence: string; errorId: string; rewrite: string };
 
 const HALLUCINATION_LABELS: Record<string, string> = {
@@ -37,39 +36,6 @@ const HALLUCINATION_LABELS: Record<string, string> = {
   INFORMATION_FABRICATION: '정보 날조',
   RETRIEVAL_ERROR: '잘못된 문서 검색',
 };
-
-export const STAGE2_DEMO_ASSIGNMENT_ID = 'demo';
-
-function buildDemoStage2Detail(): Stage2AssignmentDetailResponse {
-  const marks = getStage2ErrorMarks();
-  const flawed = STAGE2_DEMO.flawedParts.map((p) => p.text).join('');
-  return {
-    assignment_id: 0,
-    title: STAGE2_DEMO.title,
-    reference_document_filename: 'stage2-demo.pdf',
-    reference_document_url: '',
-    reference_document_text: STAGE2_DEMO.referenceDoc,
-    question: STAGE2_DEMO.question,
-    flawed_ai_response: flawed,
-    due_at: null,
-    expected_error_count: STAGE2_DEMO.expectedErrorCount,
-    hallucination_type_options: STAGE2_HALLUC_OPTIONS.map((o) => ({
-      value: o.value,
-      label: o.label,
-      description: o.description,
-    })),
-    hallucination_type_hints: marks.map((m) => m.correctType),
-    status: 'IN_PROGRESS',
-    highlight_phase_complete: false,
-    remaining_errors_to_find: STAGE2_DEMO.expectedErrorCount,
-    attempts: {
-      max_attempts: STAGE2_DEMO.maxAttempts,
-      used_attempts: 0,
-      remaining_attempts: STAGE2_DEMO.maxAttempts,
-    },
-    cleared_highlights: [],
-  };
-}
 
 function RubricDot({ mark }: { mark: string }) {
   if (mark === '✓') return <span className="rubric-dot rubric-dot-full" aria-label="완료" />;
@@ -260,14 +226,6 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
     setTourOpen(false);
     setTourSchedule(null);
     try {
-      if (assignmentId === STAGE2_DEMO_ASSIGNMENT_ID) {
-        const data = buildDemoStage2Detail();
-        setDetail(data);
-        setPhase('find');
-        setErrorType('');
-        scheduleTour('find');
-        return;
-      }
       const raw = await getStudentStep2Api(assignmentId);
       let data = raw;
       if (uiPreviewPhase === 'done') {
@@ -981,12 +939,7 @@ export function StudentStage2Activity({ assignmentId }: { assignmentId: string }
         filename={pdfFilename}
         open={docOpen}
         onClose={() => setDocOpen(false)}
-        fallbackText={
-          assignmentId === STAGE2_DEMO_ASSIGNMENT_ID ? detail.reference_document_text : undefined
-        }
-        excerptFallback={
-          assignmentId !== STAGE2_DEMO_ASSIGNMENT_ID ? detail.reference_document_text : undefined
-        }
+        excerptFallback={detail.reference_document_text}
       />
     </div>
   );

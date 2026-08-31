@@ -34,14 +34,14 @@ import { STAGE1_HELP_INTRO, STAGE1_HELP_SECTIONS, Stage1Tour } from '../../compo
 import {
   LITERACY_AXES,
   averageLiteracyScore,
+  emptyLiteracyScores,
   literacyScoresFromApi,
 } from '../../constants/literacyAxes';
 import { normalizeSubjectKey } from '../../constants/assignments';
 import { STAGE_TITLES, learningModeByStage, subjectPageTitle } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
-import { STUDENT_DASHBOARD_DEMO } from '../../mocks/studentDashboard';
-import { StudentStage2Activity, STAGE2_DEMO_ASSIGNMENT_ID } from './stage2/StudentStage2Activity';
+import { StudentStage2Activity } from './stage2/StudentStage2Activity';
 import { StudentStage4Activity } from './stage4/StudentStage4Activity';
 import { Stage4DifficultySelect } from './stage4/Stage4DifficultySelect';
 import { Stage4SetReport } from './stage4/Stage4SetReport';
@@ -71,7 +71,6 @@ export function StudentStagePage() {
   const mode = learningModeByStage(stageNum);
 
   const assignmentIdParam = searchParams.get('assignmentId');
-  const [assignmentIdInput, setAssignmentIdInput] = useState(assignmentIdParam ?? '');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [phase, setPhase] = useState<StageFlowPhase>('guide');
   const [selectedSet, setSelectedSet] = useState<Stage4SetListItem | null>(null);
@@ -80,7 +79,7 @@ export function StudentStagePage() {
   const [setScoreError, setSetScoreError] = useState<string | null>(null);
   const [reportMode, setReportMode] = useState<Stage4ReportMode>('write');
 
-  const useAssignmentsApi = Boolean(user && !user.isDemo);
+  const useAssignmentsApi = Boolean(user);
   const assignments = useFetch(fetchStudentDashboardAssignmentsApi, [], useAssignmentsApi);
 
   useEffect(() => {
@@ -89,14 +88,7 @@ export function StudentStagePage() {
     setSelectedSet(null);
     setSetScore(null);
     setSetScoreError(null);
-    setAssignmentIdInput(assignmentIdParam ?? '');
   }, [stageNum]);
-
-  useEffect(() => {
-    if (assignmentIdParam) {
-      setAssignmentIdInput(assignmentIdParam);
-    }
-  }, [assignmentIdParam]);
 
   useEffect(() => {
     if (stageNum !== 4 || !selectedSet) return;
@@ -132,7 +124,6 @@ export function StudentStagePage() {
 
   const selectAssignment = (id: string) => {
     setActiveId(id);
-    setAssignmentIdInput(id);
     setSearchParams({ assignmentId: id });
     setPhase('learn');
   };
@@ -146,17 +137,6 @@ export function StudentStagePage() {
   const apiList = toSelectableAssignments(assignments.data?.assignments, stageNum);
   const stage4Sets = toStage4SetList(assignments.data?.assignments);
   const selectableList: SelectableAssignment[] = (() => {
-    if (stageNum === 2 && user?.isDemo) {
-      return [
-        {
-          id: STAGE2_DEMO_ASSIGNMENT_ID,
-          title: 'Hallucination 탐지 데모 과제',
-          statusLabel: '데모',
-          meta: '샘플 문서로 환각을 찾아봅니다',
-        },
-        ...apiList,
-      ];
-    }
     if (stageNum === 4) {
       return stage4Sets.map((s) => ({
         id: s.key,
@@ -183,12 +163,7 @@ export function StudentStagePage() {
 
   const guideBusy = useAssignmentsApi && assignments.loading && !assignmentIdParam?.trim();
 
-  const emptyMessage =
-    stageNum <= 2
-      ? '배정된 과제가 없습니다. 아래에서 과제 ID를 직접 입력할 수 있습니다.'
-      : stageNum === 4
-        ? '배정된 과제가 없습니다. 선생님이 과제를 게시하면 여기에 표시됩니다.'
-        : '배정된 과제가 없습니다. 아래에서 과제 ID를 직접 입력할 수 있습니다.';
+  const emptyMessage = '배정된 과제가 없습니다. 선생님이 과제를 게시하면 여기에 표시됩니다.';
 
   /* ── Guide popup ── */
   if (phase === 'guide') {
@@ -261,9 +236,6 @@ export function StudentStagePage() {
             error={useAssignmentsApi ? assignments.error : null}
             assignments={selectableList}
             emptyMessage={emptyMessage}
-            idPlaceholder={stageNum === 2 ? '예: 111' : '예: 101'}
-            assignmentIdInput={assignmentIdInput}
-            onAssignmentIdInputChange={setAssignmentIdInput}
             onSelect={(id) => {
               if (stageNum === 4) {
                 const setItem = stage4Sets.find((s) => s.key === id);
@@ -276,7 +248,6 @@ export function StudentStagePage() {
               }
               selectAssignment(id);
             }}
-            showManualId={stageNum >= 1 && stageNum <= 4}
           />
         </div>
       </div>
@@ -285,17 +256,6 @@ export function StudentStagePage() {
 
   /* ── Learn ── */
   if (stageNum === 1) {
-    if (user?.isDemo) {
-      return (
-        <>
-          <PageHero title={mode.module} description={STAGE_TITLES[1]} />
-          <PlaceholderCard
-            title={`${mode.module} 학습 활동`}
-            message="RAG 체험은 실제 로그인 후 백엔드 API와 연결됩니다. 데모가 아닌 계정으로 로그인해 주세요."
-          />
-        </>
-      );
-    }
     return (
       <div className="s1">
         <div className="shell wide">
@@ -1105,7 +1065,7 @@ function StudentStage1Activity({ assignmentId }: { assignmentId: string }) {
 
 export function StudentResultsPage() {
   const { user } = useAuth();
-  const useApi = Boolean(user && !user.isDemo);
+  const useApi = Boolean(user);
   const summary = useFetch(fetchStudentDashboardSummaryApi, [], useApi);
   const assignments = useFetch(fetchStudentDashboardAssignmentsApi, [], useApi);
 
@@ -1113,7 +1073,7 @@ export function StudentResultsPage() {
   const error = useApi ? summary.error || assignments.error : null;
 
   const axes = (() => {
-    if (!useApi || !summary.data) return STUDENT_DASHBOARD_DEMO.axes;
+    if (!useApi || !summary.data) return emptyLiteracyScores();
     return literacyScoresFromApi(summary.data.literacy_axes);
   })();
 
@@ -1131,14 +1091,7 @@ export function StudentResultsPage() {
         }))
         .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title, 'ko'));
     }
-    return STUDENT_DASHBOARD_DEMO.tasks
-      .filter((task) => task.score != null)
-      .map((task) => ({
-        id: task.id,
-        title: task.title,
-        subjectLabel: task.subjectLabel,
-        score: task.score as number,
-      }));
+    return [];
   }, [useApi, assignments.data]);
 
   const insight = useMemo(() => {
@@ -1261,14 +1214,14 @@ export function StudentResultsPage() {
 
 export function StudentAttendancePage() {
   const { user } = useAuth();
-  const useApi = user && !user.isDemo;
-  const { data, loading, error } = useFetch(fetchStudentAttendanceApi, [], Boolean(useApi));
+  const useApi = Boolean(user);
+  const { data, loading, error } = useFetch(fetchStudentAttendanceApi, [], useApi);
 
   if (!useApi) {
     return (
       <>
         <PageHero title="출석" description="수업 참여 기록을 확인합니다." />
-        <PlaceholderCard title="출석 현황" />
+        <PlaceholderCard title="출석 현황" message="로그인이 필요합니다." />
       </>
     );
   }
@@ -1313,14 +1266,14 @@ export function StudentAttendancePage() {
 
 export function StudentNoticesPage() {
   const { user } = useAuth();
-  const useApi = user && !user.isDemo;
-  const { data, loading, error } = useFetch(fetchStudentNoticesApi, [], Boolean(useApi));
+  const useApi = Boolean(user);
+  const { data, loading, error } = useFetch(fetchStudentNoticesApi, [], useApi);
 
   if (!useApi) {
     return (
       <>
         <PageHero title="공지사항" description="선생님이 등록한 공지를 확인합니다." />
-        <PlaceholderCard title="공지 목록" />
+        <PlaceholderCard title="공지 목록" message="로그인이 필요합니다." />
       </>
     );
   }

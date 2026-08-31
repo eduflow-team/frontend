@@ -10,11 +10,3 @@ export function AuthLayout() {
     </div>
   );
 }
-
-export function RolePickerLayout() {
-  return (
-    <div className="role-picker">
-      <Outlet />
-    </div>
-  );
-}

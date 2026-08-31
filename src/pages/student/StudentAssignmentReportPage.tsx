@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import {
   ApiError,
@@ -23,8 +23,6 @@ import { Stage3ReportView } from '../../components/student/reports/Stage3ReportV
 import { normalizeSubjectKey } from '../../constants/assignments';
 import { subjectPageTitle } from '../../constants/navigation';
 import { useAuth } from '../../contexts/AuthContext';
-import { STUDENT_DASHBOARD_DEMO } from '../../mocks/studentDashboard';
-import { STAGE2_DEMO, getStage2ErrorMarks } from '../../mocks/stage2Demo';
 import { buildStage3GradeResultFromDetail } from './stage3/StudentStage3Activity';
 
 function buildStage1FinalResult(
@@ -88,33 +86,6 @@ function buildAiResponseParts(flawedAiResponse: string, clearedHighlights: strin
     cursor = nearestIndex + nearest.length;
   }
   return parts;
-}
-
-function buildDemoStage2Detail(): Stage2AssignmentDetailResponse {
-  const marks = getStage2ErrorMarks();
-  const flawed = STAGE2_DEMO.flawedParts.map((p) => p.text).join('');
-  return {
-    assignment_id: 2,
-    title: STAGE2_DEMO.title,
-    reference_document_filename: 'stage2-demo.pdf',
-    reference_document_url: '',
-    reference_document_text: STAGE2_DEMO.referenceDoc,
-    question: STAGE2_DEMO.question,
-    flawed_ai_response: flawed,
-    due_at: null,
-    expected_error_count: STAGE2_DEMO.expectedErrorCount,
-    hallucination_type_options: [],
-    hallucination_type_hints: marks.map((m) => m.correctType),
-    status: 'COMPLETED',
-    highlight_phase_complete: true,
-    remaining_errors_to_find: 0,
-    attempts: {
-      max_attempts: STAGE2_DEMO.maxAttempts,
-      used_attempts: STAGE2_DEMO.maxAttempts,
-      remaining_attempts: 0,
-    },
-    cleared_highlights: marks.map((m) => m.text),
-  };
 }
 
 function ReportShell({
@@ -319,12 +290,7 @@ export function StudentAssignmentReportPage() {
   const { assignmentId: rawId } = useParams<{ assignmentId: string }>();
   const assignmentId = rawId ?? '';
   const { user } = useAuth();
-  const useApi = Boolean(user && !user.isDemo);
-
-  const demoTask = useMemo(
-    () => STUDENT_DASHBOARD_DEMO.tasks.find((task) => String(task.id) === assignmentId),
-    [assignmentId],
-  );
+  const useApi = Boolean(user);
 
   const [loading, setLoading] = useState(useApi);
   const [error, setError] = useState('');
@@ -348,72 +314,7 @@ export function StudentAssignmentReportPage() {
     if (!assignmentId) return;
 
     if (!useApi) {
-      if (!demoTask || demoTask.score == null) {
-        setError('리포트를 찾을 수 없습니다.');
-        setLoading(false);
-        return;
-      }
-      setMeta({
-        title: demoTask.title,
-        subjectLabel: demoTask.subjectLabel,
-        score: demoTask.score,
-        stage: demoTask.stage,
-      });
-      if (demoTask.stage === 1) {
-        setStage1({
-          detail: {
-            assignment_id: Number(demoTask.id),
-            question: '장영실의 발명품에 대해 설명해줘.',
-            parameter_explanations: {
-              chunk_size: '',
-              top_k: '',
-              temperature: '',
-            },
-            default_parameters: { chunk_size: 512, top_k: 3, temperature: 0.2 },
-            attempts: { used_attempts: 3, remaining_attempts: 0, max_attempts: 5 },
-            is_finalized: true,
-            final_attempt_number: 3,
-            highest_score: demoTask.score,
-            best_parameters: { chunk_size: 512, top_k: 5, temperature: 0.4 },
-            correct_answer: '자격루, 측우기, 해시계, 수표 등',
-            attempt_summaries: [
-              {
-                attempt_number: 3,
-                score: demoTask.score,
-                is_correct: true,
-                correct_score: 100,
-                resource_penalty: 12,
-                feedback:
-                  '핵심 발명품을 잘 짚었고, 근거 문서를 적절히 활용했습니다. temperature를 조금 낮추면 더 안정적인 답을 얻을 수 있습니다.',
-                student_answer:
-                  '장영실은 자격루와 측우기, 해시계 등을 만들었습니다. 세종 대 과학 기술 발전에 크게 기여했습니다.',
-                parameters: { chunk_size: 512, top_k: 5, temperature: 0.4 },
-                is_final: true,
-              },
-            ],
-          },
-          finalResult: {
-            attempt_number: 3,
-            current_score: demoTask.score,
-            highest_score: demoTask.score,
-            is_correct: true,
-            evaluation_report: {
-              is_correct: true,
-              correct_score: 100,
-              resource_penalty: 12,
-              feedback:
-                '핵심 발명품을 잘 짚었고, 근거 문서를 적절히 활용했습니다. temperature를 조금 낮추면 더 안정적인 답을 얻을 수 있습니다.',
-            },
-            attempts: { used_attempts: 3, remaining_attempts: 0 },
-            is_finalized: true,
-            correct_answer: '자격루, 측우기, 해시계, 수표 등',
-          },
-        });
-      } else if (demoTask.stage === 2) {
-        setStage2(buildDemoStage2Detail());
-      } else if (demoTask.stage === 3) {
-        setError('데모에서는 Stage 3 상세 리포트를 보려면 과제 페이지에서 확인해 주세요.');
-      }
+      setError('로그인이 필요합니다.');
       setLoading(false);
       return;
     }
@@ -480,7 +381,7 @@ export function StudentAssignmentReportPage() {
     return () => {
       cancelled = true;
     };
-  }, [assignmentId, useApi, demoTask]);
+  }, [assignmentId, useApi]);
 
   if (!assignmentId) {
     return <Navigate to="/student/results" replace />;
@@ -506,11 +407,6 @@ export function StudentAssignmentReportPage() {
             </Link>
           </nav>
           <p className="hint">{error || '리포트를 찾을 수 없습니다.'}</p>
-          {demoTask?.stage === 3 ? (
-            <Link to={demoTask.href} className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>
-              과제 페이지로 이동
-            </Link>
-          ) : null}
         </div>
       </div>
     );

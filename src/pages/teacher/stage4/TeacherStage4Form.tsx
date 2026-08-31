@@ -25,14 +25,14 @@ export function TeacherStage4Form() {
   const [toast, setToast] = useState('');
 
   useEffect(() => {
-    if (!authReady || user?.isDemo) return;
+    if (!authReady || !user) return;
     fetchClassesApi()
       .then((res) => {
         setClasses(res.classes);
         if (res.classes[0]) setClassId(res.classes[0].class_id);
       })
       .catch(() => setClasses([]));
-  }, [authReady, user?.isDemo]);
+  }, [authReady, user]);
 
   useEffect(() => {
     if (!toast) return;
@@ -42,8 +42,8 @@ export function TeacherStage4Form() {
 
   const create = async () => {
     setError('');
-    if (user?.isDemo || !user) {
-      setError('데모 모드에서는 API를 사용할 수 없습니다. 실제 계정으로 로그인해 주세요.');
+    if (!user) {
+      setError('로그인이 필요합니다.');
       return;
     }
     if (classId === '') {
@@ -83,18 +83,17 @@ export function TeacherStage4Form() {
     );
   }
 
-  if (!user || user.isDemo) {
+  if (!user) {
     return (
       <div className="s4">
         <div className="shell">
           <h1 className="page-title">{learningModeByStage(4)?.module ?? '프롬프트 인젝션 실습'}</h1>
           <div className="info-card">
             <p className="mission-text">
-              Stage4 과제 생성은 백엔드 API가 필요합니다. 데모가 아닌 계정으로{' '}
-              <Link to="/login">로그인</Link>해 주세요.
+              Stage4 과제 생성은 백엔드 API가 필요합니다. <Link to="/login">로그인</Link>해 주세요.
             </p>
             <p className="hint hint-sm" style={{ marginTop: 8 }}>
-              테스트 계정: e2e.teacher@example.com / Passw0rd!
+              테스트 계정: teacher01@example.com
             </p>
           </div>
         </div>

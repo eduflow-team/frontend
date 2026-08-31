@@ -16,11 +16,7 @@ interface AssignmentSelectPanelProps {
   error?: string | null;
   assignments: SelectableAssignment[];
   emptyMessage: string;
-  idPlaceholder?: string;
-  assignmentIdInput: string;
-  onAssignmentIdInputChange: (value: string) => void;
   onSelect: (id: string) => void;
-  showManualId?: boolean;
 }
 
 export function toSelectableAssignments(
@@ -43,11 +39,7 @@ export function AssignmentSelectPanel({
   error = null,
   assignments,
   emptyMessage,
-  idPlaceholder = '예: 101',
-  assignmentIdInput,
-  onAssignmentIdInputChange,
   onSelect,
-  showManualId = true,
 }: AssignmentSelectPanelProps) {
   return (
     <div className="stage-assign">
@@ -82,32 +74,6 @@ export function AssignmentSelectPanel({
           ))}
         </ul>
       </ApiStateBody>
-
-      {showManualId ? (
-        <div className="stage-assign-manual">
-          <label className="stage-assign-manual-label" htmlFor="stage-assignment-id">
-            과제 ID로 열기
-          </label>
-          <div className="stage-assign-manual-row">
-            <input
-              id="stage-assignment-id"
-              className="stage-assign-input"
-              value={assignmentIdInput}
-              onChange={(e) => onAssignmentIdInputChange(e.target.value)}
-              placeholder={idPlaceholder}
-            />
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => {
-                if (assignmentIdInput.trim()) onSelect(assignmentIdInput.trim());
-              }}
-            >
-              열기
-            </button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

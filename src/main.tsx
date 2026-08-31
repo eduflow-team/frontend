@@ -9,7 +9,6 @@ import './styles/stage3.css';
 import './styles/stage4.css';
 import './styles/dashboard.css';
 import './styles/stage-flow.css';
-import './styles/stage-flow.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

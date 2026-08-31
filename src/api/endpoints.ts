@@ -4,8 +4,6 @@ export const API_ENDPOINTS = {
     signup: '/auth/signup',
     classes: '/auth/classes',
     login: '/auth/login',
-    social: (provider: string) => `/auth/social/${provider}`,
-    socialSignup: (provider: string) => `/auth/social/${provider}/signup`,
     logout: '/auth/logout',
     me: '/auth/me',
     leave: '/auth/leave',

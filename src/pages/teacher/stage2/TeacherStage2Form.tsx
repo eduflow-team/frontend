@@ -83,7 +83,7 @@ function singleCreateToCard(preview: Stage2CreateResponse): Stage2SetCardPreview
 /** stage2-ui 출제 위자드 + 카드 세트 생성/선택 게시 */
 export function TeacherStage2Form() {
   const { user } = useAuth();
-  const useApi = Boolean(user && !user.isDemo);
+  const useApi = Boolean(user);
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState(1);
   const [classes, setClasses] = useState<ClassItem[]>([]);

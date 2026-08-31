@@ -12,10 +12,10 @@ import { averageLiteracyScore, literacyScoresFromApi } from '../../constants/lit
 import { useAuth } from '../../contexts/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import {
-  STUDENT_DASHBOARD_DEMO,
+  emptyStudentDashboard,
   type DashboardTask,
   type StudentDashboardViewModel,
-} from '../../mocks/studentDashboard';
+} from '../../types/dashboard';
 import { formatDueAt } from '../../utils/datetime';
 import { PROGRESS_LABELS } from '../../utils/labels';
 
@@ -228,7 +228,7 @@ export function StudentDashboardPage() {
   const { subject: subjectParam } = useParams<{ subject?: string }>();
   const activeSubject = subjectParam ? normalizeSubjectKey(subjectParam) : null;
   const { user } = useAuth();
-  const useApi = Boolean(user && !user.isDemo);
+  const useApi = Boolean(user);
   const [sortKey, setSortKey] = useState<TaskSortKey>('due');
 
   const summary = useFetch(fetchStudentDashboardSummaryApi, [], useApi);
@@ -242,11 +242,10 @@ export function StudentDashboardPage() {
   const loading = useApi && (summary.loading || assignments.loading);
   const error = useApi ? summary.error || assignments.error : null;
 
-  let model: StudentDashboardViewModel = {
-    ...STUDENT_DASHBOARD_DEMO,
-    studentName: user?.name ?? STUDENT_DASHBOARD_DEMO.studentName,
-    classLabel: user?.className ?? STUDENT_DASHBOARD_DEMO.classLabel,
-  };
+  let model: StudentDashboardViewModel = emptyStudentDashboard(
+    user?.name ?? '',
+    user?.className ?? '',
+  );
 
   if (useApi && summary.data && assignments.data) {
     model = buildFromApi(
@@ -348,9 +347,7 @@ export function StudentDashboardPage() {
                     전체 보기
                   </Link>
                 </div>
-                {!useApi ? (
-                  <p className="hint">로그인하면 학급 공지를 확인할 수 있습니다.</p>
-                ) : notices.loading ? (
+                {notices.loading ? (
                   <p className="hint">공지를 불러오는 중…</p>
                 ) : notices.error ? (
                   <p className="hint">{notices.error}</p>
