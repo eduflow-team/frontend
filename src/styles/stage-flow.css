@@ -201,6 +201,23 @@
   color: var(--muted, #64748b);
 }
 
+.stage-assign-back {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+  cursor: pointer;
+}
+
+.stage-assign-back:hover {
+  color: var(--ink, #0f172a);
+}
+
 .stage-assign-list {
   list-style: none;
   margin: 0 0 20px;
@@ -208,6 +225,15 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.stage-assign-row.is-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.stage-assign-row.is-locked:hover {
+  background: transparent;
 }
 
 .stage-assign-row {

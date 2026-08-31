@@ -222,8 +222,8 @@ function resultFromCompleted(detail: Stage3AssignmentDetailResponse): Stage3Grad
     missed: 0,
     wasted: 0,
     score: detail.highest_score ?? 0,
-    usageScore: detail.grade_result?.usage_score ?? detail.highest_score ?? 0,
-    reasoningScore: detail.grade_result?.reasoning_score ?? detail.highest_score ?? 0,
+    usageScore: detail.highest_score ?? 0,
+    reasoningScore: detail.highest_score ?? 0,
     headline: '과제를 제출했습니다',
     advice: '이미 제출한 토론 평가입니다. 최고 점수가 반영되어 있습니다.',
   };
@@ -348,8 +348,8 @@ function HighlightBubble({
     const onMouseUp = () => {
       justWrapped = wrapSelection();
     };
-    const onClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
+    const onClick = (e: Event) => {
+      const target = (e.target as HTMLElement | null);
       const mark = target?.closest('mark.hl-user');
       if (!mark || !bubble.contains(mark)) return;
       e.preventDefault();
@@ -393,7 +393,7 @@ export function StudentStage3Activity({
   const [sourceOpen, setSourceOpen] = useState(false);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceArticles, setSourceArticles] = useState<Stage3SourceItem[]>([]);
-  const [sourceSearches, setSourceSearches] = useState<Stage3SourceItem[]>([]);
+  const [, setSourceSearches] = useState<Stage3SourceItem[]>([]);
   const [sourceQuote, setSourceQuote] = useState('');
   const [whyText, setWhyText] = useState('');
   const [groundText, setGroundText] = useState('');

@@ -389,6 +389,10 @@
 }
 
 .s4 .progress-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
   text-align: right;
   min-width: 160px;
 }
@@ -519,11 +523,17 @@
   min-height: 340px;
   max-height: 460px;
   overflow: auto;
-  padding: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: var(--bg-subtle);
+}
+
+.s4 .chat-turn {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: var(--bg-subtle);
 }
 
 .s4 .floor-empty {
@@ -534,17 +544,17 @@
 
 .s4 .bubble {
   max-width: 86%;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-radius: 14px;
   font-size: 14.5px;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .s4 .bubble .who {
   display: block;
   font-size: 11.5px;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .s4 .bubble.ai {
@@ -572,6 +582,8 @@
 .s4 .bubble.system {
   align-self: center;
   max-width: 100%;
+  margin-top: 4px;
+  padding: 10px 14px;
   background: #fff;
   border: 1px dashed var(--line-strong);
   color: var(--muted);
@@ -583,17 +595,81 @@
   border-color: #f0d5d5;
 }
 
+.s4 .chat-hint-panel {
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+}
+
+.s4 .chat-hint-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warn);
+  letter-spacing: 0.01em;
+}
+
+.s4 .chat-hint-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink);
+}
+
+.s4 .chat-hint-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 168px;
+}
+
+.s4 .chat-hint-side-body {
+  flex: 1;
+  min-height: 0;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.s4 .chat-hint-side-foot {
+  margin: 8px 0 0;
+}
+
+.s4 .chat-hint-side .mission-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.s4 .hint-list--compact {
+  gap: 6px;
+}
+
+.s4 .hint-card--compact {
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.s4 .hint-card--compact strong {
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.s4 .hint-card--compact p {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .s4 .chat-input-row {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 12px;
+  padding: 16px 18px;
   border-top: 1px solid var(--line);
   align-items: end;
 }
 
 .s4 .chat-input {
-  min-height: 64px;
+  min-height: 72px;
   margin: 0;
 }
 
@@ -633,6 +709,32 @@
   margin: 0 0 6px;
   font-size: 22px;
   font-weight: 600;
+}
+
+.s4 .report-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.s4 .report-panel-head h2 {
+  margin: 0;
+}
+
+.s4 .field.report-readonly {
+  min-height: 72px;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  background: var(--bg-subtle, #f8fafc);
+  cursor: default;
+}
+
+.s4 .field.report-readonly:hover,
+.s4 .field.report-readonly:focus {
+  border-color: var(--line, #e2e8f0);
+  box-shadow: none;
 }
 
 .s4 .score-hero {
@@ -1004,6 +1106,33 @@
 
 .s4 .hint-card.used {
   border-color: var(--ink);
+}
+
+.s4 .hint-card--static {
+  cursor: default;
+}
+
+.s4 .hint-card--static:hover {
+  background: var(--bg);
+}
+
+.s4 .hint-card.locked {
+  opacity: 0.72;
+  border-style: dashed;
+}
+
+.s4 .hint-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.s4 .hint-group-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.02em;
 }
 
 .s4 .toast {

@@ -25,10 +25,12 @@ import type {
   Stage3SubmitRequest,
   Stage3SubmitResponse,
   Stage4AssignmentDetailResponse,
+  Stage4ChatRequest,
   Stage4ChatResponse,
   Stage4CreateRequest,
   Stage4CreateResponse,
-  Stage4ReportPayload,
+  Stage4SetScore,
+  Stage4SubmitRequest,
   Stage4SubmitResponse,
   Step2CorrectionRequest,
   Step2CorrectionResponse,
@@ -263,9 +265,9 @@ export async function postStudentStep3SubmitApi(
 }
 
 export async function createTeacherAssignmentStep4Api(
-  payload: Stage4CreateRequest,
+  body: Stage4CreateRequest,
 ): Promise<Stage4CreateResponse> {
-  return api.post(API_ENDPOINTS.teacher.createAssignmentStep4, payload);
+  return api.post(API_ENDPOINTS.teacher.createAssignmentStep4, body);
 }
 
 export async function getStudentStep4Api(
@@ -274,16 +276,22 @@ export async function getStudentStep4Api(
   return api.get(API_ENDPOINTS.student.assignmentStep4(assignmentId));
 }
 
+export async function getStudentStep4SetApi(
+  assignmentId: number | string,
+): Promise<Stage4SetScore> {
+  return api.get(API_ENDPOINTS.student.assignmentStep4Set(assignmentId));
+}
+
 export async function postStudentStep4ChatApi(
   assignmentId: number | string,
-  attack_prompt: string,
+  body: Stage4ChatRequest,
 ): Promise<Stage4ChatResponse> {
-  return api.post(API_ENDPOINTS.student.assignmentStep4Chat(assignmentId), { attack_prompt });
+  return api.post(API_ENDPOINTS.student.assignmentStep4Chat(assignmentId), body);
 }
 
 export async function postStudentStep4SubmitApi(
   assignmentId: number | string,
-  report: Stage4ReportPayload,
+  body: Stage4SubmitRequest,
 ): Promise<Stage4SubmitResponse> {
-  return api.post(API_ENDPOINTS.student.assignmentStep4Submit(assignmentId), { report });
+  return api.post(API_ENDPOINTS.student.assignmentStep4Submit(assignmentId), body);
 }

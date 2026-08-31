@@ -8,6 +8,7 @@ import {
   fetchStudentNoticesApi,
   getStudentStep1Api,
   getStudentStep1DocumentBlobApi,
+  getStudentStep4SetApi,
   postStudentStep1ChatApi,
   postStudentStep1SubmitApi,
 } from '../../api';
@@ -18,6 +19,7 @@ import type {
   Stage1FinalizeResponse,
   Stage1Parameters,
   Stage1SubmitResponse,
+  Stage4SetScore,
 } from '../../api/types';
 import { STAGE1_CHUNK_SIZE_PRESETS } from '../../api/types';
 import { ApiStateBody, PageHero, PlaceholderCard } from '../../components/common';
@@ -32,7 +34,7 @@ import { STAGE1_HELP_INTRO, STAGE1_HELP_SECTIONS, Stage1Tour } from '../../compo
 import {
   LITERACY_AXES,
   averageLiteracyScore,
-  deriveLiteracyScores,
+  literacyScoresFromApi,
 } from '../../constants/literacyAxes';
 import { normalizeSubjectKey } from '../../constants/assignments';
 import { STAGE_TITLES, learningModeByStage, subjectPageTitle } from '../../constants/navigation';
@@ -40,10 +42,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import { STUDENT_DASHBOARD_DEMO } from '../../mocks/studentDashboard';
 import { StudentStage2Activity, STAGE2_DEMO_ASSIGNMENT_ID } from './stage2/StudentStage2Activity';
-import { StudentStage3Activity } from './stage3/StudentStage3Activity';
 import { StudentStage4Activity } from './stage4/StudentStage4Activity';
+import { Stage4DifficultySelect } from './stage4/Stage4DifficultySelect';
+import { Stage4SetReport } from './stage4/Stage4SetReport';
+import { toStage4SetList, type Stage4SetListItem } from './stage4/stage4Sets';
+import { StudentStage3Activity } from './stage3/StudentStage3Activity';
 
-type StageFlowPhase = 'guide' | 'select' | 'learn';
+type StageFlowPhase = 'guide' | 'select' | 'difficulty' | 'learn' | 'report';
+type Stage4ReportMode = 'write' | 'view';
 
 function reportFromAttempt(attempt: Stage1AttemptSummary): Stage1EvaluationReport {
   return {
@@ -68,6 +74,11 @@ export function StudentStagePage() {
   const [assignmentIdInput, setAssignmentIdInput] = useState(assignmentIdParam ?? '');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [phase, setPhase] = useState<StageFlowPhase>('guide');
+  const [selectedSet, setSelectedSet] = useState<Stage4SetListItem | null>(null);
+  const [setScore, setSetScore] = useState<Stage4SetScore | null>(null);
+  const [setScoreLoading, setSetScoreLoading] = useState(false);
+  const [setScoreError, setSetScoreError] = useState<string | null>(null);
+  const [reportMode, setReportMode] = useState<Stage4ReportMode>('write');
 
   const useAssignmentsApi = Boolean(user && !user.isDemo);
   const assignments = useFetch(fetchStudentDashboardAssignmentsApi, [], useAssignmentsApi);
@@ -75,6 +86,9 @@ export function StudentStagePage() {
   useEffect(() => {
     setPhase('guide');
     setActiveId(null);
+    setSelectedSet(null);
+    setSetScore(null);
+    setSetScoreError(null);
     setAssignmentIdInput(assignmentIdParam ?? '');
   }, [stageNum]);
 
@@ -83,6 +97,34 @@ export function StudentStagePage() {
       setAssignmentIdInput(assignmentIdParam);
     }
   }, [assignmentIdParam]);
+
+  useEffect(() => {
+    if (stageNum !== 4 || !selectedSet) return;
+    if (phase !== 'difficulty' && phase !== 'report') return;
+
+    let cancelled = false;
+    setSetScoreLoading(true);
+    setSetScoreError(null);
+    getStudentStep4SetApi(selectedSet.entryAssignmentId)
+      .then((data) => {
+        if (!cancelled) setSetScore(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSetScore(null);
+          setSetScoreError(
+            err instanceof ApiError ? err.message : '난이도를 불러오지 못했습니다.',
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSetScoreLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [stageNum, phase, selectedSet]);
 
   if (!mode || Number.isNaN(stageNum) || stageNum < 1 || stageNum > 4) {
     return <Navigate to="/student" replace />;
@@ -95,7 +137,14 @@ export function StudentStagePage() {
     setPhase('learn');
   };
 
+  const selectStage4Set = (setItem: Stage4SetListItem) => {
+    setSelectedSet(setItem);
+    setSetScore(null);
+    setPhase('difficulty');
+  };
+
   const apiList = toSelectableAssignments(assignments.data?.assignments, stageNum);
+  const stage4Sets = toStage4SetList(assignments.data?.assignments);
   const selectableList: SelectableAssignment[] = (() => {
     if (stageNum === 2 && user?.isDemo) {
       return [
@@ -107,6 +156,14 @@ export function StudentStagePage() {
         },
         ...apiList,
       ];
+    }
+    if (stageNum === 4) {
+      return stage4Sets.map((s) => ({
+        id: s.key,
+        title: s.title,
+        statusLabel: s.statusLabel,
+        meta: s.meta,
+      }));
     }
     return apiList;
   })();
@@ -127,7 +184,11 @@ export function StudentStagePage() {
   const guideBusy = useAssignmentsApi && assignments.loading && !assignmentIdParam?.trim();
 
   const emptyMessage =
-    '배정된 과제가 없습니다. 아래에서 과제 ID를 직접 입력할 수 있습니다.';
+    stageNum <= 2
+      ? '배정된 과제가 없습니다. 아래에서 과제 ID를 직접 입력할 수 있습니다.'
+      : stageNum === 4
+        ? '배정된 과제가 없습니다. 선생님이 과제를 게시하면 여기에 표시됩니다.'
+        : '배정된 과제가 없습니다. 아래에서 과제 ID를 직접 입력할 수 있습니다.';
 
   /* ── Guide popup ── */
   if (phase === 'guide') {
@@ -140,6 +201,51 @@ export function StudentStagePage() {
           busyLabel="과제 불러오는 중…"
         />
       </div>
+    );
+  }
+
+  /* ── Stage4 difficulty select ── */
+  if (stageNum === 4 && phase === 'difficulty' && selectedSet) {
+    return (
+      <div className="stage-assign-shell">
+        <div className="shell wide">
+          <Stage4DifficultySelect
+            setTitle={selectedSet.title}
+            setScore={setScore}
+            loading={setScoreLoading}
+            error={setScoreError}
+            onBack={() => {
+              setPhase('select');
+              setSelectedSet(null);
+              setSetScore(null);
+            }}
+            onSelect={(assignmentId) => selectAssignment(assignmentId)}
+            onWriteReport={() => {
+              setReportMode('write');
+              setPhase('report');
+            }}
+            onViewReport={() => {
+              setReportMode('view');
+              setPhase('report');
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (stageNum === 4 && phase === 'report' && selectedSet) {
+    return (
+      <Stage4SetReport
+        entryAssignmentId={selectedSet.entryAssignmentId}
+        setTitle={selectedSet.title}
+        initialMode={reportMode}
+        onBack={() => {
+          setPhase('difficulty');
+          void getStudentStep4SetApi(selectedSet.entryAssignmentId).then(setSetScore);
+        }}
+        onSubmitted={(next) => setSetScore(next)}
+      />
     );
   }
 
@@ -158,7 +264,18 @@ export function StudentStagePage() {
             idPlaceholder={stageNum === 2 ? '예: 111' : '예: 101'}
             assignmentIdInput={assignmentIdInput}
             onAssignmentIdInputChange={setAssignmentIdInput}
-            onSelect={selectAssignment}
+            onSelect={(id) => {
+              if (stageNum === 4) {
+                const setItem = stage4Sets.find((s) => s.key === id);
+                if (setItem) {
+                  selectStage4Set(setItem);
+                  return;
+                }
+                selectAssignment(id);
+                return;
+              }
+              selectAssignment(id);
+            }}
             showManualId={stageNum >= 1 && stageNum <= 4}
           />
         </div>
@@ -204,7 +321,29 @@ export function StudentStagePage() {
     return <StudentStage3Activity assignmentId={activeId} skipIntroGuide />;
   }
 
-  return <StudentStage4Activity assignmentId={activeId} skipIntroGuide />;
+  if (stageNum === 4) {
+    return (
+      <StudentStage4Activity
+        assignmentId={activeId}
+        onBack={() => {
+          setActiveId(null);
+          setSearchParams({});
+          setPhase('difficulty');
+          if (selectedSet) {
+            void getStudentStep4SetApi(selectedSet.entryAssignmentId).then(setSetScore);
+          }
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="s1">
+      <div className="shell wide">
+        <p className="hint">지원하지 않는 단계입니다.</p>
+      </div>
+    </div>
+  );
 }
 
 
@@ -975,10 +1114,10 @@ export function StudentResultsPage() {
 
   const axes = (() => {
     if (!useApi || !summary.data) return STUDENT_DASHBOARD_DEMO.axes;
-    return deriveLiteracyScores(summary.data.stage_summary);
+    return literacyScoresFromApi(summary.data.literacy_axes);
   })();
 
-  const total = averageLiteracyScore(axes) || summary.data?.total_score || 0;
+  const total = summary.data?.literacy_total ?? averageLiteracyScore(axes);
 
   const scoredTasks = useMemo(() => {
     if (useApi && assignments.data) {
