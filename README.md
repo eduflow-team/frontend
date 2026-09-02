@@ -19,10 +19,10 @@
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="docs/screenshots/teacher-home.png" alt="선생님 홈" width="100%" />
+      <img src="docs/screenshots/teacher-home.png?v=2" alt="선생님 홈" width="100%" />
     </td>
     <td width="50%" valign="top">
-      <img src="docs/screenshots/teacher-stage2.png" alt="선생님 Stage 2 출제" width="100%" />
+      <img src="docs/screenshots/teacher-stage2.png?v=2" alt="선생님 Stage 2 출제" width="100%" />
     </td>
   </tr>
   <tr>
@@ -31,10 +31,10 @@
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="docs/screenshots/student-home.png" alt="학생 홈" width="100%" />
+      <img src="docs/screenshots/student-home.png?v=2" alt="학생 홈" width="100%" />
     </td>
     <td width="50%" valign="top">
-      <img src="docs/screenshots/student-scores.png" alt="학생 점수" width="100%" />
+      <img src="docs/screenshots/student-scores.png?v=2" alt="학생 점수" width="100%" />
     </td>
   </tr>
 </table>
